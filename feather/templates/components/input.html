@@ -1,0 +1,28 @@
+{#
+Form Input Components
+=====================
+Styled form inputs with Tailwind.
+
+Usage:
+    {% from "components/input.html" import input, textarea %}
+    {{ input(name="email", type="email", placeholder="you@example.com") }}
+    {{ textarea(name="message", rows=4, placeholder="Your message...") }}
+#}
+
+{% macro input(name, type="text", placeholder="", required=False, class="") %}
+<input type="{{ type }}"
+       name="{{ name }}"
+       id="{{ name }}"
+       {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+       {% if required %}required{% endif %}
+       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm {{ class }}">
+{% endmacro %}
+
+{% macro textarea(name, rows=3, placeholder="", required=False, class="") %}
+<textarea name="{{ name }}"
+          id="{{ name }}"
+          rows="{{ rows }}"
+          {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+          {% if required %}required{% endif %}
+          class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm {{ class }}"></textarea>
+{% endmacro %}

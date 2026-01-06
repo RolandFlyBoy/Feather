@@ -1,0 +1,120 @@
+{#
+Prompt Modal Component
+======================
+A modal dialog for prompting user input.
+
+Usage:
+    {% from "components/prompt_modal.html" import prompt_modal %}
+    {{ prompt_modal() }}
+
+    Then trigger via JavaScript:
+    window.showPrompt({
+        title: 'Add Item',
+        message: 'Enter item name:',
+        placeholder: 'Item name',
+        confirmText: 'Create',
+        onConfirm: (value) => { ... }
+    });
+#}
+
+{% macro prompt_modal() %}
+<div id="prompt-modal" class="hidden fixed inset-0 z-50">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" data-action="cancel"></div>
+
+    <!-- Modal -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-indigo-600">edit</span>
+                </div>
+                <div>
+                    <h3 id="prompt-title" class="text-lg font-semibold text-gray-900">Enter Value</h3>
+                    <p id="prompt-message" class="text-sm text-gray-600 mt-1"></p>
+                </div>
+            </div>
+            <input type="text"
+                   id="prompt-input"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                   placeholder="">
+            <div class="mt-6 flex justify-end gap-3">
+                <button data-action="cancel"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button data-action="confirm"
+                        class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const modal = document.getElementById('prompt-modal');
+    const titleEl = document.getElementById('prompt-title');
+    const messageEl = document.getElementById('prompt-message');
+    const inputEl = document.getElementById('prompt-input');
+    let onConfirmCallback = null;
+
+    window.showPrompt = function(options) {
+        titleEl.textContent = options.title || 'Enter Value';
+        messageEl.textContent = options.message || '';
+        inputEl.placeholder = options.placeholder || '';
+        inputEl.value = options.defaultValue || '';
+
+        const confirmBtn = modal.querySelector('[data-action="confirm"]');
+        confirmBtn.textContent = options.confirmText || 'OK';
+
+        onConfirmCallback = options.onConfirm;
+        modal.classList.remove('hidden');
+
+        // Focus input after modal is visible
+        setTimeout(() => inputEl.focus(), 50);
+    };
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        inputEl.value = '';
+        onConfirmCallback = null;
+    }
+
+    modal.addEventListener('click', (e) => {
+        const action = e.target.dataset.action;
+        if (action === 'confirm') {
+            const value = inputEl.value.trim();
+            if (value && onConfirmCallback) {
+                onConfirmCallback(value);
+            }
+            closeModal();
+        } else if (action === 'cancel') {
+            closeModal();
+        }
+    });
+
+    // Submit on Enter key
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const value = inputEl.value.trim();
+            if (value && onConfirmCallback) {
+                onConfirmCallback(value);
+            }
+            closeModal();
+        } else if (e.key === 'Escape') {
+            closeModal();
+        }
+    });
+
+    // Close on Escape key (when not focused on input)
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+})();
+</script>
+{% endmacro %}

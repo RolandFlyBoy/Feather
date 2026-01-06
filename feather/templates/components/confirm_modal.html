@@ -1,0 +1,44 @@
+{#
+Confirm Modal Component
+=======================
+Automatically intercepts hx-confirm attributes and shows a styled modal
+instead of the browser's native confirm() dialog.
+
+This component is included in base.html and works automatically with any
+element that has hx-confirm="Your message here".
+
+Usage (automatic):
+    <button hx-delete="/items/123" hx-confirm="Delete this item?">Delete</button>
+#}
+
+{% macro confirm_modal() %}
+<div id="confirm-modal" class="hidden fixed inset-0 z-50">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-gray-500/75 transition-opacity" data-action="cancel"></div>
+
+    <!-- Modal -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div class="flex items-center gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-red-600">warning</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Confirm</h3>
+                    <p id="confirm-message" class="text-sm text-gray-600 mt-1"></p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button data-action="cancel"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button data-action="confirm"
+                        class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}

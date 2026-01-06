@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ error_code }} - {{ error_title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center" style="font-family: 'Inter', sans-serif;">
+    <div class="text-center px-4">
+        <!-- Icon -->
+        <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
+            <span class="material-symbols-outlined text-gray-400 text-[48px]">{{ error_icon | default('error') }}</span>
+        </div>
+
+        <!-- Error Code -->
+        <h1 class="text-7xl font-bold text-gray-900 mb-2">{{ error_code }}</h1>
+
+        <!-- Error Title -->
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ error_title }}</h2>
+
+        <!-- Error Message -->
+        <p class="text-gray-600 max-w-md mx-auto">{{ error_message }}</p>
+    </div>
+</body>
+</html>

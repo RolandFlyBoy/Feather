@@ -1,0 +1,112 @@
+{#
+Dropdown Component
+==================
+Custom styled dropdown/select with dark/light theme support.
+
+Usage:
+    {% from "components/dropdown.html" import dropdown %}
+
+    {# Basic dropdown #}
+    {{ dropdown(
+        name="status",
+        options=[
+            {"value": "active", "label": "Active"},
+            {"value": "inactive", "label": "Inactive"}
+        ],
+        selected="active"
+    ) }}
+
+    {# With placeholder #}
+    {{ dropdown(
+        name="category",
+        options=categories,
+        placeholder="Select category..."
+    ) }}
+
+    {# Inline mode for compact filters #}
+    {{ dropdown(
+        name="filter",
+        options=filter_options,
+        selected="all",
+        inline=True
+    ) }}
+
+    {# With label #}
+    {{ dropdown(
+        name="priority",
+        label="Priority",
+        options=priorities,
+        required=True
+    ) }}
+
+Events:
+    The dropdown dispatches a 'dropdown:change' event on value change:
+    document.querySelector('[data-dropdown="status"]').addEventListener('dropdown:change', (e) => {
+        console.log('New value:', e.detail.value, 'Label:', e.detail.label);
+    });
+
+Dynamic Content:
+    Call initDropdowns() after dynamically adding dropdowns to the DOM.
+#}
+
+{% macro dropdown(name, options, selected=None, placeholder=None, label=None, inline=False, required=False, class="") %}
+{% set id = name ~ "-dropdown" %}
+<div class="{% if not inline %}relative{% endif %}" data-dropdown="{{ name }}">
+    {% if label %}
+    <label for="{{ id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        {{ label }}{% if required %}<span class="text-red-500 ml-1">*</span>{% endif %}
+    </label>
+    {% endif %}
+
+    {# Hidden input for form submission #}
+    <input type="hidden" name="{{ name }}" id="{{ name }}" value="{{ selected or '' }}" {% if required %}required{% endif %}>
+
+    {# Dropdown button #}
+    <button type="button"
+            id="{{ id }}"
+            class="dropdown-button {% if inline %}dropdown-inline{% else %}dropdown-block{% endif %} {{ class }}"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            data-dropdown-trigger>
+        <span class="dropdown-selected">
+            {% if selected %}
+                {% for opt in options %}
+                    {% if opt.value == selected %}{{ opt.label }}{% endif %}
+                {% endfor %}
+            {% elif placeholder %}
+                <span class="text-gray-400 dark:text-gray-500">{{ placeholder }}</span>
+            {% else %}
+                <span class="text-gray-400 dark:text-gray-500">Select...</span>
+            {% endif %}
+        </span>
+        <span class="dropdown-chevron">
+            <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+        </span>
+    </button>
+
+    {# Dropdown options #}
+    <ul class="dropdown-options hidden"
+        role="listbox"
+        aria-labelledby="{{ id }}"
+        tabindex="-1"
+        data-dropdown-options>
+        {% for opt in options %}
+        <li class="dropdown-option {% if opt.value == selected %}dropdown-option-selected{% endif %}"
+            role="option"
+            data-value="{{ opt.value }}"
+            {% if opt.value == selected %}aria-selected="true"{% endif %}>
+            <span class="dropdown-option-label">{{ opt.label }}</span>
+            {% if opt.value == selected %}
+            <span class="dropdown-check">
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                </svg>
+            </span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endmacro %}

@@ -1,0 +1,18 @@
+{#
+Modal Component
+===============
+Replace this with your Tailwind Plus modal/dialog.
+
+Usage:
+    {% from "components/modal.html" import modal %}
+    {% call modal(id="my-modal") %}
+        <p>Modal content</p>
+    {% endcall %}
+
+JavaScript to toggle:
+    document.getElementById('my-modal').classList.toggle('hidden');
+#}
+
+{% macro modal(id, class="") %}
+<div id="{{ id }}" class="hidden {{ class }}">{{ caller() }}</div>
+{% endmacro %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{% if show_config_hint is not defined or show_config_hint %}Google Auth Setup{% else %}Authentication Required{% endif %}{% endblock %}
+
+{% block content %}
+{#
+Framework template - uses inline styles to be self-contained.
+User templates should use CSS classes from app.css instead.
+#}
+<div style="min-height: 100vh; background: #f9fafb; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+    {% if show_config_hint is not defined or show_config_hint %}
+        <!-- Setup Instructions Card -->
+        <div style="background: #fff; border-radius: 0.5rem; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1); max-width: 36rem; width: 100%;">
+            <!-- Card Header -->
+            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb;">
+                <div style="width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; background: #000; display: flex; align-items: center; justify-content: center;">
+                    <span class="material-symbols-outlined" style="color: #fff; font-size: 1.25rem;">settings</span>
+                </div>
+                <div>
+                    <h3 style="font-size: 1rem; font-weight: 600; color: #111827;">Google Auth Setup</h3>
+                    <p style="font-size: 0.8rem; color: #4b5563;">Configure OAuth to enable login</p>
+                </div>
+            </div>
+
+            <!-- Card Body -->
+            <div style="padding: 0.875rem 1.25rem; display: flex; flex-direction: column; gap: 0.875rem;">
+                <!-- Step 1 -->
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem;">
+                        <span style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 9999px; background: #000; color: #fff; font-size: 0.7rem; font-weight: 700;">1</span>
+                        <h4 style="font-size: 0.8125rem; font-weight: 600; color: #111827;">Create OAuth Credentials</h4>
+                    </div>
+                    <p style="margin-left: 1.65rem; font-size: 0.8125rem; color: #4b5563;">
+                        Go to <a href="https://console.cloud.google.com/apis/credentials" style="color: #000; font-weight: 500; text-decoration: underline;" target="_blank">Google Cloud Console</a> → Create OAuth 2.0 credentials.
+                    </p>
+                </div>
+
+                <!-- Step 2 -->
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem;">
+                        <span style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 9999px; background: #000; color: #fff; font-size: 0.7rem; font-weight: 700;">2</span>
+                        <h4 style="font-size: 0.8125rem; font-weight: 600; color: #111827;">Add Authorized URLs</h4>
+                    </div>
+                    <div style="margin-left: 1.65rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <div>
+                            <p style="font-size: 0.6875rem; font-weight: 500; color: #6b7280; text-transform: uppercase; margin-bottom: 0.125rem;">JavaScript Origins</p>
+                            <pre style="font-size: 0.75rem; background: #f3f4f6; color: #1f2937; padding: 0.375rem 0.5rem; border-radius: 0.25rem; font-family: ui-monospace, monospace; margin: 0;">http://localhost:5000
+http://localhost:5173</pre>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.6875rem; font-weight: 500; color: #6b7280; text-transform: uppercase; margin-bottom: 0.125rem;">Redirect URI</p>
+                            <pre style="font-size: 0.75rem; background: #f3f4f6; color: #1f2937; padding: 0.375rem 0.5rem; border-radius: 0.25rem; font-family: ui-monospace, monospace; margin: 0;">http://localhost:5173/auth/google/callback</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem;">
+                        <span style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 9999px; background: #000; color: #fff; font-size: 0.7rem; font-weight: 700;">3</span>
+                        <h4 style="font-size: 0.8125rem; font-weight: 600; color: #111827;">Add to <code style="background: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.125rem; font-size: 0.7rem;">.env</code></h4>
+                    </div>
+                    <div style="margin-left: 1.65rem;">
+                        <pre style="font-size: 0.75rem; background: #111827; color: #f3f4f6; padding: 0.5rem 0.625rem; border-radius: 0.25rem; font-family: ui-monospace, monospace; margin: 0;">GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret</pre>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; border-radius: 9999px; background: #000; color: #fff; font-size: 0.7rem; font-weight: 700;">4</span>
+                        <h4 style="font-size: 0.8125rem; font-weight: 600; color: #111827;">Restart the server</h4>
+                        <span style="font-size: 0.8125rem; color: #4b5563;">— run <code style="background: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.125rem; font-size: 0.7rem;">feather dev</code> again</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- Generic login required message -->
+        <div style="background: #fff; border-radius: 0.5rem; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1); max-width: 24rem; width: 100%; text-align: center; padding: 2rem;">
+            <span class="material-symbols-outlined" style="color: #ef4444; font-size: 3rem; margin-bottom: 0.75rem; display: block;">lock</span>
+            <h2 style="font-size: 1.25rem; font-weight: 600; color: #111827; margin-bottom: 0.5rem;">Authentication Required</h2>
+            <p style="font-size: 0.875rem; color: #6b7280; margin-bottom: 1.5rem;">This area requires authentication. Please sign in to continue. If you need access, contact your administrator.</p>
+            <a href="/auth/google/login{% if next_url %}?next={{ next_url | urlencode }}{% endif %}"
+               style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: #000; color: #fff; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; text-decoration: none;">
+                <span class="material-symbols-outlined" style="font-size: 1.25rem;">login</span>
+                Sign in with Google
+            </a>
+            <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 1.5rem;">Access attempts are logged for security.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

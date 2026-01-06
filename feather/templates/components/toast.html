@@ -1,0 +1,101 @@
+{#
+Toast Notification Component
+============================
+Displays toast notifications for user feedback.
+
+Usage:
+    {% from "components/toast.html" import toast %}
+    {{ toast() }}
+
+    Then trigger via JavaScript:
+    window.showToast('Item saved successfully', 'success');
+    window.showToast('Something went wrong', 'error');
+    window.showToast('Please wait...', 'info');
+
+    Or via HX-Trigger response header from server:
+    response.headers["HX-Trigger"] = json.dumps({
+        "showToast": {"message": "Saved!", "type": "success"}
+    })
+
+Types: success (green), error (red), info (blue)
+#}
+
+{% macro toast() %}
+<div id="toast-container"></div>
+
+<style>
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 14px 20px;
+    border-radius: 8px;
+    background-color: white;
+    color: #14171a;
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 20px;
+    z-index: 1000;
+    animation: toastSlideUp 0.3s ease;
+    text-align: center;
+    max-width: calc(100% - 32px);
+    width: calc(100% - 32px);
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid;
+}
+
+@media (min-width: 768px) {
+    .toast { max-width: 400px; width: auto; }
+}
+
+@keyframes toastSlideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.toast-success { border-left-color: #17BF63; }
+.toast-error { border-left-color: #E1245E; }
+.toast-info { border-left-color: #1DA1F2; }
+</style>
+
+<script>
+(function() {
+    function showToast(message, type, duration) {
+        type = type || 'info';
+        duration = duration || 3000;
+
+        var container = document.getElementById('toast-container');
+        if (!container) return;
+
+        var toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.textContent = message;
+        container.appendChild(toast);
+
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s ease';
+            setTimeout(function() { toast.remove(); }, 300);
+        }, duration);
+    }
+
+    // Expose globally
+    window.showToast = showToast;
+
+    // Listen for HX-Trigger events from server
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        var trigger = evt.detail.xhr && evt.detail.xhr.getResponseHeader('HX-Trigger');
+        if (trigger) {
+            try {
+                var data = JSON.parse(trigger);
+                if (data.showToast) {
+                    showToast(data.showToast.message, data.showToast.type || 'success');
+                }
+            } catch (e) {}
+        }
+    });
+})();
+</script>
+{% endmacro %}

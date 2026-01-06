@@ -1,0 +1,17 @@
+{#
+Icon Component
+==============
+Google Material Icons helper.
+Browse icons: https://fonts.google.com/icons
+
+Usage:
+    {% from "components/icon.html" import icon %}
+    {{ icon("home") }}
+    {{ icon("settings", size="lg") }}
+    {{ icon("favorite", class="text-red-500") }}
+#}
+
+{% macro icon(name, size="md", class="") %}
+{% set sizes = {"sm": "icon-sm", "md": "icon-md", "lg": "icon-lg", "xl": "icon-xl"} %}
+<span class="icon {{ sizes[size] }} {{ class }}">{{ name }}</span>
+{% endmacro %}

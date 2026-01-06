@@ -1,0 +1,20 @@
+{#
+Component Library
+=================
+Import all components at once:
+
+    {% import "components/__init__.html" as ui %}
+    {{ ui.button("Click") }}
+    {{ ui.icon("home") }}
+    {% call ui.card() %}Content{% endcall %}
+#}
+
+{% from "components/button.html" import button %}
+{% from "components/card.html" import card %}
+{% from "components/modal.html" import modal %}
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/prompt_modal.html" import prompt_modal %}
+{% from "components/input.html" import input, textarea %}
+{% from "components/dropdown.html" import dropdown %}
+{% from "components/alert.html" import alert %}
+{% from "components/icon.html" import icon %}

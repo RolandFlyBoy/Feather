@@ -1,0 +1,13 @@
+{#
+Alert Component
+===============
+Replace this with your Tailwind Plus alert/notification.
+
+Usage:
+    {% from "components/alert.html" import alert %}
+    {{ alert("Success!", class="bg-green-50 text-green-800 p-4 rounded") }}
+#}
+
+{% macro alert(message, class="") %}
+<div class="{{ class }}">{{ message }}</div>
+{% endmacro %}

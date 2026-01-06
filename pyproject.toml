@@ -1,0 +1,119 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feather-framework"
+version = "0.8.1"
+description = "An opinionated, batteries-included web framework for building production applications with AI."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    {name = "Roland Selmer"}
+]
+keywords = [
+    "flask",
+    "web framework",
+    "server-first",
+    "progressive enhancement",
+    "islands architecture",
+    "ai-friendly"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+
+dependencies = [
+    # Core web framework
+    "flask>=3.1.0",
+    "flask-sqlalchemy>=3.1.0",
+    "flask-migrate>=4.1.0",
+    "flask-login>=0.6.0",
+    "flask-wtf>=1.2.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.17.0",
+    "click>=8.1.0",
+    "python-dotenv>=1.0.0",
+    "werkzeug>=3.1.0",
+    # Authentication
+    "authlib>=1.6.0",
+    "requests>=2.32.0",
+    # Database drivers
+    "psycopg2-binary>=2.9.0",
+    # Cloud storage
+    "google-cloud-storage>=3.0.0",
+    # PDF generation
+    "reportlab>=4.4.0",
+    # Caching and background jobs
+    "redis>=7.0.0",
+    "rq>=2.0.0",
+    # Email
+    "resend>=2.0.0",
+    # Production server
+    "gunicorn>=23.0.0",
+    # Testing (included so all apps can test)
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Framework development tools only
+    "black>=25.0.0",
+    "ruff>=0.14.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/RolandFlyBoy/Feather"
+Documentation = "https://github.com/RolandFlyBoy/Feather#readme"
+Repository = "https://github.com/RolandFlyBoy/Feather"
+Issues = "https://github.com/RolandFlyBoy/Feather/issues"
+
+[project.scripts]
+feather = "feather.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["feather*"]
+
+[tool.setuptools.package-data]
+feather = [
+    "templates/**/*",
+    "static/**/*",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+markers = [
+    "unit: Fast isolated tests (< 10ms, no I/O)",
+    "integration: Component integration tests (< 500ms, may use test DB)",
+    "e2e: End-to-end workflow tests (full workflows)",
+    "scaffolding: CLI generation tests",
+    "jobs: Background job tests",
+    "api_contract: Public API contract tests (breaking change detection)",
+    "auth: Authentication/authorization tests",
+    "db: Database operation tests",
+]

@@ -1,0 +1,15 @@
+{#
+Card Component
+==============
+Replace this with your Tailwind Plus card.
+
+Usage:
+    {% from "components/card.html" import card %}
+    {% call card(class="bg-white shadow rounded-lg p-4") %}
+        <p>Card content</p>
+    {% endcall %}
+#}
+
+{% macro card(class="") %}
+<div class="{{ class }}">{{ caller() }}</div>
+{% endmacro %}

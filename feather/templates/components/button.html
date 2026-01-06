@@ -1,0 +1,27 @@
+{#
+Button Component
+================
+Styled button with variants and icon support.
+
+Usage:
+    {% from "components/button.html" import button %}
+    {% from "components/icon.html" import icon %}
+    {{ button("Click me") }}
+    {{ button("Submit", variant="primary", type="submit") }}
+    {{ button("Cancel", variant="secondary") }}
+    {{ button("Delete", variant="danger") }}
+    {{ button("Save", icon=icon("save", size="sm")) }}
+#}
+
+{% macro button(text, type="button", variant="primary", icon=None, class="") %}
+{% set base = "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2" %}
+{% set variants = {
+    "primary": "bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500",
+    "secondary": "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-indigo-500",
+    "danger": "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+} %}
+<button type="{{ type }}" class="{{ base }} {{ variants[variant] }} {{ class }}">
+    {% if icon %}{{ icon|safe }}{% endif %}
+    {{ text }}
+</button>
+{% endmacro %}
