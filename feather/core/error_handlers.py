@@ -11,37 +11,13 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
-def _is_bot_request() -> bool:
-    """Check if the current request appears to be from a bot/crawler.
-
-    Returns:
-        True if the request appears to be from a bot.
-    """
-    try:
-        # Try to use app-specific bot detection
-        import importlib
-        bot_module = importlib.import_module("services.bot_detection")
-        is_bot = getattr(bot_module, "is_bot", None)
-        if is_bot:
-            return is_bot(request.headers.get("User-Agent"))
-    except ImportError:
-        pass
-
-    # Fallback: simple check for missing or suspicious User-Agent
-    user_agent = request.headers.get("User-Agent", "")
-    if not user_agent:
-        return True
-    ua_lower = user_agent.lower()
-    return any(p in ua_lower for p in ["bot", "crawler", "spider", "curl", "wget"])
-
-
 def _log_error_to_db(
     app,
     event_type: str,
     message: str,
     level: str = "ERROR",
     include_trace: bool = False,
-    skip_bot_filter: bool = False,
+    skip_auth_filter: bool = False,
 ) -> None:
     """Log event to database if Log model exists.
 
@@ -54,12 +30,15 @@ def _log_error_to_db(
         message: Human-readable message.
         level: Log level (INFO, WARNING, ERROR).
         include_trace: Whether to include stack trace.
-        skip_bot_filter: If True, skip bot filtering (always log).
+        skip_auth_filter: If True, skip auth filtering (always log).
     """
     try:
-        # For 4xx errors (WARNING level), skip bot requests unless overridden
-        if level == "WARNING" and not skip_bot_filter and _is_bot_request():
-            return
+        # For 4xx errors (WARNING level), only log for authenticated users
+        # Unauthenticated 404s are almost always bots probing for vulnerabilities
+        if level == "WARNING" and not skip_auth_filter:
+            from flask_login import current_user
+            if not (hasattr(current_user, 'is_authenticated') and current_user.is_authenticated):
+                return
 
         # Try to find Log model or ErrorLog model (alternative naming)
         import importlib
@@ -214,20 +193,8 @@ def register_error_handlers(app: "Flask") -> None:
     @app.errorhandler(404)
     def handle_not_found(error):
         """Handle 404 errors."""
-        # Skip logging for browser junk paths (/.well-known/*, favicon.ico, etc.)
-        skip_log = False
-        try:
-            import importlib
-            bot_module = importlib.import_module("services.bot_detection")
-            should_skip = getattr(bot_module, "should_skip_log", None)
-            if should_skip:
-                skip_log = should_skip(request.path)
-        except ImportError:
-            pass
-
-        # Log to database if possible (WARNING level, filtered for bots)
-        if not skip_log:
-            _log_error_to_db(app, "NotFoundError", f"Not found: {request.path}", level="WARNING")
+        # Log to database (WARNING level, filtered to authenticated users only)
+        _log_error_to_db(app, "NotFoundError", f"Not found: {request.path}", level="WARNING")
 
         if request.path.startswith("/api/"):
             response = build_error_response(
@@ -256,8 +223,8 @@ def register_error_handlers(app: "Flask") -> None:
         app.logger.error(f"[{request_id}] Internal Server Error: {error}")
         app.logger.error(traceback.format_exc())
 
-        # Log to database (ERROR level, always logged even for bots)
-        _log_error_to_db(app, "InternalError", str(error), level="ERROR", include_trace=True, skip_bot_filter=True)
+        # Log to database (ERROR level, always logged regardless of auth)
+        _log_error_to_db(app, "InternalError", str(error), level="ERROR", include_trace=True, skip_auth_filter=True)
 
         if request.path.startswith("/api/"):
             response = build_error_response(
