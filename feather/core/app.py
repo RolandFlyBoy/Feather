@@ -167,6 +167,13 @@ class Feather(Flask):
         # Step 2: Load configuration from config.py or environment
         self._setup_config(config_class)
 
+        # Step 2.5: Enable ProxyFix in production
+        # Almost all deployments run behind a reverse proxy (Render, Heroku, AWS ALB, nginx).
+        # Without ProxyFix, Flask doesn't see the true protocol and secure cookies/OAuth break.
+        if not self.debug:
+            from werkzeug.middleware.proxy_fix import ProxyFix
+            self.wsgi_app = ProxyFix(self.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
         # Step 3: Initialize database and migrations
         self._setup_database()
 

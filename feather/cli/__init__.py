@@ -7,6 +7,7 @@ from feather.cli.dev import dev
 from feather.cli.db import db_group
 from feather.cli.generate import generate
 from feather.cli.build import build, start
+from feather.cli.deploy import deploy
 from feather.cli.dx import routes, shell, test
 from feather.cli.platform_admin import platform_admin
 from feather.cli.jobs import jobs
@@ -29,6 +30,7 @@ class FeatherGroup(click.Group):
                 ("dev", "Run development server (Vite + Flask)"),
                 ("build", "Build assets for production"),
                 ("start", "Start production server (Gunicorn)"),
+                ("deploy", "Generate deployment files for cloud platforms"),
             ])
 
         formatter.write_paragraph()
@@ -107,6 +109,7 @@ cli.add_command(db_group, name="db")
 cli.add_command(generate)
 cli.add_command(build)
 cli.add_command(start)
+cli.add_command(deploy)
 cli.add_command(routes)
 cli.add_command(shell)
 cli.add_command(test)

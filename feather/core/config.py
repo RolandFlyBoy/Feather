@@ -5,6 +5,17 @@ import os
 from datetime import timedelta
 from typing import Optional, Type
 
+# Shorthand names for config classes
+# Allows FLASK_CONFIG=production instead of FLASK_CONFIG=ProductionConfig
+CONFIG_SHORTCUTS = {
+    "development": "DevelopmentConfig",
+    "dev": "DevelopmentConfig",
+    "production": "ProductionConfig",
+    "prod": "ProductionConfig",
+    "testing": "TestingConfig",
+    "test": "TestingConfig",
+}
+
 
 class Config:
     """Base configuration class."""
@@ -132,14 +143,18 @@ def load_config(config_class: Optional[str] = None) -> Type[Config]:
 
 
 def _import_config_class(path: str) -> Type[Config]:
-    """Import a config class from a dotted path.
+    """Import a config class from a dotted path or shorthand name.
 
     Args:
-        path: Dotted path like 'config.ProductionConfig' or just 'ProductionConfig'.
+        path: Dotted path like 'config.ProductionConfig', class name like 'ProductionConfig',
+              or shorthand like 'production', 'prod', 'dev', 'test'.
 
     Returns:
         Configuration class.
     """
+    # Expand shorthand names (e.g., "production" → "ProductionConfig")
+    path = CONFIG_SHORTCUTS.get(path.lower(), path)
+
     if "." in path:
         module_path, class_name = path.rsplit(".", 1)
         module = importlib.import_module(module_path)

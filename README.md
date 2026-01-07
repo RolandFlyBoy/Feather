@@ -1825,6 +1825,59 @@ Feather bundles all dependencies (Flask, SQLAlchemy, Alembic, Authlib, psycopg2,
 pip install feather-framework
 ```
 
+### DEBUG Mode Behavior
+
+Understanding DEBUG mode is crucial for production:
+
+| Setting | Asset Loading | Description |
+|---------|--------------|-------------|
+| `DEBUG=True` | Vite dev server (`localhost:5173`) | Hot reload, no build needed |
+| `DEBUG=False` | Built assets from `static/dist/` | Requires `feather build` first |
+
+**Common issue:** Unstyled pages in production happen when:
+1. `DEBUG=False` but `feather build` wasn't run
+2. The `static/dist/` directory is missing or outdated
+
+**Solution:** Always run `feather build` before deploying.
+
+### Configuration Shorthand
+
+You can use shorthand config names with `FLASK_CONFIG`:
+
+```bash
+# These are equivalent:
+FLASK_CONFIG=production
+FLASK_CONFIG=ProductionConfig
+FLASK_CONFIG=prod
+```
+
+Supported shorthands: `development`/`dev`, `production`/`prod`, `testing`/`test`
+
+### Generating Deployment Files
+
+Use the `feather deploy` command to generate deployment files:
+
+```bash
+# Generate Dockerfile, render.yaml, and .dockerignore for Render.com
+feather deploy render
+
+# With custom app name and region
+feather deploy render --name myapp --region frankfurt
+```
+
+This creates production-ready files you can customize for your needs.
+
+### Health Check Endpoint
+
+Feather provides `/api/health` (or `/health`) for deployment platforms:
+
+```bash
+curl https://myapp.onrender.com/api/health
+# {"status": "healthy", "timestamp": "...", "checks": {"database": "ok"}}
+```
+
+Use this as your health check path in Render, Fly.io, AWS, etc.
+
 ### Deployment
 
 These are starter templates to get you running quickly. Every production environment is different—you'll need to adjust these based on your infrastructure, scaling requirements, and security policies.

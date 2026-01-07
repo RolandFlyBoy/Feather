@@ -1319,28 +1319,30 @@ island("counter", {
     if has_database:
         # Models __init__.py - export models based on configuration
         if include_auth and tenant_mode == "multi":
-            # Multi-tenant with auth: User, Tenant, Log
+            # Multi-tenant with auth: User, Tenant, Log, Account, AccountUser
             (project_path / "models/__init__.py").write_text(
                 '''"""SQLAlchemy models - Auto-discovered by Feather."""
 
 from feather.db import db, Model
+from models.account import Account, AccountUser
 from models.log import Log
 from models.tenant import Tenant
 from models.user import User
 
-__all__ = ["db", "Model", "Log", "Tenant", "User"]
+__all__ = ["db", "Model", "Account", "AccountUser", "Log", "Tenant", "User"]
 '''
             )
         elif include_auth:
-            # Single-tenant with auth: User, Log (no Tenant)
+            # Single-tenant with auth: User, Log, Account, AccountUser (no Tenant)
             (project_path / "models/__init__.py").write_text(
                 '''"""SQLAlchemy models - Auto-discovered by Feather."""
 
 from feather.db import db, Model
+from models.account import Account, AccountUser
 from models.log import Log
 from models.user import User
 
-__all__ = ["db", "Model", "Log", "User"]
+__all__ = ["db", "Model", "Account", "AccountUser", "Log", "User"]
 '''
             )
         else:
@@ -1365,6 +1367,12 @@ from feather.db import db, Model
         if include_auth:
             (project_path / "models/user.py").write_text(
                 _build_user_model_content(include_auth=include_auth, tenant_mode=tenant_mode)
+            )
+
+        # Account model - for multi-profile support (when auth is enabled)
+        if include_auth:
+            (project_path / "models/account.py").write_text(
+                _build_account_model_content()
             )
 
         # Log model - for admin panel event and error logging
@@ -3187,19 +3195,52 @@ def _build_seeds_content(admin_email: str = None, tenant_mode: str = "single") -
     email_line = f'"{admin_email}"' if admin_email else 'None  # Set your admin email here'
 
     if tenant_mode == "multi":
-        # Multi-tenant: Create platform admin
+        # Multi-tenant: Create platform admin with Account
         return f'''"""Database seeds - Run with: python seeds.py"""
 
 from app import app
 from feather.db import db
-from models import User
+from models import User, Account, AccountUser
 
 # Platform admin email (set during project creation)
 ADMIN_EMAIL = {email_line}
 
 
+def _create_account_for_user(user):
+    """Create an Account and AccountUser for a user.
+
+    This sets up the multi-profile system:
+    - Creates an Account owned by the user
+    - Creates an AccountUser linking user to account as admin
+    - Sets user.subscription_owner_account_id
+    """
+    # Check if user already has an account
+    if user.subscription_owner_account_id:
+        return
+
+    # Create account
+    account = Account(
+        name=user.display_name or user.email.split("@")[0],
+        avatar_url=Account.random_avatar(),
+        owner_user_id=user.id,
+    )
+    db.session.add(account)
+    db.session.flush()  # Get account.id
+
+    # Create account membership
+    account_user = AccountUser(
+        user_id=user.id,
+        account_id=account.id,
+        role="admin",
+    )
+    db.session.add(account_user)
+
+    # Set subscription owner
+    user.subscription_owner_account_id = account.id
+
+
 def seed():
-    """Create initial platform admin user.
+    """Create initial platform admin user with account.
 
     The platform admin operates above the tenant system and can:
     - Manage all tenants
@@ -3229,6 +3270,10 @@ def seed():
         if not existing.active:
             existing.active = True
             changed = True
+        # Ensure they have an account
+        if not existing.subscription_owner_account_id:
+            _create_account_for_user(existing)
+            changed = True
         if changed:
             db.session.commit()
             print(f"Granted platform admin access to: {{email}}")
@@ -3246,6 +3291,11 @@ def seed():
         active=True  # Initial admin is pre-approved
     )
     db.session.add(admin)
+    db.session.flush()  # Get admin.id for account creation
+
+    # Create account for admin
+    _create_account_for_user(admin)
+
     db.session.commit()
     print(f"Created platform admin: {{email}}")
 
@@ -3255,19 +3305,52 @@ if __name__ == "__main__":
         seed()
 '''
     else:
-        # Single-tenant: Create regular admin (no platform admin concept)
+        # Single-tenant: Create regular admin with Account (no platform admin concept)
         return f'''"""Database seeds - Run with: python seeds.py"""
 
 from app import app
 from feather.db import db
-from models import User
+from models import User, Account, AccountUser
 
 # Admin email (set during project creation)
 ADMIN_EMAIL = {email_line}
 
 
+def _create_account_for_user(user):
+    """Create an Account and AccountUser for a user.
+
+    This sets up the multi-profile system:
+    - Creates an Account owned by the user
+    - Creates an AccountUser linking user to account as admin
+    - Sets user.subscription_owner_account_id
+    """
+    # Check if user already has an account
+    if user.subscription_owner_account_id:
+        return
+
+    # Create account
+    account = Account(
+        name=user.display_name or user.email.split("@")[0],
+        avatar_url=Account.random_avatar(),
+        owner_user_id=user.id,
+    )
+    db.session.add(account)
+    db.session.flush()  # Get account.id
+
+    # Create account membership
+    account_user = AccountUser(
+        user_id=user.id,
+        account_id=account.id,
+        role="admin",
+    )
+    db.session.add(account_user)
+
+    # Set subscription owner
+    user.subscription_owner_account_id = account.id
+
+
 def seed():
-    """Create initial admin user.
+    """Create initial admin user with account.
 
     The admin can manage all users in the application.
     The admin can log in with Google OAuth.
@@ -3289,6 +3372,10 @@ def seed():
         if not existing.active:
             existing.active = True
             changed = True
+        # Ensure they have an account
+        if not existing.subscription_owner_account_id:
+            _create_account_for_user(existing)
+            changed = True
         if changed:
             db.session.commit()
             print(f"Granted admin access to: {{email}}")
@@ -3304,6 +3391,11 @@ def seed():
         active=True  # Initial admin is pre-approved
     )
     db.session.add(admin)
+    db.session.flush()  # Get admin.id for account creation
+
+    # Create account for admin
+    _create_account_for_user(admin)
+
     db.session.commit()
     print(f"Created admin: {{email}}")
 
@@ -3397,6 +3489,9 @@ def _build_requirements_content(
 # For deployment, uncomment ONE of these:
 # git+https://github.com/RolandFlyBoy/Feather.git
 # feather-framework>=0.1.0  # (when published to PyPI)
+
+# Python 3.13+ compatibility (audioop removed from stdlib)
+audioop-lts>=0.2.1; python_version >= "3.13"
 """
 
 
@@ -3443,6 +3538,7 @@ class User(UserMixin, Model):
         approved_at: When user was first approved (None = pending, set = was approved)
         role: Tenant role (user, editor, moderator, admin)
         is_platform_admin: Whether user can manage tenants
+        subscription_owner_account_id: The account that owns this user's subscription
         created_at: Timestamp of creation
         updated_at: Timestamp of last update
     """
@@ -3462,6 +3558,9 @@ class User(UserMixin, Model):
     approved_at = db.Column(db.DateTime, nullable=True)  # Set when first approved (None=pending, set=was approved)
     role = db.Column(db.String(50), default="user", nullable=False)  # user, editor, moderator, admin
     is_platform_admin = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Account relationship - the account that owns this user's subscription
+    subscription_owner_account_id = db.Column(db.String(36), db.ForeignKey("accounts.id"), nullable=True)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -3515,6 +3614,7 @@ class User(UserMixin, Model):
         active: Whether the user account is active (not suspended)
         approved_at: When user was first approved (None = pending, set = was approved)
         role: User role (user, editor, moderator, admin)
+        subscription_owner_account_id: The account that owns this user's subscription
         created_at: Timestamp of creation
         updated_at: Timestamp of last update
     """
@@ -3532,6 +3632,9 @@ class User(UserMixin, Model):
     active = db.Column(db.Boolean, default=False, nullable=False)  # Suspended until approved
     approved_at = db.Column(db.DateTime, nullable=True)  # Set when first approved (None=pending, set=was approved)
     role = db.Column(db.String(50), default="user", nullable=False)  # user, editor, moderator, admin
+
+    # Account relationship - the account that owns this user's subscription
+    subscription_owner_account_id = db.Column(db.String(36), db.ForeignKey("accounts.id"), nullable=True)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -3755,6 +3858,108 @@ class Log(Model):
 
     def __repr__(self):
         return f"<Log {self.level} {self.event_type}: {self.path}>"
+'''
+
+
+def _build_account_model_content() -> str:
+    """Build Account and AccountUser models for multi-profile support.
+
+    This creates:
+    - Account: An organization/workspace that users can belong to
+    - AccountUser: Join table linking users to accounts with roles
+
+    Users can belong to multiple accounts. Each user has a primary
+    "subscription owner" account (user.subscription_owner_account_id).
+    """
+    return '''"""Account models for multi-profile support."""
+
+import random
+import uuid
+from datetime import datetime, timezone
+
+from feather.db import db, Model
+
+
+class Account(Model):
+    """Account model - represents an organization/workspace.
+
+    Users can belong to multiple accounts via AccountUser.
+    Each account has an owner user who created it.
+
+    Attributes:
+        id: UUID primary key
+        name: Display name for the account
+        avatar_url: URL to account avatar/logo
+        owner_user_id: The user who owns/created this account
+        created_at: Timestamp of creation
+        updated_at: Timestamp of last update
+    """
+
+    __tablename__ = "accounts"
+
+    # Default avatar options for new accounts
+    AVATAR_OPTIONS = [
+        "https://api.dicebear.com/7.x/shapes/svg?seed=1",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=2",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=3",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=4",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=5",
+    ]
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = db.Column(db.String(100), nullable=False)
+    avatar_url = db.Column(db.String(500))
+    owner_user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    owner = db.relationship("User", foreign_keys=[owner_user_id], backref="owned_accounts")
+    members = db.relationship("AccountUser", back_populates="account", cascade="all, delete-orphan")
+
+    @classmethod
+    def random_avatar(cls):
+        """Get a random avatar URL for new accounts."""
+        return random.choice(cls.AVATAR_OPTIONS)
+
+    def __repr__(self):
+        return f"<Account {self.name}>"
+
+
+class AccountUser(Model):
+    """Join table linking users to accounts with roles.
+
+    Attributes:
+        id: UUID primary key
+        user_id: Foreign key to user
+        account_id: Foreign key to account
+        role: User's role within this account (admin, member)
+        created_at: Timestamp of when user joined account
+    """
+
+    __tablename__ = "account_users"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False)
+    account_id = db.Column(db.String(36), db.ForeignKey("accounts.id"), nullable=False)
+    role = db.Column(db.String(50), default="member", nullable=False)  # admin, member
+
+    # Timestamp
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = db.relationship("User", backref="account_memberships")
+    account = db.relationship("Account", back_populates="members")
+
+    # Unique constraint - user can only be in an account once
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "account_id", name="uq_user_account"),
+    )
+
+    def __repr__(self):
+        return f"<AccountUser {self.user_id} in {self.account_id}>"
 '''
 
 
