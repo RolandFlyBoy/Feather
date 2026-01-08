@@ -62,6 +62,13 @@ These rules are **mandatory**. Violating them causes bugs, security issues, or p
 - If a test fails, fix the framework code, not the test
 - Document temporary workarounds with TODO comments
 
+### Don't Commit Until Asked
+
+- Never commit or push changes automatically
+- Wait for explicit user instruction to commit
+- Always run `feather test --framework` before committing
+- Run `feather test --framework --clean` after testing to remove test artifacts
+
 ## Architecture
 
 Feather is a Flask-based framework with server-first rendering:
@@ -167,6 +174,12 @@ feather new testapp           # Test scaffolding
 
 ## Testing
 
-- Run tests: `./venv/bin/pytest tests/ -v`
-- Framework tests: `feather test --framework`
-- Markers: `unit`, `integration`, `e2e`, `scaffolding`, `jobs`
+```bash
+feather test --framework              # Run all framework tests
+feather test --framework -v           # Verbose output
+feather test --framework -m unit      # Run only unit tests
+feather test --framework --fast       # Skip slow tests (e2e, scaffolding)
+feather test --framework --clean      # Remove test artifacts (venv, cache, etc.)
+```
+
+Markers: `unit`, `integration`, `e2e`, `scaffolding`, `jobs`, `api_contract`

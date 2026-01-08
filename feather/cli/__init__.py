@@ -30,7 +30,13 @@ class FeatherGroup(click.Group):
                 ("dev", "Run development server (Vite + Flask)"),
                 ("build", "Build assets for production"),
                 ("start", "Start production server (Gunicorn)"),
-                ("deploy", "Generate deployment files for cloud platforms"),
+            ])
+
+        formatter.write_paragraph()
+        formatter.write_text(click.style("Deployment Commands:", bold=True))
+        with formatter.indentation():
+            formatter.write_dl([
+                ("deploy render", "Generate Dockerfile, render.yaml, .dockerignore for Render.com"),
             ])
 
         formatter.write_paragraph()
@@ -39,7 +45,19 @@ class FeatherGroup(click.Group):
             formatter.write_dl([
                 ("routes", "List all registered routes"),
                 ("shell", "Interactive Python shell with app context"),
-                ("test", "Run tests with pytest"),
+            ])
+
+        formatter.write_paragraph()
+        formatter.write_text(click.style("Testing Commands:", bold=True))
+        with formatter.indentation():
+            formatter.write_dl([
+                ("test", "Run project tests with pytest"),
+                ("test --framework", "Run Feather framework tests"),
+                ("test --framework -v", "Verbose framework test output"),
+                ("test --framework -m MARKER", "Run tests by marker (unit, integration, e2e, scaffolding, jobs)"),
+                ("test --framework --fast", "Skip slow tests (e2e, scaffolding)"),
+                ("test --framework --clean", "Remove test artifacts (venv, cache, etc.)"),
+                ("test --list-markers", "Show available test markers"),
             ])
 
         formatter.write_paragraph()

@@ -1853,19 +1853,145 @@ FLASK_CONFIG=prod
 
 Supported shorthands: `development`/`dev`, `production`/`prod`, `testing`/`test`
 
-### Generating Deployment Files
+### Deploying to Render
 
-Use the `feather deploy` command to generate deployment files:
+Render is a popular platform for deploying web applications. Feather includes a CLI command to generate all the files you need.
+
+#### Step 1: Generate Deployment Files
 
 ```bash
-# Generate Dockerfile, render.yaml, and .dockerignore for Render.com
 feather deploy render
-
-# With custom app name and region
-feather deploy render --name myapp --region frankfurt
 ```
 
-This creates production-ready files you can customize for your needs.
+This creates three files:
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Multi-stage build with Python 3.11, Node.js 20, and system deps |
+| `render.yaml` | Blueprint defining your web service and PostgreSQL database |
+| `.dockerignore` | Excludes venv, node_modules, .env, tests from the build |
+
+**Options:**
+```bash
+feather deploy render --name myapp      # Custom app name (default: directory name)
+feather deploy render --region frankfurt # Deploy to Frankfurt (default: oregon)
+```
+
+Available regions: `oregon`, `ohio`, `virginia`, `frankfurt`, `singapore`
+
+#### Step 2: Review Generated Files
+
+The generated `render.yaml` creates:
+- A **web service** running your Feather app with Gunicorn
+- A **PostgreSQL database** (basic-256mb plan)
+- Auto-generated `SECRET_KEY` for session security
+- `DATABASE_URL` automatically linked to the database
+
+```yaml
+# render.yaml (generated)
+services:
+  - type: web
+    name: myapp
+    runtime: docker
+    healthCheckPath: /api/health
+    envVars:
+      - key: FLASK_CONFIG
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: myapp-db
+          property: connectionString
+```
+
+#### Step 3: Upload Environment Variables
+
+**Important:** The generated blueprint only includes Render-managed variables. You must upload your production `.env` file manually for:
+
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (for OAuth)
+- `RESEND_API_KEY` (for email)
+- `GCS_BUCKET` and `GCS_CREDENTIALS_JSON` (for file storage)
+- Any other app-specific secrets
+
+**To upload your .env:**
+1. Go to your service in the Render dashboard
+2. Click **Environment** in the left sidebar
+3. Click **Add from .env file**
+4. Upload your production `.env` (not your development one!)
+
+**Tip:** Create a separate `.env.production` file with production values:
+```bash
+# .env.production (example)
+GOOGLE_CLIENT_ID=your-prod-client-id
+GOOGLE_CLIENT_SECRET=your-prod-secret
+RESEND_API_KEY=re_xxxx
+RESEND_FROM_EMAIL=noreply@yourdomain.com
+```
+
+#### Step 4: Update Google OAuth Redirect URI
+
+Before deploying, add your Render URL to Google Cloud Console:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Edit your OAuth client
+3. Add authorized redirect URI: `https://myapp.onrender.com/auth/google/callback`
+
+#### Step 5: Deploy
+
+**Option A: Connect via GitHub (recommended)**
+1. Push your code to GitHub (including the generated files)
+2. Go to [Render Dashboard](https://dashboard.render.com/)
+3. Click **New** → **Blueprint**
+4. Connect your GitHub repo
+5. Render auto-detects `render.yaml` and deploys
+
+**Option B: Use Render CLI**
+```bash
+# Install Render CLI
+brew install render-cli  # macOS
+# or
+pip install render-cli
+
+# Deploy the blueprint
+render blueprint apply
+```
+
+#### Step 6: Run Database Migrations
+
+The Dockerfile automatically runs `feather db upgrade` on startup. For the first deploy, you may need to manually run seeds:
+
+```bash
+# SSH into your Render service or use the shell
+python seeds.py
+```
+
+Or the Dockerfile handles this too—it runs `seeds.py` if the file exists.
+
+#### Tips and Gotchas
+
+**1. Health check timing**
+Render waits for `/api/health` to return 200 before routing traffic. If your app takes time to start (database migrations, large models), increase the health check grace period in the dashboard.
+
+**2. Database connections**
+The free PostgreSQL plan has connection limits. If you see "too many connections" errors, reduce Gunicorn workers or add connection pooling.
+
+**3. Automatic deploys**
+By default, Render auto-deploys when you push to your main branch. Disable this in settings if you prefer manual deploys.
+
+**4. Logs**
+View logs in the Render dashboard or CLI:
+```bash
+render logs --service myapp
+```
+
+**5. Custom domains**
+Add your domain in the Render dashboard → Settings → Custom Domains. Render handles SSL certificates automatically.
+
+**6. Cost optimization**
+- Start with the free tier for testing
+- Upgrade to Starter ($7/mo) for production (faster deploys, more resources)
+- The database free tier expires after 90 days—upgrade before that
 
 ### Health Check Endpoint
 
