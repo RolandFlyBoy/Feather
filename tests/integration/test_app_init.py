@@ -145,3 +145,98 @@ class TestRequestId:
         """Incoming request ID is preserved."""
         response = client.get('/health', headers={'X-Request-ID': 'test-123'})
         assert response.headers.get('X-Request-ID') == 'test-123'
+
+
+class TestProxyFix:
+    """Test ProxyFix middleware for reverse proxy support.
+
+    ProxyFix is essential for:
+    - Production: Render, Heroku, AWS ALB, nginx
+    - Development: ngrok, localtunnel for OAuth testing
+    """
+
+    def test_proxyfix_enabled(self, minimal_app):
+        """ProxyFix middleware is always enabled."""
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        # The wsgi_app should be wrapped with ProxyFix
+        assert isinstance(minimal_app.wsgi_app, ProxyFix)
+
+    def test_respects_x_forwarded_proto(self, test_app):
+        """X-Forwarded-Proto header is respected for HTTPS detection."""
+        from flask import request
+
+        @test_app.route('/test/proto')
+        def get_proto():
+            return {'scheme': request.scheme, 'url': request.url}
+
+        with test_app.test_client() as client:
+            # Without header - defaults to http
+            response = client.get('/test/proto')
+            data = response.get_json()
+            assert data['scheme'] == 'http'
+
+            # With X-Forwarded-Proto: https (like ngrok/production)
+            response = client.get('/test/proto', headers={
+                'X-Forwarded-Proto': 'https'
+            })
+            data = response.get_json()
+            assert data['scheme'] == 'https'
+            assert data['url'].startswith('https://')
+
+    def test_respects_x_forwarded_host(self, test_app):
+        """X-Forwarded-Host header is respected for host detection."""
+        from flask import request
+
+        @test_app.route('/test/host')
+        def get_host():
+            return {'host': request.host}
+
+        with test_app.test_client() as client:
+            # With X-Forwarded-Host (like ngrok tunnel)
+            response = client.get('/test/host', headers={
+                'X-Forwarded-Host': 'abc123.ngrok.io'
+            })
+            data = response.get_json()
+            assert data['host'] == 'abc123.ngrok.io'
+
+    def test_oauth_redirect_uri_uses_forwarded_headers(self, test_app):
+        """OAuth redirect URIs use forwarded proto and host.
+
+        This is critical for ngrok - without it, OAuth fails with redirect_uri_mismatch
+        because Flask generates http://localhost URLs instead of https://xxx.ngrok.io URLs.
+        """
+        from flask import request, url_for
+
+        @test_app.route('/test/oauth-callback')
+        def oauth_callback():
+            # Simulate what OAuth does - generate callback URL
+            callback_url = url_for('oauth_callback', _external=True)
+            return {'callback_url': callback_url}
+
+        with test_app.test_client() as client:
+            # Simulate ngrok request with HTTPS and custom host
+            response = client.get('/test/oauth-callback', headers={
+                'X-Forwarded-Proto': 'https',
+                'X-Forwarded-Host': 'abc123.ngrok.io'
+            })
+            data = response.get_json()
+
+            # The generated URL should use the forwarded values
+            assert data['callback_url'].startswith('https://abc123.ngrok.io/')
+
+    def test_respects_x_forwarded_for(self, test_app):
+        """X-Forwarded-For header is respected for client IP detection."""
+        from flask import request
+
+        @test_app.route('/test/ip')
+        def get_ip():
+            return {'remote_addr': request.remote_addr}
+
+        with test_app.test_client() as client:
+            # With X-Forwarded-For (client IP behind proxy)
+            response = client.get('/test/ip', headers={
+                'X-Forwarded-For': '203.0.113.195'
+            })
+            data = response.get_json()
+            assert data['remote_addr'] == '203.0.113.195'
