@@ -535,9 +535,11 @@ export default defineConfig({
         changeOrigin: false,  // Keep original Host header for correct cookie domain
         configure: (proxy) => {
           // Add X-Forwarded headers for OAuth redirect URI detection
+          // Pass through existing proto header (from ngrok/tunnels) or default to http
           proxy.on("proxyReq", (proxyReq, req) => {
             proxyReq.setHeader("X-Forwarded-Host", req.headers.host);
-            proxyReq.setHeader("X-Forwarded-Proto", "http");
+            const proto = req.headers["x-forwarded-proto"] || "http";
+            proxyReq.setHeader("X-Forwarded-Proto", proto);
           });
         },
       },
