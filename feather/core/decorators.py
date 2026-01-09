@@ -68,7 +68,7 @@ Same for ``@page.get()``, ``@page.post()``, etc.
 from functools import wraps
 from typing import Callable, Type, Optional
 
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, session
 from flask_login import current_user, login_required as flask_login_required
 
 
@@ -83,6 +83,19 @@ api = Blueprint("api", __name__)
 #: Page Blueprint - For HTML page routes.
 #: Routes defined with @page.get('/') become GET /
 page = Blueprint("page", __name__)
+
+
+@page.context_processor
+def inject_page_context():
+    """Inject common page context into all templates.
+
+    Provides:
+        pending_toast: Toast notification to show after redirect (if any)
+    """
+    pending_toast = session.pop("_pending_toast", None)
+    return {
+        "pending_toast": pending_toast,
+    }
 
 
 # =============================================================================

@@ -78,7 +78,7 @@ import os
 import time
 from typing import Optional
 
-from flask import Blueprint, current_app, flash, redirect, render_template, url_for, session
+from flask import Blueprint, current_app, redirect, render_template, url_for, session
 from authlib.integrations.flask_client import OAuth
 from flask_login import login_user, current_user
 
@@ -90,6 +90,16 @@ google_bp = Blueprint("google_auth", __name__, url_prefix="/auth/google")
 
 # Session key for storing Google OAuth token
 _TOKEN_SESSION_KEY = "google_oauth_token"
+
+
+def _set_toast(message: str, toast_type: str = "error") -> None:
+    """Set a pending toast message to be shown after redirect.
+
+    Args:
+        message: The message to display
+        toast_type: Type of toast - "error", "success", or "info"
+    """
+    session["_pending_toast"] = {"message": message, "type": toast_type}
 
 
 def init_google_oauth(app) -> None:
@@ -234,7 +244,7 @@ def callback():
             if not silent_redirect and not auth_error_handled:
                 # Only show generic error if _get_or_create_user didn't handle it
                 current_app.logger.error("Failed to create user from Google profile")
-                flash("Authentication failed. Please try again.", "error")
+                _set_toast("Authentication failed. Please try again.", "error")
 
             return redirect(next_url)
 
@@ -242,7 +252,7 @@ def callback():
         import traceback
         current_app.logger.error(f"Google OAuth callback error: {e}")
         current_app.logger.error(traceback.format_exc())
-        flash("Authentication failed. Please try again.", "error")
+        _set_toast("Authentication failed. Please try again.", "error")
         return redirect(url_for("page.home"))
 
 
@@ -326,14 +336,14 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             domain = extract_domain(email)
         except ValueError:
             current_app.logger.error(f"Invalid email format: {email}")
-            flash("Invalid email format.", "error")
+            _set_toast("Invalid email format.", "error")
             session["_auth_error_handled"] = True
             return None
 
     if multi_tenant:
         # Multi-tenant mode: Block public email domains
         if is_public_email_domain(domain):
-            flash(
+            _set_toast(
                 "Public email domains (Gmail, Outlook, etc.) are not allowed. "
                 "Please sign in with your work email.",
                 "error"
@@ -376,7 +386,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             tenant = Tenant.query.filter_by(domain=domain).first()
             if not tenant:
                 # NO auto-create - tenant must exist
-                flash(
+                _set_toast(
                     f"No organization found for {domain}. Please contact your administrator.",
                     "error"
                 )
@@ -388,7 +398,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
 
             # Check if tenant is active
             if hasattr(tenant, "status") and tenant.status != "active":
-                flash(
+                _set_toast(
                     f"The organization for {domain} is not yet active. Please contact your administrator.",
                     "error"
                 )
@@ -435,7 +445,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             current_app.logger.info(
                 f"Created new user from Google: {email} (single-tenant, suspended)"
             )
-        flash(
+        _set_toast(
             "Your account has been created but requires approval from an administrator.",
             "info"
         )

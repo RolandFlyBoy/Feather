@@ -28,8 +28,8 @@ Validate email domain during signup::
     domain = extract_domain(email)  # "acme.com"
 
     if is_public_email_domain(domain):
-        # Reject signup
-        flash("Please use your work email", "error")
+        # Reject signup with toast notification
+        session["_pending_toast"] = {"message": "Please use your work email", "type": "error"}
         return None
 
     slug = get_tenant_slug_from_domain(domain)  # "acme"

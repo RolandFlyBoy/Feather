@@ -1321,28 +1321,30 @@ island("counter", {
     if has_database:
         # Models __init__.py - export models based on configuration
         if include_auth and tenant_mode == "multi":
-            # Multi-tenant with auth: User, Tenant, Log, Account, AccountUser
+            # Multi-tenant with auth: Tenant, User, Log, Account, AccountUser
+            # Import order matters for migrations - tables with FKs must come after their dependencies
             (project_path / "models/__init__.py").write_text(
                 '''"""SQLAlchemy models - Auto-discovered by Feather."""
 
 from feather.db import db, Model
-from models.account import Account, AccountUser
-from models.log import Log
 from models.tenant import Tenant
 from models.user import User
+from models.log import Log
+from models.account import Account, AccountUser
 
 __all__ = ["db", "Model", "Account", "AccountUser", "Log", "Tenant", "User"]
 '''
             )
         elif include_auth:
             # Single-tenant with auth: User, Log, Account, AccountUser (no Tenant)
+            # Import order matters for migrations - tables with FKs must come after their dependencies
             (project_path / "models/__init__.py").write_text(
                 '''"""SQLAlchemy models - Auto-discovered by Feather."""
 
 from feather.db import db, Model
-from models.account import Account, AccountUser
-from models.log import Log
 from models.user import User
+from models.log import Log
+from models.account import Account, AccountUser
 
 __all__ = ["db", "Model", "Account", "AccountUser", "Log", "User"]
 '''
@@ -1494,6 +1496,19 @@ def home():
 
     <!-- Toast Notifications -->
     {{ toast() }}
+
+    <!-- Pending Toast (shown after redirect) -->
+    {% if pending_toast %}
+    <div id="pending-toast-data" data-message="{{ pending_toast.message }}" data-type="{{ pending_toast.type }}" style="display:none;"></div>
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        var el = document.getElementById("pending-toast-data");
+        if (el && window.showToast) {
+          window.showToast(el.dataset.message, el.dataset.type || "info");
+        }
+      });
+    </script>
+    {% endif %}
 
     {% block scripts %}{% endblock %}
 </body>
@@ -1768,23 +1783,8 @@ Flask route example:
             {% endif %}
         </div>
         {% else %}
-        <!-- Not logged in: Show sign in card with flash messages -->
+        <!-- Not logged in: Show sign in card -->
         <div class="bg-white rounded-xl shadow-lg p-6">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            <div class="mb-4 space-y-2">
-                {% for category, message in messages %}
-                <div class="p-3 rounded-lg text-sm text-center
-                    {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200
-                    {% elif category == 'info' %}bg-blue-50 text-blue-700 border border-blue-200
-                    {% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
-                    {{ message }}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-            {% endwith %}
-
             <p class="text-gray-600 mb-4 text-sm">Try Google OAuth with automatic user creation and admin approval workflow.</p>
             <a href="{{ url_for('google_auth.login') }}"
                class="inline-flex items-center gap-3 px-6 py-3 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800">
@@ -3562,7 +3562,8 @@ class User(UserMixin, Model):
     is_platform_admin = db.Column(db.Boolean, default=False, nullable=False)
 
     # Account relationship - the account that owns this user's subscription
-    subscription_owner_account_id = db.Column(db.String(36), db.ForeignKey("accounts.id"), nullable=True)
+    # use_alter=True defers FK creation to handle circular dependency with Account model
+    subscription_owner_account_id = db.Column(db.String(36), db.ForeignKey("accounts.id", use_alter=True), nullable=True)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -3636,7 +3637,8 @@ class User(UserMixin, Model):
     role = db.Column(db.String(50), default="user", nullable=False)  # user, editor, moderator, admin
 
     # Account relationship - the account that owns this user's subscription
-    subscription_owner_account_id = db.Column(db.String(36), db.ForeignKey("accounts.id"), nullable=True)
+    # use_alter=True defers FK creation to handle circular dependency with Account model
+    subscription_owner_account_id = db.Column(db.String(36), db.ForeignKey("accounts.id", use_alter=True), nullable=True)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -4029,7 +4031,7 @@ def _build_admin_routes(tenant_mode: str, include_email: bool = False) -> str:
 
 import json
 
-from flask import abort, Blueprint, flash, jsonify, make_response, redirect, render_template, request, session, url_for
+from flask import abort, Blueprint, jsonify, make_response, redirect, render_template, request, session, url_for
 from flask_login import current_user
 
 from feather.auth import admin_required
