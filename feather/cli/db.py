@@ -30,7 +30,10 @@ def init():
     if result.returncode == 0:
         click.echo(click.style("Migrations initialized!", fg="green"))
     else:
-        click.echo(result.stderr)
+        if result.stdout:
+            click.echo(result.stdout)
+        if result.stderr:
+            click.echo(result.stderr)
         raise click.ClickException("Failed to initialize migrations")
 
 
@@ -54,7 +57,10 @@ def migrate(message: str):
         click.echo(click.style("Migration generated!", fg="green"))
         click.echo("Run 'feather db upgrade' to apply it.")
     else:
-        click.echo(result.stderr)
+        if result.stdout:
+            click.echo(result.stdout)
+        if result.stderr:
+            click.echo(result.stderr)
         raise click.ClickException("Failed to generate migration")
 
 
@@ -76,7 +82,10 @@ def upgrade():
         click.echo(result.stdout)
         click.echo(click.style("Migrations applied!", fg="green"))
     else:
-        click.echo(result.stderr)
+        if result.stdout:
+            click.echo(result.stdout)
+        if result.stderr:
+            click.echo(result.stderr)
         raise click.ClickException("Failed to apply migrations")
 
 
@@ -98,7 +107,10 @@ def downgrade():
         click.echo(result.stdout)
         click.echo(click.style("Migration rolled back!", fg="green"))
     else:
-        click.echo(result.stderr)
+        if result.stdout:
+            click.echo(result.stdout)
+        if result.stderr:
+            click.echo(result.stderr)
         raise click.ClickException("Failed to rollback migration")
 
 
@@ -124,5 +136,8 @@ def seed():
         click.echo(result.stdout)
         click.echo(click.style("Seed data applied!", fg="green"))
     else:
-        click.echo(result.stderr)
+        if result.stdout:
+            click.echo(result.stdout)
+        if result.stderr:
+            click.echo(result.stderr)
         raise click.ClickException("Failed to run seed data")

@@ -566,10 +566,13 @@ def pending():
 
 
 @page.get("/")
-@auth_required
 @inject(KanbanService)
 def home(kanban_service: KanbanService):
     """Render the user's board dashboard."""
+    # Redirect unauthenticated users to login
+    if not current_user.is_authenticated:
+        return redirect(url_for("page.login"))
+
     # Redirect suspended users to pending page
     if not current_user.is_active:
         return redirect(url_for("page.pending"))
@@ -916,7 +919,11 @@ Create `templates/pages/dashboard.html` (the home page):
 
 {% block scripts %}
 {% if current_user.role != "viewer" %}
-<script src="{{ feather_asset('js/dashboard.js') }}"></script>
+{% if config.DEBUG %}
+<script type="module" src="http://localhost:5173/static/js/dashboard.js"></script>
+{% else %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endif %}
 {% endif %}
 {% endblock %}
 ```
@@ -1035,7 +1042,11 @@ Create `templates/pages/board.html`:
 
 {% block scripts %}
 {% if current_user.role != "viewer" %}
-<script src="{{ feather_asset('js/board.js') }}"></script>
+{% if config.DEBUG %}
+<script type="module" src="http://localhost:5173/static/js/board.js"></script>
+{% else %}
+<script src="{{ url_for('static', filename='js/board.js') }}"></script>
+{% endif %}
 {% endif %}
 {% endblock %}
 

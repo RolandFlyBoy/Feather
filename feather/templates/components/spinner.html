@@ -1,0 +1,7 @@
+{# Inline spinner for buttons, loading states, etc. #}
+{% macro spinner(size="md", color="currentColor") %}
+{% set sizes = {"sm": "16px", "md": "24px", "lg": "32px", "xl": "48px"} %}
+{% set s = sizes.get(size, size) %}
+<span class="spinner" style="display:inline-block;width:{{ s }};height:{{ s }};border:2px solid {{ color }}33;border-top-color:{{ color }};border-radius:50%;animation:_sp_spin 1s linear infinite;vertical-align:middle;" aria-label="Loading"></span>
+<style>@keyframes _sp_spin { to { transform: rotate(360deg); } }</style>
+{% endmacro %}

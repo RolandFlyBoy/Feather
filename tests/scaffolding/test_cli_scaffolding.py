@@ -214,6 +214,27 @@ class TestPostgreSQLMultiTenant:
         seeds = (project / "seeds.py").read_text()
         assert "is_platform_admin" in seeds
 
+    def test_seeds_tenant_creation_uses_valid_columns(self, scaffold_project):
+        """Ensure Tenant() calls in seeds.py only use valid Tenant columns.
+
+        Tenant model has: id, slug, domain, name, status, created_at, updated_at
+        User model has: approved_at (but Tenant does NOT)
+        """
+        project = scaffold_project(self.CONFIG)
+        seeds = (project / "seeds.py").read_text()
+
+        # Check that _create_tenant_from_email doesn't use User columns on Tenant
+        # approved_at is a User column, not a Tenant column
+        assert "Tenant(" in seeds, "seeds.py should create Tenant objects"
+
+        # Find Tenant creation blocks and check they don't use invalid columns
+        import re
+        tenant_blocks = re.findall(r"Tenant\([^)]+\)", seeds, re.DOTALL)
+        for block in tenant_blocks:
+            assert "approved_at" not in block, (
+                f"Tenant() should not use 'approved_at' (User-only column): {block}"
+            )
+
 
 class TestGeneratedFileSyntax:
     """Test that all generated Python files are syntactically valid."""

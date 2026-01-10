@@ -1243,14 +1243,6 @@ island("counter", {
 (function() {
   "use strict";
 
-  // Add CSRF token to all HTMX requests
-  document.addEventListener("htmx:configRequest", (e) => {
-    const token = document.querySelector('meta[name="csrf-token"]');
-    if (token) {
-      e.detail.headers["X-CSRFToken"] = token.content;
-    }
-  });
-
   // Custom confirm modal handler for hx-confirm
   (function() {
     const modal = document.getElementById("confirm-modal");
@@ -1440,6 +1432,8 @@ def home():
         '''{% from "components/confirm_modal.html" import confirm_modal %}
 {% from "components/prompt_modal.html" import prompt_modal %}
 {% from "components/toast.html" import toast %}
+{% from "components/page_loader.html" import page_loader %}
+{% from "components/htmx_indicator.html" import htmx_indicator %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1465,7 +1459,9 @@ def home():
 
     {% block extra_head %}{% endblock %}
 </head>
-<body class="min-h-screen bg-gray-50">
+<body class="min-h-screen bg-gray-50" hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
+    {{ page_loader() }}
+    {{ htmx_indicator() }}
     {% block content %}{% endblock %}
 
     <!-- HTMX -->
@@ -3058,7 +3054,7 @@ class DevelopmentConfig(Config):
 
     if include_auth:
         config += '''    SESSION_COOKIE_SECURE = False      # Allow HTTP in development
-    SESSION_PROTECTION = "basic"       # Relaxed for Vite proxy
+    SESSION_PROTECTION = None          # Disabled for Vite proxy (prevents session invalidation during OAuth)
 '''
 
     config += '''
@@ -3197,15 +3193,44 @@ def _build_seeds_content(admin_email: str = None, tenant_mode: str = "single") -
     email_line = f'"{admin_email}"' if admin_email else 'None  # Set your admin email here'
 
     if tenant_mode == "multi":
-        # Multi-tenant: Create platform admin with Account
+        # Multi-tenant: Create platform admin with Account and Tenant
         return f'''"""Database seeds - Run with: python seeds.py"""
+
+from datetime import datetime, timezone
 
 from app import app
 from feather.db import db
-from models import User, Account, AccountUser
+from models import User, Tenant, Account, AccountUser
 
 # Platform admin email (set during project creation)
 ADMIN_EMAIL = {email_line}
+
+
+def _create_tenant_from_email(email):
+    """Create a tenant from an email domain.
+
+    E.g., admin@acme.com -> Tenant(name="Acme", slug="acme", domain="acme.com")
+    Returns existing tenant if one already exists for the domain.
+    """
+    domain = email.split("@")[1]
+    name = domain.split(".")[0].title()  # acme.com -> Acme
+    slug = name.lower()
+
+    # Check if tenant already exists
+    tenant = Tenant.query.filter_by(domain=domain).first()
+    if tenant:
+        return tenant
+
+    # Create new tenant
+    tenant = Tenant(
+        name=name,
+        slug=slug,
+        domain=domain,
+        status="active",
+    )
+    db.session.add(tenant)
+    db.session.flush()  # Get tenant.id
+    return tenant
 
 
 def _create_account_for_user(user):
@@ -3242,14 +3267,13 @@ def _create_account_for_user(user):
 
 
 def seed():
-    """Create initial platform admin user with account.
+    """Create initial platform admin user with tenant and account.
 
-    The platform admin operates above the tenant system and can:
-    - Manage all tenants
-    - View all users across tenants
-    - Approve new tenants
+    The platform admin:
+    - Is assigned to a tenant created from their email domain
+    - Has is_platform_admin=True so they can manage all tenants
+    - Can use tenant-scoped features (which require a tenant_id)
 
-    Tenants are created later through the admin panel.
     The admin can log in with Google OAuth.
     """
     if not ADMIN_EMAIL:
@@ -3257,6 +3281,9 @@ def seed():
         return
 
     email = ADMIN_EMAIL
+
+    # Create or get tenant from admin's email domain
+    tenant = _create_tenant_from_email(email)
 
     # Create or update admin user
     existing = User.query.filter_by(email=email).first()
@@ -3272,24 +3299,28 @@ def seed():
         if not existing.active:
             existing.active = True
             changed = True
+        # Ensure they have a tenant
+        if not existing.tenant_id:
+            existing.tenant_id = tenant.id
+            changed = True
         # Ensure they have an account
         if not existing.subscription_owner_account_id:
             _create_account_for_user(existing)
             changed = True
         if changed:
             db.session.commit()
-            print(f"Granted platform admin access to: {{email}}")
+            print(f"Granted platform admin access to: {{email}} (tenant: {{tenant.name}})")
         else:
             print(f"Platform admin already exists: {{email}}")
         return
 
-    # Create new platform admin (no tenant - operates above tenant system)
+    # Create new platform admin with tenant
     admin = User(
         email=email,
         username=email.split("@")[0],
-        tenant_id=None,  # Platform admin has no tenant
+        tenant_id=tenant.id,  # Platform admin belongs to a tenant for tenant-scoped features
         role="admin",
-        is_platform_admin=True,
+        is_platform_admin=True,  # But can still manage all tenants
         active=True  # Initial admin is pre-approved
     )
     db.session.add(admin)
@@ -3299,7 +3330,7 @@ def seed():
     _create_account_for_user(admin)
 
     db.session.commit()
-    print(f"Created platform admin: {{email}}")
+    print(f"Created platform admin: {{email}} (tenant: {{tenant.name}})")
 
 
 if __name__ == "__main__":
@@ -3584,6 +3615,26 @@ class User(UserMixin, Model):
         """Check if user is a tenant admin (derived from role)."""
         return self.role == "admin"
 
+    @property
+    def is_authenticated(self):
+        """Check if user is authenticated.
+
+        Flask-Login requires this. We override explicitly because SQLAlchemy 2.0's
+        DeclarativeBase metaclass can shadow the UserMixin.is_authenticated property.
+        Returns True for any user loaded from the database.
+        """
+        return True
+
+    @property
+    def is_anonymous(self):
+        """Check if this is an anonymous user.
+
+        Flask-Login requires this. We override explicitly because SQLAlchemy 2.0's
+        DeclarativeBase metaclass can shadow the UserMixin.is_anonymous property.
+        Returns False for real users loaded from the database.
+        """
+        return False
+
     def __repr__(self):
         return f"<User {self.username}>"
 '''
@@ -3658,6 +3709,26 @@ class User(UserMixin, Model):
     def is_admin(self):
         """Check if user is an admin (derived from role)."""
         return self.role == "admin"
+
+    @property
+    def is_authenticated(self):
+        """Check if user is authenticated.
+
+        Flask-Login requires this. We override explicitly because SQLAlchemy 2.0's
+        DeclarativeBase metaclass can shadow the UserMixin.is_authenticated property.
+        Returns True for any user loaded from the database.
+        """
+        return True
+
+    @property
+    def is_anonymous(self):
+        """Check if this is an anonymous user.
+
+        Flask-Login requires this. We override explicitly because SQLAlchemy 2.0's
+        DeclarativeBase metaclass can shadow the UserMixin.is_anonymous property.
+        Returns False for real users loaded from the database.
+        """
+        return False
 
     def __repr__(self):
         return f"<User {self.username}>"
@@ -3913,7 +3984,8 @@ class Account(Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(100), nullable=False)
     avatar_url = db.Column(db.String(500))
-    owner_user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False)
+    # use_alter=True defers FK creation to handle circular dependency with User model
+    owner_user_id = db.Column(db.String(36), db.ForeignKey("users.id", use_alter=True), nullable=False)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -4688,10 +4760,281 @@ class AdminService(Service):
 
     # Add tenant functions for multi-tenant mode
     if tenant_mode == "multi":
-        # Import Tenant model at the top
+        # Import Tenant model and current_user for tenant isolation
         base_service = base_service.replace(
             "from models import User, Log",
             "from models import User, Log, Tenant"
+        )
+        base_service = base_service.replace(
+            "from feather.db import db",
+            "from flask_login import current_user\nfrom feather.db import db"
+        )
+
+        # Add tenant isolation helper methods after Static Helpers section
+        base_service = base_service.replace(
+            '''    # =========================================================================
+    # User Management
+    # =========================================================================''',
+            '''    # =========================================================================
+    # Tenant Isolation Helpers
+    # =========================================================================
+
+    @staticmethod
+    def _is_platform_admin() -> bool:
+        """Check if current user is a platform admin (can see all tenants)."""
+        return getattr(current_user, "is_platform_admin", False)
+
+    @staticmethod
+    def _get_tenant_id():
+        """Get current user's tenant_id. Returns None for platform admins."""
+        if AdminService._is_platform_admin():
+            return None
+        return getattr(current_user, "tenant_id", None)
+
+    # =========================================================================
+    # User Management
+    # ========================================================================='''
+        )
+
+        # Replace get_all_users with tenant-aware version
+        base_service = base_service.replace(
+            '''    def get_all_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get paginated list of all users."""
+        query = User.query
+
+        # Exclude platform admins from results
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total = query.count()
+        users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()''',
+            '''    def get_all_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get paginated list of users (tenant-scoped for non-platform-admins)."""
+        query = User.query
+
+        # Tenant isolation: non-platform-admins only see their tenant's users
+        tenant_id = self._get_tenant_id()
+        if tenant_id:
+            query = query.filter(User.tenant_id == tenant_id)
+
+        # Exclude platform admins from results
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total = query.count()
+        users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()'''
+        )
+
+        # Replace search_users with tenant-aware version
+        base_service = base_service.replace(
+            '''    def search_users(self, query: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Search users by email, display_name, or username."""
+        search_filter = User.email.ilike(f"%{query}%")
+
+        if hasattr(User, "display_name"):
+            search_filter = or_(search_filter, User.display_name.ilike(f"%{query}%"))
+        if hasattr(User, "username"):
+            search_filter = or_(search_filter, User.username.ilike(f"%{query}%"))
+
+        base_query = User.query.filter(search_filter)
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            base_query = base_query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total = base_query.count()
+        users = base_query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()''',
+            '''    def search_users(self, query: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Search users by email, display_name, or username (tenant-scoped)."""
+        search_filter = User.email.ilike(f"%{query}%")
+
+        if hasattr(User, "display_name"):
+            search_filter = or_(search_filter, User.display_name.ilike(f"%{query}%"))
+        if hasattr(User, "username"):
+            search_filter = or_(search_filter, User.username.ilike(f"%{query}%"))
+
+        base_query = User.query.filter(search_filter)
+
+        # Tenant isolation: non-platform-admins only see their tenant's users
+        tenant_id = self._get_tenant_id()
+        if tenant_id:
+            base_query = base_query.filter(User.tenant_id == tenant_id)
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            base_query = base_query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total = base_query.count()
+        users = base_query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()'''
+        )
+
+        # Replace get_user_detail with tenant-aware version
+        base_service = base_service.replace(
+            '''    def get_user_detail(self, user_id: str) -> Optional[Any]:
+        """Get user by ID for detail page."""
+        return User.query.get(user_id)''',
+            '''    def get_user_detail(self, user_id: str) -> Optional[Any]:
+        """Get user by ID for detail page (tenant-scoped)."""
+        user = User.query.get(user_id)
+        if not user:
+            return None
+
+        # Tenant isolation: non-platform-admins can only view users in their tenant
+        tenant_id = self._get_tenant_id()
+        if tenant_id and user.tenant_id != tenant_id:
+            return None  # Not authorized to view this user
+
+        return user'''
+        )
+
+        # Replace toggle_user_status with tenant-aware version
+        base_service = base_service.replace(
+            '''    def toggle_user_status(self, user_id: str) -> Optional[Any]:
+        """Toggle user active status."""
+        user = User.query.get(user_id)
+        if not user:
+            return None
+
+        user.active = not user.active
+        if user.active and hasattr(user, "approved_at") and not user.approved_at:
+            user.approved_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return user''',
+            '''    def toggle_user_status(self, user_id: str) -> Optional[Any]:
+        """Toggle user active status (tenant-scoped)."""
+        user = User.query.get(user_id)
+        if not user:
+            return None
+
+        # Tenant isolation: non-platform-admins can only modify users in their tenant
+        tenant_id = self._get_tenant_id()
+        if tenant_id and user.tenant_id != tenant_id:
+            return None  # Not authorized to modify this user
+
+        user.active = not user.active
+        if user.active and hasattr(user, "approved_at") and not user.approved_at:
+            user.approved_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return user'''
+        )
+
+        # Replace update_user_role with tenant-aware version
+        base_service = base_service.replace(
+            '''    def update_user_role(self, user_id: str, role: str) -> Optional[Any]:
+        """Update user role."""
+        valid_roles = ["user", "editor", "moderator", "admin"]
+        if role not in valid_roles:
+            return None
+
+        user = User.query.get(user_id)
+        if not user:
+            return None
+
+        user.role = role
+        db.session.commit()
+        return user''',
+            '''    def update_user_role(self, user_id: str, role: str) -> Optional[Any]:
+        """Update user role (tenant-scoped)."""
+        valid_roles = ["user", "editor", "moderator", "admin"]
+        if role not in valid_roles:
+            return None
+
+        user = User.query.get(user_id)
+        if not user:
+            return None
+
+        # Tenant isolation: non-platform-admins can only modify users in their tenant
+        tenant_id = self._get_tenant_id()
+        if tenant_id and user.tenant_id != tenant_id:
+            return None  # Not authorized to modify this user
+
+        user.role = role
+        db.session.commit()
+        return user'''
+        )
+
+        # Replace get_user_stats with tenant-aware version
+        base_service = base_service.replace(
+            '''    def get_user_stats(self) -> dict[str, int]:
+        """Get user statistics for analytics dashboard."""
+        query = User.query
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total_users = query.count()
+        active_users = query.filter(User.active == True).count()
+
+        first_of_month = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        new_this_month = query.filter(User.created_at >= first_of_month).count()
+
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "new_this_month": new_this_month,
+        }''',
+            '''    def get_user_stats(self) -> dict[str, int]:
+        """Get user statistics for analytics dashboard (tenant-scoped)."""
+        query = User.query
+
+        # Tenant isolation: non-platform-admins only see their tenant's stats
+        tenant_id = self._get_tenant_id()
+        if tenant_id:
+            query = query.filter(User.tenant_id == tenant_id)
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total_users = query.count()
+        active_users = query.filter(User.active == True).count()
+
+        first_of_month = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        new_this_month = query.filter(User.created_at >= first_of_month).count()
+
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "new_this_month": new_this_month,
+        }'''
+        )
+
+        # Replace get_user_growth with tenant-aware version
+        base_service = base_service.replace(
+            '''    def get_user_growth(self, days: int = 30) -> list[dict[str, Any]]:
+        """Get daily user registration counts for analytics chart."""
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+
+        query = db.session.query(
+            func.date(User.created_at).label("date"),
+            func.count(User.id).label("count")
+        ).filter(User.created_at >= start_date)
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        results = query.group_by(func.date(User.created_at)).order_by(func.date(User.created_at)).all()''',
+            '''    def get_user_growth(self, days: int = 30) -> list[dict[str, Any]]:
+        """Get daily user registration counts for analytics chart (tenant-scoped)."""
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+
+        query = db.session.query(
+            func.date(User.created_at).label("date"),
+            func.count(User.id).label("count")
+        ).filter(User.created_at >= start_date)
+
+        # Tenant isolation: non-platform-admins only see their tenant's growth
+        tenant_id = self._get_tenant_id()
+        if tenant_id:
+            query = query.filter(User.tenant_id == tenant_id)
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        results = query.group_by(func.date(User.created_at)).order_by(func.date(User.created_at)).all()'''
         )
 
         base_service += '''
@@ -5984,7 +6327,7 @@ def _build_admin_tenant_detail_template() -> str:
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left Column: Tenant Info -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="lg:col-span-2">
             <!-- Tenant Profile Card -->
             <div class="bg-white rounded-lg shadow">
                 <div class="p-6 border-b border-gray-200">
@@ -6027,51 +6370,51 @@ def _build_admin_tenant_detail_template() -> str:
                     </dl>
                 </div>
             </div>
-
-            <!-- Users in Tenant -->
-            <div class="bg-white rounded-lg shadow">
-                <div class="p-6 border-b border-gray-200">
-                    <h4 class="font-semibold text-gray-900">Users</h4>
-                </div>
-                <div class="divide-y divide-gray-200">
-                    {% for user in users %}
-                    <a href="{{ url_for('admin.user_detail_page', user_id=user.id) }}"
-                       class="flex items-center gap-3 p-4 hover:bg-gray-50">
-                        {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
-                        <img src="{{ avatar_url }}"
-                             alt="{{ user.display_name or user.email }}"
-                             class="w-10 h-10 rounded-full"
-                             referrerpolicy="no-referrer">
-                        <div class="flex-1">
-                            <p class="font-medium">{{ user.display_name or user.email }}</p>
-                            <p class="text-sm text-gray-600">{{ user.email }}</p>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            {% if user.role == 'admin' %}
-                            <span class="px-2 py-1 text-xs bg-black text-white rounded">Admin</span>
-                            {% endif %}
-                            {% if user.active %}
-                            <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
-                            {% else %}
-                            <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
-                            {% endif %}
-                        </div>
-                    </a>
-                    {% endfor %}
-
-                    {% if not users %}
-                    <div class="p-8 text-center text-gray-500">
-                        <span class="material-symbols-outlined text-4xl mb-2">group</span>
-                        <p class="text-sm">No users in this tenant</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
         </div>
 
         <!-- Right Column: Actions -->
         <div id="tenant-actions">
             {% include "partials/admin/tenant_actions.html" %}
+        </div>
+    </div>
+
+    <!-- Users in Tenant (Full Width) -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <h4 class="font-semibold text-gray-900">Users in {{ tenant.name }}</h4>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {% for user in users %}
+            <a href="{{ url_for('admin.user_detail_page', user_id=user.id) }}"
+               class="flex items-center gap-3 p-4 hover:bg-gray-50">
+                {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
+                <img src="{{ avatar_url }}"
+                     alt="{{ user.display_name or user.email }}"
+                     class="w-10 h-10 rounded-full"
+                     referrerpolicy="no-referrer">
+                <div class="flex-1">
+                    <p class="font-medium">{{ user.display_name or user.email }}</p>
+                    <p class="text-sm text-gray-600">{{ user.email }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if user.role == 'admin' %}
+                    <span class="px-2 py-1 text-xs bg-black text-white rounded">Admin</span>
+                    {% endif %}
+                    {% if user.active %}
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+
+            {% if not users %}
+            <div class="p-8 text-center text-gray-500">
+                <span class="material-symbols-outlined text-4xl mb-2">group</span>
+                <p class="text-sm">No users in this tenant</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

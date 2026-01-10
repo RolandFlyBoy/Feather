@@ -1,0 +1,8 @@
+{# HTMX request indicator - progress bar at top of page during requests #}
+{% macro htmx_indicator(color="#6366f1") %}
+<div id="htmx-progress" style="position:fixed;top:0;left:0;right:0;height:3px;z-index:9998;background:linear-gradient(90deg,transparent,{{ color }},transparent);background-size:200% 100%;opacity:0;transition:opacity 0.2s;pointer-events:none;"></div>
+<style>
+@keyframes _htmx_progress { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.htmx-request #htmx-progress { opacity:1; animation:_htmx_progress 1.5s linear infinite; }
+</style>
+{% endmacro %}

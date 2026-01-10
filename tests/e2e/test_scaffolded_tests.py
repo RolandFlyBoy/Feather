@@ -293,3 +293,98 @@ class TestMigrationsWork:
             print("UPGRADE STDERR:", result.stderr)
 
         assert result.returncode == 0, f"Migration upgrade failed:\n{result.stdout}\n{result.stderr}"
+
+
+class TestMultiTenantMigrationsWork:
+    """Verify migrations work for multi-tenant apps with circular FK dependencies."""
+
+    @pytest.fixture
+    def scaffolded_multitenant_app(self, temp_project_dir, feather_root):
+        """Scaffold a multi-tenant app for migration testing."""
+        from feather.cli.new import _create_project_structure, _create_project_files
+
+        project_path = temp_project_dir / "multitenanttestapp"
+        project_path.mkdir()
+
+        # Scaffold with auth enabled AND multi-tenant mode
+        _create_project_structure(project_path, database="sqlite", include_auth=True)
+        _create_project_files(
+            project_path=project_path,
+            name="multitenanttestapp",
+            database="sqlite",
+            include_auth=True,
+            db_url="sqlite:///app.db",
+            tenant_mode="multi",  # Multi-tenant triggers more complex FK relationships
+            admin_email="admin@test.com",
+        )
+
+        # Create venv and install dependencies
+        venv_path = project_path / "venv"
+        subprocess.run(
+            [sys.executable, "-m", "venv", str(venv_path)],
+            check=True,
+            capture_output=True,
+        )
+
+        # Get paths
+        if sys.platform == "win32":
+            pip = venv_path / "Scripts" / "pip"
+            feather_cmd = venv_path / "Scripts" / "feather"
+        else:
+            pip = venv_path / "bin" / "pip"
+            feather_cmd = venv_path / "bin" / "feather"
+
+        # Install Feather framework (editable install from source)
+        subprocess.run(
+            [str(pip), "install", "-e", str(feather_root)],
+            check=True,
+            capture_output=True,
+        )
+
+        return {
+            "path": project_path,
+            "pip": pip,
+            "feather": feather_cmd,
+        }
+
+    def test_multitenant_migrations_apply_cleanly(self, scaffolded_multitenant_app):
+        """Verify multi-tenant migrations work with circular User<->Account FKs.
+
+        Multi-tenant apps have:
+        - User.subscription_owner_account_id -> accounts.id
+        - Account.owner_user_id -> users.id
+
+        Both FKs need use_alter=True to avoid circular dependency issues.
+        """
+        project_path = scaffolded_multitenant_app["path"]
+        feather_cmd = scaffolded_multitenant_app["feather"]
+
+        # Generate migration
+        result = subprocess.run(
+            [str(feather_cmd), "db", "migrate", "-m", "initial"],
+            cwd=str(project_path),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        if result.returncode != 0:
+            print("MIGRATE STDOUT:", result.stdout)
+            print("MIGRATE STDERR:", result.stderr)
+
+        assert result.returncode == 0, f"Migration generation failed:\n{result.stdout}\n{result.stderr}"
+
+        # Apply migration
+        result = subprocess.run(
+            [str(feather_cmd), "db", "upgrade"],
+            cwd=str(project_path),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        if result.returncode != 0:
+            print("UPGRADE STDOUT:", result.stdout)
+            print("UPGRADE STDERR:", result.stderr)
+
+        assert result.returncode == 0, f"Migration upgrade failed:\n{result.stdout}\n{result.stderr}"
