@@ -71,7 +71,7 @@ The mental model: start with Components for everything static, reach for HTMX wh
 **Core requirements (all apps):**
 
 - **Python 3.10+** — the runtime
-- **Node.js 18+** — for Vite (build tooling) and Tailwind CSS
+- **Node.js 22+** — for Vite (build tooling) and Tailwind CSS
 - **pipx** — for installing the Feather CLI globally
 
 **Simple apps** (no auth, prototypes, internal tools):
@@ -1867,7 +1867,7 @@ This creates three files:
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Multi-stage build with Python 3.11, Node.js 20, and system deps |
+| `Dockerfile` | Multi-stage build with Python 3.11, Node.js 22, and system deps |
 | `render.yaml` | Blueprint defining your web service and PostgreSQL database |
 | `.dockerignore` | Excludes venv, node_modules, .env, tests from the build |
 

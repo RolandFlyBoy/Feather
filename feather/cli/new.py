@@ -480,6 +480,9 @@ htmlcov/
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {{
+    "node": ">=22"
+  }},
   "scripts": {{
     "dev": "vite",
     "build": "vite build"
@@ -524,7 +527,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     // Watch templates and trigger full page reload
-    fullReload(["templates/**/*.html"], { delay: 100 }),
+    fullReload(["templates/**/*.html", "static/css/**/*.css"], { delay: 100 }),
   ],
   server: {
     port: 5173,
@@ -3198,6 +3201,8 @@ def _build_seeds_content(admin_email: str = None, tenant_mode: str = "single") -
 
 from datetime import datetime, timezone
 
+from sqlalchemy import func
+
 from app import app
 from feather.db import db
 from models import User, Tenant, Account, AccountUser
@@ -3285,8 +3290,8 @@ def seed():
     # Create or get tenant from admin's email domain
     tenant = _create_tenant_from_email(email)
 
-    # Create or update admin user
-    existing = User.query.filter_by(email=email).first()
+    # Create or update admin user (case-insensitive email lookup)
+    existing = User.query.filter(func.lower(User.email) == email.lower()).first()
     if existing:
         # Update existing user to be platform admin
         changed = False
@@ -3298,6 +3303,7 @@ def seed():
             changed = True
         if not existing.active:
             existing.active = True
+            existing.approved_at = datetime.now(timezone.utc)
             changed = True
         # Ensure they have a tenant
         if not existing.tenant_id:
@@ -3321,7 +3327,8 @@ def seed():
         tenant_id=tenant.id,  # Platform admin belongs to a tenant for tenant-scoped features
         role="admin",
         is_platform_admin=True,  # But can still manage all tenants
-        active=True  # Initial admin is pre-approved
+        active=True,  # Initial admin is pre-approved
+        approved_at=datetime.now(timezone.utc)
     )
     db.session.add(admin)
     db.session.flush()  # Get admin.id for account creation
@@ -3340,6 +3347,10 @@ if __name__ == "__main__":
     else:
         # Single-tenant: Create regular admin with Account (no platform admin concept)
         return f'''"""Database seeds - Run with: python seeds.py"""
+
+from datetime import datetime, timezone
+
+from sqlalchemy import func
 
 from app import app
 from feather.db import db
@@ -3394,8 +3405,8 @@ def seed():
 
     email = ADMIN_EMAIL
 
-    # Create or update admin user
-    existing = User.query.filter_by(email=email).first()
+    # Create or update admin user (case-insensitive email lookup)
+    existing = User.query.filter(func.lower(User.email) == email.lower()).first()
     if existing:
         # Update existing user to be admin
         changed = False
@@ -3404,6 +3415,7 @@ def seed():
             changed = True
         if not existing.active:
             existing.active = True
+            existing.approved_at = datetime.now(timezone.utc)
             changed = True
         # Ensure they have an account
         if not existing.subscription_owner_account_id:
@@ -3421,7 +3433,8 @@ def seed():
         email=email,
         username=email.split("@")[0],
         role="admin",
-        active=True  # Initial admin is pre-approved
+        active=True,  # Initial admin is pre-approved
+        approved_at=datetime.now(timezone.utc)
     )
     db.session.add(admin)
     db.session.flush()  # Get admin.id for account creation
