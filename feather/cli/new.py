@@ -488,7 +488,7 @@ htmlcov/
     "build": "vite build"
   }},
   "devDependencies": {{
-    "vite": "^6.0.0",
+    "vite": "^7.0.0",
     "@tailwindcss/vite": "^4.0.0",
     "tailwindcss": "^4.0.0",
     "terser": "^5.0.0",
