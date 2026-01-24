@@ -122,6 +122,65 @@ def auth_required(f: Callable) -> Callable:
     return wrapper
 
 
+def login_only(f: Callable) -> Callable:
+    """Require only that the user is authenticated (has a session).
+
+    Unlike @auth_required, this decorator does NOT check:
+    - Whether the user account is active (not suspended)
+    - Whether the user has a valid tenant_id (multi-tenant mode)
+
+    Use this for pages that need to be accessible to users who are:
+    - Pending approval (active=False)
+    - Without a tenant assignment (tenant_id=None)
+
+    Common use cases:
+    - "Pending approval" status page
+    - Account setup wizard for new users
+    - Pages where users can select/request a tenant
+
+    Args:
+        f: The route function to protect.
+
+    Returns:
+        Decorated function that only checks authentication.
+
+    Raises:
+        AuthenticationError: If user is not logged in (401).
+
+    Example::
+
+        from feather import page
+        from feather.auth import login_only
+
+        @page.get('/pending-approval')
+        @login_only
+        def pending_approval():
+            # User is authenticated but may be suspended or without tenant
+            return render_template('pages/pending_approval.html')
+
+        @page.get('/select-organization')
+        @login_only
+        def select_organization():
+            # User can select which organization to join
+            return render_template('pages/select_org.html')
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not current_user.is_authenticated:
+            # Check if this is an API route or page route
+            if request.path.startswith('/api/'):
+                raise AuthenticationError("Login required")
+            else:
+                # Redirect to login for page routes
+                from flask import redirect
+                login_url = current_app.config.get('LOGIN_URL', '/auth/google/login')
+                return redirect(f"{login_url}?next={request.path}")
+
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
 def role_required(roles: Union[str, List[str], Set[str]]) -> Callable:
     """Require the current user to have one of the specified roles.
 

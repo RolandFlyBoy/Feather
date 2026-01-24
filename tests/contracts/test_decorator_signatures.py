@@ -299,3 +299,27 @@ class TestInjectDecoratorSignature:
             pass
 
         assert callable(route_with_services)
+
+
+class TestLoginOnlySignature:
+    """Verify @login_only decorator works."""
+
+    def test_login_only_can_be_applied(self):
+        """@login_only can be applied to a function."""
+        from feather import login_only
+
+        @login_only
+        def pending_approval_page():
+            pass
+
+        assert callable(pending_approval_page)
+
+    def test_login_only_importable_from_auth(self):
+        """@login_only is importable from feather.auth."""
+        from feather.auth import login_only
+        assert login_only is not None
+
+    def test_login_only_importable_from_top_level(self):
+        """@login_only is importable from feather."""
+        from feather import login_only
+        assert login_only is not None

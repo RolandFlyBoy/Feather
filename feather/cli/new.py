@@ -149,6 +149,20 @@ def new(name: str, template: str, no_prompt: bool):
                 default=False,
             )
 
+            # User model field selection
+            click.echo()
+            click.echo(click.style("User Profile Fields", fg="cyan") + " (optional):")
+            options["user_fields"] = {
+                "display_name": click.confirm(
+                    "  Include display_name?",
+                    default=True,
+                ),
+                "profile_image_url": click.confirm(
+                    "  Include profile_image_url?",
+                    default=True,
+                ),
+            }
+
             # Admin email (required for auth)
             click.echo()
             click.echo(click.style("Admin Setup", fg="cyan"))
@@ -329,10 +343,11 @@ def _create_project_structure(project_path: Path, database: str = "postgresql", 
     if database != "none":
         directories.extend(["models", "migrations/versions"])
 
-    # Add admin directories when auth is enabled
+    # Add admin and account directories when auth is enabled
     if include_auth:
         directories.extend([
             "templates/pages/admin",
+            "templates/pages/account",
             "templates/partials/admin",
         ])
 
@@ -356,6 +371,7 @@ def _create_project_files(
     db_url: str = None,
     admin_email: str = None,
     app_type: str = None,  # "simple", "single_tenant", or "multi_tenant"
+    user_fields: dict = None,  # Optional User model field selection
 ):
     """Create project files from templates.
 
@@ -1365,7 +1381,7 @@ from feather.db import db, Model
         # User model - only created when auth is enabled
         if include_auth:
             (project_path / "models/user.py").write_text(
-                _build_user_model_content(include_auth=include_auth, tenant_mode=tenant_mode)
+                _build_user_model_content(include_auth=include_auth, tenant_mode=tenant_mode, user_fields=user_fields)
             )
 
         # Account model - for multi-profile support (when auth is enabled)
@@ -2176,6 +2192,11 @@ def test_home_page(client):
             _build_admin_routes(tenant_mode, include_email)
         )
 
+        # Account routes (pending/suspended pages)
+        (project_path / "routes/pages/account.py").write_text(
+            _build_account_routes()
+        )
+
         # Admin service
         (project_path / "services/admin_service.py").write_text(
             _build_admin_service(tenant_mode)
@@ -2487,6 +2508,14 @@ def test_home_page(client):
             (project_path / "templates/partials/admin/tenant_actions.html").write_text(
                 _build_admin_tenant_actions_partial()
             )
+
+        # Account status pages (pending approval, suspended)
+        (project_path / "templates/pages/account/pending.html").write_text(
+            _build_account_pending_template()
+        )
+        (project_path / "templates/pages/account/suspended.html").write_text(
+            _build_account_suspended_template()
+        )
 
     # seeds.py - Database seed file (only when auth enabled)
     if include_auth:
@@ -3540,16 +3569,35 @@ audioop-lts>=0.2.1; python_version >= "3.13"
 """
 
 
-def _build_user_model_content(include_auth: bool, tenant_mode: str = None) -> str:
+def _build_user_model_content(include_auth: bool, tenant_mode: str = None, user_fields: dict = None) -> str:
     """Build User model content based on auth and tenant mode.
 
     Args:
         include_auth: Whether authentication is enabled
         tenant_mode: "single" or "multi" (None if no auth)
+        user_fields: Optional dict of field flags (e.g., {"display_name": True, "profile_image_url": False})
     """
+    # Default to including all optional fields
+    if user_fields is None:
+        user_fields = {"display_name": True, "profile_image_url": True}
+
+    # Build optional field definitions
+    optional_field_defs = ""
+    if user_fields.get("display_name", True):
+        optional_field_defs += "    display_name = db.Column(db.String(100))\n"
+    if user_fields.get("profile_image_url", True):
+        optional_field_defs += "    profile_image_url = db.Column(db.String(500))\n"
+
+    # Build optional attribute docstrings
+    optional_attr_docs = ""
+    if user_fields.get("display_name", True):
+        optional_attr_docs += "        display_name: Display name for UI\n"
+    if user_fields.get("profile_image_url", True):
+        optional_attr_docs += "        profile_image_url: URL to profile image (from Google OAuth)\n"
+
     if include_auth and tenant_mode == "multi":
         # Multi-tenant User model with tenant_id and is_platform_admin
-        return '''"""User model with authentication and multi-tenant support."""
+        return f'''"""User model with authentication and multi-tenant support."""
 
 import uuid
 from datetime import datetime, timezone
@@ -3577,9 +3625,7 @@ class User(UserMixin, Model):
         tenant_id: Foreign key to tenant (required for multi-tenancy)
         email: Unique email address (from Google OAuth)
         username: Unique username
-        display_name: Display name for UI
-        profile_image_url: URL to profile image (from Google OAuth)
-        active: Whether the user account is active (not suspended)
+{optional_attr_docs}        active: Whether the user account is active (not suspended)
         approved_at: When user was first approved (None = pending, set = was approved)
         role: Tenant role (user, editor, moderator, admin)
         is_platform_admin: Whether user can manage tenants
@@ -3595,8 +3641,7 @@ class User(UserMixin, Model):
 
     email = db.Column(db.String(255), unique=True, nullable=False)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    display_name = db.Column(db.String(100))
-    profile_image_url = db.Column(db.String(500))
+{optional_field_defs}
 
     # Authorization
     active = db.Column(db.Boolean, default=False, nullable=False)  # Suspended until approved
@@ -3648,11 +3693,11 @@ class User(UserMixin, Model):
         return False
 
     def __repr__(self):
-        return f"<User {self.username}>"
+        return f"<User {{self.username}}>"
 '''
     elif include_auth:
         # Single-tenant User model (no tenant_id, no is_platform_admin)
-        return '''"""User model with authentication."""
+        return f'''"""User model with authentication."""
 
 import uuid
 from datetime import datetime, timezone
@@ -3675,9 +3720,7 @@ class User(UserMixin, Model):
         id: UUID primary key
         email: Unique email address (from Google OAuth)
         username: Unique username
-        display_name: Display name for UI
-        profile_image_url: URL to profile image (from Google OAuth)
-        active: Whether the user account is active (not suspended)
+{optional_attr_docs}        active: Whether the user account is active (not suspended)
         approved_at: When user was first approved (None = pending, set = was approved)
         role: User role (user, editor, moderator, admin)
         subscription_owner_account_id: The account that owns this user's subscription
@@ -3691,8 +3734,7 @@ class User(UserMixin, Model):
 
     email = db.Column(db.String(255), unique=True, nullable=False)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    display_name = db.Column(db.String(100))
-    profile_image_url = db.Column(db.String(500))
+{optional_field_defs}
 
     # Authorization
     active = db.Column(db.Boolean, default=False, nullable=False)  # Suspended until approved
@@ -3743,11 +3785,18 @@ class User(UserMixin, Model):
         return False
 
     def __repr__(self):
-        return f"<User {self.username}>"
+        return f"<User {{self.username}}>"
 '''
     else:
         # Simple User model without auth features
-        return '''"""User model."""
+        # Build simpler optional fields for no-auth case (only display_name)
+        simple_field_defs = ""
+        simple_attr_docs = ""
+        if user_fields.get("display_name", True):
+            simple_field_defs = "    display_name = db.Column(db.String(100))\n"
+            simple_attr_docs = "        display_name: Display name for UI\n"
+
+        return f'''"""User model."""
 
 import uuid
 from datetime import datetime, timezone
@@ -3762,8 +3811,7 @@ class User(Model):
         id: UUID primary key
         email: Unique email address
         username: Unique username
-        display_name: Display name for UI
-        created_at: Timestamp of creation
+{simple_attr_docs}        created_at: Timestamp of creation
         updated_at: Timestamp of last update
     """
 
@@ -3772,14 +3820,13 @@ class User(Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email = db.Column(db.String(255), unique=True, nullable=False)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    display_name = db.Column(db.String(100))
-
+{simple_field_defs}
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, onupdate=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
-        return f"<User {self.username}>"
+        return f"<User {{self.username}}>"
 '''
 
 
@@ -3796,14 +3843,15 @@ from feather.db import db, Model
 class Tenant(Model):
     """Tenant model for multi-tenant applications.
 
-    Tenants are identified by email domain (e.g., bob@acme.com → acme tenant).
-    In multi-tenant mode, public email domains (Gmail, Outlook, etc.) are blocked.
+    Tenants can be identified by email domain (B2B) or created individually (B2C).
+    Set FEATHER_ALLOW_PUBLIC_EMAILS=True to allow B2C patterns with public emails.
 
     Attributes:
         id: UUID primary key
         slug: URL-friendly identifier (e.g., "acme")
-        domain: Email domain (e.g., "acme.com")
+        domain: Email domain (e.g., "acme.com"), nullable for B2C tenants
         name: Display name (e.g., "Acme Corp")
+        type: Tenant type (e.g., "company", "individual"), optional
         status: Tenant status (pending, active, suspended)
         created_at: Timestamp of creation
         updated_at: Timestamp of last update
@@ -3813,8 +3861,9 @@ class Tenant(Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     slug = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    domain = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    domain = db.Column(db.String(255), unique=True, nullable=True, index=True)  # Nullable for B2C tenants
     name = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=True, index=True)  # e.g., "company", "individual"
     status = db.Column(db.String(20), nullable=False, default="pending", index=True)  # pending, active, suspended
 
     # Timestamps
@@ -4093,6 +4142,195 @@ from feather import api
 def health():
     """Health check endpoint."""
     return {"status": "ok"}
+'''
+
+
+# =============================================================================
+# Account Status Pages (Pending/Suspended)
+# =============================================================================
+
+
+def _build_account_routes() -> str:
+    """Build account status routes for pending approval and suspended users.
+
+    Returns:
+        Python code string for routes/pages/account.py
+    """
+    return '''"""Account status routes for pending/suspended users."""
+
+from flask import redirect, render_template, url_for
+from flask_login import current_user, logout_user
+
+from feather import page
+from feather.auth import login_only
+
+
+@page.get("/account/pending")
+@login_only
+def account_pending():
+    """Show pending approval page for users awaiting admin approval."""
+    # If user is active, redirect to home
+    if current_user.active:
+        return redirect(url_for("page.home"))
+    # If user was approved before (suspended), show suspended page instead
+    if getattr(current_user, "approved_at", None):
+        return redirect(url_for("page.account_suspended"))
+    return render_template("pages/account/pending.html")
+
+
+@page.get("/account/suspended")
+@login_only
+def account_suspended():
+    """Show suspended page for users whose accounts have been deactivated."""
+    # If user is active, redirect to home
+    if current_user.active:
+        return redirect(url_for("page.home"))
+    return render_template("pages/account/suspended.html")
+
+
+@page.post("/account/logout")
+@login_only
+def account_logout():
+    """Log out the current user and redirect to home."""
+    logout_user()
+    return redirect(url_for("page.home"))
+'''
+
+
+def _build_account_pending_template() -> str:
+    """Build the pending approval page template.
+
+    Returns:
+        HTML template string for templates/pages/account/pending.html
+    """
+    return '''{% extends "base.html" %}
+
+{% block title %}Account Pending - My App{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+    <div class="max-w-md w-full text-center">
+        <!-- Icon -->
+        <div class="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
+            <span class="material-symbols-outlined text-3xl text-yellow-600">hourglass_top</span>
+        </div>
+
+        <!-- Heading -->
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Account Pending Approval</h1>
+        <p class="text-gray-600 mb-8">
+            Your account has been created and is awaiting approval from an administrator.
+            You'll receive access once your account has been reviewed.
+        </p>
+
+        <!-- Info Card -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 text-left">
+            <h2 class="font-medium text-gray-900 mb-3">What happens next?</h2>
+            <ul class="space-y-2 text-sm text-gray-600">
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-green-500 text-lg flex-shrink-0">check_circle</span>
+                    <span>An administrator will review your account</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-green-500 text-lg flex-shrink-0">check_circle</span>
+                    <span>Once approved, you'll have full access to the application</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-blue-500 text-lg flex-shrink-0">info</span>
+                    <span>This usually takes 1-2 business days</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- User Info -->
+        <div class="bg-gray-100 rounded-lg p-4 mb-6 text-sm text-gray-600">
+            <p>Logged in as: <strong>{{ current_user.email }}</strong></p>
+        </div>
+
+        <!-- Actions -->
+        <div class="space-y-3">
+            <form action="{{ url_for('page.account_logout') }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors">
+                    Sign Out
+                </button>
+            </form>
+            <p class="text-xs text-gray-500">
+                Questions? Contact your administrator for help.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+'''
+
+
+def _build_account_suspended_template() -> str:
+    """Build the suspended account page template.
+
+    Returns:
+        HTML template string for templates/pages/account/suspended.html
+    """
+    return '''{% extends "base.html" %}
+
+{% block title %}Account Suspended - My App{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+    <div class="max-w-md w-full text-center">
+        <!-- Icon -->
+        <div class="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
+            <span class="material-symbols-outlined text-3xl text-red-600">block</span>
+        </div>
+
+        <!-- Heading -->
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Account Suspended</h1>
+        <p class="text-gray-600 mb-8">
+            Your account has been suspended by an administrator.
+            If you believe this is an error, please contact your administrator.
+        </p>
+
+        <!-- Info Card -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 text-left">
+            <h2 class="font-medium text-gray-900 mb-3">Why was my account suspended?</h2>
+            <p class="text-sm text-gray-600 mb-3">
+                Account suspensions can occur for various reasons, including:
+            </p>
+            <ul class="space-y-2 text-sm text-gray-600">
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-gray-400 text-lg flex-shrink-0">remove_circle_outline</span>
+                    <span>Violation of terms of service</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-gray-400 text-lg flex-shrink-0">remove_circle_outline</span>
+                    <span>Security concerns</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-gray-400 text-lg flex-shrink-0">remove_circle_outline</span>
+                    <span>Administrative action</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- User Info -->
+        <div class="bg-gray-100 rounded-lg p-4 mb-6 text-sm text-gray-600">
+            <p>Logged in as: <strong>{{ current_user.email }}</strong></p>
+        </div>
+
+        <!-- Actions -->
+        <div class="space-y-3">
+            <form action="{{ url_for('page.account_logout') }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors">
+                    Sign Out
+                </button>
+            </form>
+            <p class="text-xs text-gray-500">
+                Questions? Contact your administrator for help.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
 '''
 
 

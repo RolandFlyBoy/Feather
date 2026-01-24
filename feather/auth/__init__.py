@@ -76,6 +76,7 @@ from feather.auth.setup import init_auth, login_manager, set_user_loader
 from feather.auth.decorators import (
     admin_required,
     auth_required,
+    login_only,
     permission_required,
     platform_admin_required,
     rate_limit,
@@ -110,6 +111,7 @@ __all__ = [
     # Decorators
     "admin_required",
     "auth_required",
+    "login_only",
     "permission_required",
     "platform_admin_required",
     "rate_limit",

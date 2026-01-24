@@ -53,6 +53,16 @@ class TestExceptionHierarchy:
         from feather import FeatherException
         assert issubclass(FeatherException, Exception)
 
+    def test_account_pending_error_inherits_authorization_error(self):
+        """AccountPendingError must inherit from AuthorizationError."""
+        from feather.exceptions import AccountPendingError, AuthorizationError
+        assert issubclass(AccountPendingError, AuthorizationError)
+
+    def test_account_suspended_error_inherits_authorization_error(self):
+        """AccountSuspendedError must inherit from AuthorizationError."""
+        from feather.exceptions import AccountSuspendedError, AuthorizationError
+        assert issubclass(AccountSuspendedError, AuthorizationError)
+
 
 class TestFeatherExceptionAttributes:
     """Verify FeatherException has expected attributes."""
@@ -328,6 +338,82 @@ class TestRateLimitErrorContract:
         from feather.exceptions import RateLimitError
         exc = RateLimitError()
         assert exc.message == "Too many requests"
+
+
+class TestAccountPendingErrorContract:
+    """Verify AccountPendingError interface."""
+
+    def test_exists_in_exceptions_module(self):
+        """AccountPendingError must be importable from feather.exceptions."""
+        from feather.exceptions import AccountPendingError
+        assert AccountPendingError is not None
+
+    def test_inherits_from_authorization_error(self):
+        """AccountPendingError must inherit from AuthorizationError."""
+        from feather.exceptions import AccountPendingError, AuthorizationError
+        assert issubclass(AccountPendingError, AuthorizationError)
+
+    def test_status_code_is_403(self):
+        """AccountPendingError status code must be 403."""
+        from feather.exceptions import AccountPendingError
+        exc = AccountPendingError()
+        assert exc.status_code == 403
+
+    def test_error_code(self):
+        """AccountPendingError error_code must be ACCOUNT_PENDING."""
+        from feather.exceptions import AccountPendingError
+        exc = AccountPendingError()
+        assert exc.error_code == "ACCOUNT_PENDING"
+
+    def test_default_message(self):
+        """AccountPendingError must have default message."""
+        from feather.exceptions import AccountPendingError
+        exc = AccountPendingError()
+        assert exc.message == "Account pending approval"
+
+    def test_custom_message(self):
+        """AccountPendingError must accept custom message."""
+        from feather.exceptions import AccountPendingError
+        exc = AccountPendingError("Your account is awaiting review")
+        assert exc.message == "Your account is awaiting review"
+
+
+class TestAccountSuspendedErrorContract:
+    """Verify AccountSuspendedError interface."""
+
+    def test_exists_in_exceptions_module(self):
+        """AccountSuspendedError must be importable from feather.exceptions."""
+        from feather.exceptions import AccountSuspendedError
+        assert AccountSuspendedError is not None
+
+    def test_inherits_from_authorization_error(self):
+        """AccountSuspendedError must inherit from AuthorizationError."""
+        from feather.exceptions import AccountSuspendedError, AuthorizationError
+        assert issubclass(AccountSuspendedError, AuthorizationError)
+
+    def test_status_code_is_403(self):
+        """AccountSuspendedError status code must be 403."""
+        from feather.exceptions import AccountSuspendedError
+        exc = AccountSuspendedError()
+        assert exc.status_code == 403
+
+    def test_error_code(self):
+        """AccountSuspendedError error_code must be ACCOUNT_SUSPENDED."""
+        from feather.exceptions import AccountSuspendedError
+        exc = AccountSuspendedError()
+        assert exc.error_code == "ACCOUNT_SUSPENDED"
+
+    def test_default_message(self):
+        """AccountSuspendedError must have default message."""
+        from feather.exceptions import AccountSuspendedError
+        exc = AccountSuspendedError()
+        assert exc.message == "Account suspended"
+
+    def test_custom_message(self):
+        """AccountSuspendedError must accept custom message."""
+        from feather.exceptions import AccountSuspendedError
+        exc = AccountSuspendedError("Your account has been deactivated")
+        assert exc.message == "Your account has been deactivated"
 
 
 class TestExceptionRaising:

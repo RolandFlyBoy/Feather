@@ -15,9 +15,9 @@ Feather provides production-ready infrastructure so you can focus on your applic
 
 | Feature | Options |
 |---------|---------|
-| **Authentication** | Google OAuth with session management |
+| **Authentication** | Google OAuth with session management, approval workflow |
 | **User Management** | Admin panel for approvals, roles, suspension |
-| **Multi-Tenancy** | Domain-based tenant isolation |
+| **Multi-Tenancy** | Domain-based or individual tenants (B2B+B2C) |
 | **Background Jobs** | Thread pool with concurrency control, or RQ (Redis) |
 | **Caching** | Memory or Redis |
 | **File Storage** | Local filesystem or Google Cloud Storage |
@@ -40,7 +40,7 @@ Feather fills that gap for Python. It's a full-stack framework that gives you au
 
 **How other frameworks approach this:**
 
-- **Rails** and **Laravel** pioneered the batteries-included philosophy. They handle auth, database migrations, background jobs, and asset compilation in one cohesive package. Feather takes the same approach but uses Python and modern tooling (Vite, Tailwind, HTMX).
+- **Rails** and **Laravel** pioneered the batteries-included philosophy. They handle auth, database migrations, background jobs, and asset compilation in one cohesive package. Feather takes the same approach but uses Python and modern tooling (Vite 7, Tailwind CSS, HTMX).
 
 - **Next.js** brought React to the server with excellent developer experience. But you're still managing React's complexity—state management, hydration mismatches, deciding what runs where. Feather sidesteps this by keeping JavaScript minimal and optional.
 
@@ -71,7 +71,7 @@ The mental model: start with Components for everything static, reach for HTMX wh
 **Core requirements (all apps):**
 
 - **Python 3.10+** — the runtime
-- **Node.js 22+** — for Vite (build tooling) and Tailwind CSS
+- **Node.js 22+** — for Vite 7 (build tooling) and Tailwind CSS
 - **pipx** — for installing the Feather CLI globally
 
 **Simple apps** (no auth, prototypes, internal tools):
@@ -132,6 +132,7 @@ During scaffolding, you'll be asked about optional features:
 - **File storage** — local filesystem for development, optionally GCS for production
 - **Email** — Resend for transactional emails (authenticated apps only)
 - **Admin email** — for authenticated apps, this creates your initial admin user
+- **User profile fields** — optional `display_name` and `profile_image_url` fields (authenticated apps)
 
 #### 2. Initialize and Run
 
@@ -455,11 +456,13 @@ Exception classes that automatically convert to JSON responses:
 
 ```python
 from feather.exceptions import (
-    ValidationError,      # 400 - Invalid input
-    AuthenticationError,  # 401 - Not logged in
-    AuthorizationError,   # 403 - No permission
-    NotFoundError,        # 404 - Resource not found
-    ConflictError,        # 409 - Already exists
+    ValidationError,        # 400 - Invalid input
+    AuthenticationError,    # 401 - Not logged in
+    AuthorizationError,     # 403 - No permission
+    AccountPendingError,    # 403 - Account awaiting approval (redirects to /account/pending)
+    AccountSuspendedError,  # 403 - Account suspended (redirects to /account/suspended)
+    NotFoundError,          # 404 - Resource not found
+    ConflictError,          # 409 - Already exists
 )
 
 # Throws:
@@ -468,6 +471,8 @@ raise ValidationError('Email is required', field='email')
 # Returns:
 # {"success": false, "error": {"code": "VALIDATION_ERROR", "message": "Email is required"}}
 ```
+
+**Account status exceptions:** `AccountPendingError` and `AccountSuspendedError` inherit from `AuthorizationError` but trigger redirects to dedicated status pages instead of generic 403 errors. They're raised automatically by `@auth_required` based on the user's `active` and `approved_at` fields.
 
 ---
 
@@ -552,13 +557,18 @@ Run seeds anytime with `python seeds.py` or `feather db seed`. The scaffolded se
 
 **Auth decorators:**
 ```python
-from feather import auth_required, admin_required, role_required
+from feather import auth_required, admin_required, role_required, login_only
 from feather.auth import permission_required, platform_admin_required
 
 @api.get('/me')
 @auth_required  # Any authenticated + approved user
 def get_profile():
     return {'user': current_user.to_dict()}
+
+@page.get('/account/pending')
+@login_only  # Authenticated but may be pending/suspended
+def account_pending():
+    return render_template('pages/account/pending.html')
 
 @api.delete('/users/<id>')
 @admin_required  # Tenant admin (role="admin")
@@ -633,11 +643,54 @@ def delete_article(id):
 
 **When to use which:**
 - `@auth_required` — any logged-in, approved user
+- `@login_only` — authenticated but may be pending/suspended (for status pages, account setup)
 - `@role_required('editor')` — check by role name (with inheritance)
 - `@permission_required('resources.create')` — check by action (more semantic)
 - `@admin_required` — shorthand for `@role_required('admin')`
 
 Permissions are defined in `feather/auth/permissions.py` and can be extended like roles.
+
+#### Approval Workflow Pages
+
+When users are pending approval or suspended, they're automatically redirected to dedicated pages instead of seeing generic error messages:
+
+| State | Redirect | Description |
+|-------|----------|-------------|
+| Pending | `/account/pending` | New user awaiting admin approval |
+| Suspended | `/account/suspended` | Previously approved, now deactivated |
+
+These pages are scaffolded with friendly messages and logout buttons. They use `@login_only` so users remain authenticated while seeing their account status.
+
+**Customizing the flow:** Edit the templates in `templates/pages/account/` to match your branding and add contact information.
+
+#### Post-Login Callback
+
+For B2B+B2C apps that need custom account setup logic after OAuth:
+
+```bash
+# .env
+FEATHER_POST_LOGIN_CALLBACK=myapp.auth:handle_login
+```
+
+```python
+# myapp/auth.py
+def handle_login(user, token):
+    """Called after OAuth login with user and token.
+
+    Args:
+        user: The User model instance
+        token: OAuth token dict (access_token, refresh_token, etc.)
+
+    Returns:
+        Redirect URL string, or None for default behavior
+    """
+    if not user.account_id:
+        # New user needs account setup
+        return '/onboarding/select-plan'
+    return None  # Default redirect to home
+```
+
+Use this for creating Account/Membership records, assigning tenants to public email users, or custom onboarding flows.
 
 ### Admin Panel
 
@@ -760,7 +813,14 @@ User signs in → Domain extracted → Tenant matched → Data scoped
 bob@acme.com → acme.com → Acme Corp tenant → Only sees Acme data
 ```
 
-**Public email domains blocked:** Gmail, Outlook, Yahoo, and other consumer email providers are automatically rejected. Users must sign in with their work email.
+**Public email domains:** By default, Gmail, Outlook, Yahoo, and other consumer email providers are blocked—users must sign in with their work email. For B2B+B2C apps that need to support both corporate and individual users:
+
+```bash
+# .env
+FEATHER_ALLOW_PUBLIC_EMAILS=true
+```
+
+When enabled, users with public emails (Gmail, etc.) are created with `tenant_id=None`. Use the post-login callback to handle account/tenant creation for these users.
 
 #### Two-Axis Authority Model
 
@@ -849,10 +909,27 @@ projects = Project.for_tenant(tenant_id).all()
 
 **Hard boundary:** `require_same_tenant()` is a hard stop—even tenant admins cannot bypass it. Cross-tenant operations require platform admin routes with explicit `@platform_admin_required` decorators.
 
+#### Tenant Model
+
+The scaffolded Tenant model supports both B2B (domain-based) and B2C (individual) patterns:
+
+```python
+class Tenant(Model):
+    slug = db.Column(db.String(64), unique=True, nullable=False)
+    domain = db.Column(db.String(255), nullable=True)  # Nullable for B2C
+    name = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=True)     # "company", "individual", etc.
+    status = db.Column(db.String(20), default="pending")
+```
+
+- **B2B tenants:** Set `domain` to auto-assign users by email (e.g., `@acme.com` → Acme tenant)
+- **B2C tenants:** Leave `domain` as `None`, create individually via post-login callback
+- **type field:** Classify tenants for billing, features, or reporting
+
 #### Tenant Lifecycle
 
 1. **Platform admin creates tenant** via `/admin/tenants`:
-   - Sets tenant name, slug, and email domain
+   - Sets tenant name, slug, and optionally email domain
    - Creates initial tenant admin (auto-approved)
    - Tenant starts in pending state
 
@@ -1792,7 +1869,9 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 SESSION_LIFETIME_DAYS=7           # Session expiry (default: 7)
 
 # Multi-tenancy
-FEATHER_MULTI_TENANT=true         # Enable multi-tenant mode
+FEATHER_MULTI_TENANT=true              # Enable multi-tenant mode
+FEATHER_ALLOW_PUBLIC_EMAILS=true       # Allow Gmail, Outlook, etc. (B2B+B2C)
+FEATHER_POST_LOGIN_CALLBACK=myapp.auth:handle_login  # Custom post-OAuth logic
 
 # Storage
 STORAGE_BACKEND=local             # 'local' or 'gcs'
@@ -1867,7 +1946,7 @@ This creates three files:
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | Multi-stage build with Python 3.11, Node.js 22, and system deps |
+| `Dockerfile` | Multi-stage build with Python 3.11, Node.js 22 (for Vite 7), and system deps |
 | `render.yaml` | Blueprint defining your web service and PostgreSQL database |
 | `.dockerignore` | Excludes venv, node_modules, .env, tests from the build |
 

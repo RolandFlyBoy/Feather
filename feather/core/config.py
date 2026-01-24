@@ -42,6 +42,23 @@ class Config:
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
     OAUTH_CALLBACK_URL = os.environ.get("OAUTH_CALLBACK_URL")  # Override OAuth redirect URI
 
+    # Multi-tenant settings
+    # Enable multi-tenant mode with domain-based tenant assignment
+    FEATHER_MULTI_TENANT = os.environ.get("FEATHER_MULTI_TENANT", "").lower() in ("true", "1", "yes")
+
+    # Allow public email domains (Gmail, Outlook, etc.) in multi-tenant mode
+    # When True, users with public emails can sign up; app handles account creation via callback
+    FEATHER_ALLOW_PUBLIC_EMAILS = os.environ.get("FEATHER_ALLOW_PUBLIC_EMAILS", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+
+    # Post-login callback (optional)
+    # Dotted path to function called after OAuth login: "myapp.auth:handle_login"
+    # Receives (user, token) and can return redirect URL or None for default behavior
+    FEATHER_POST_LOGIN_CALLBACK = os.environ.get("FEATHER_POST_LOGIN_CALLBACK")
+
     # Storage (optional)
     STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
     GCS_BUCKET = os.environ.get("GCS_BUCKET")

@@ -102,6 +102,66 @@ def _set_toast(message: str, toast_type: str = "error") -> None:
     session["_pending_toast"] = {"message": message, "type": toast_type}
 
 
+def _call_post_login_callback(user, token: dict) -> Optional[str]:
+    """Call the configured post-login callback if set.
+
+    The callback receives the user object and OAuth token, and can:
+    - Perform custom logic (assign tenant, create account, send welcome email)
+    - Return a redirect URL to override the default redirect
+    - Return None to use the default redirect behavior
+
+    This is useful for B2B+B2C apps that need custom account setup logic
+    after OAuth authentication (e.g., creating Account/Membership records).
+
+    Args:
+        user: The User model instance that was logged in.
+        token: The OAuth token dict with access_token, refresh_token, etc.
+
+    Returns:
+        Redirect URL string if callback returns one, otherwise None.
+
+    Note:
+        Errors are logged but do not interrupt the login flow (graceful degradation).
+    """
+    callback_path = current_app.config.get("FEATHER_POST_LOGIN_CALLBACK")
+    if not callback_path:
+        return None
+
+    try:
+        import importlib
+
+        # Parse "module.path:function_name" or "module.path.function_name" format
+        if ":" in callback_path:
+            module_path, func_name = callback_path.rsplit(":", 1)
+        else:
+            module_path, func_name = callback_path.rsplit(".", 1)
+
+        module = importlib.import_module(module_path)
+        callback_func = getattr(module, func_name)
+
+        # Call the callback with user and token
+        result = callback_func(user, token)
+
+        # Result can be a redirect URL string or None
+        return result if isinstance(result, str) else None
+
+    except ImportError as e:
+        current_app.logger.error(
+            f"Failed to import post-login callback '{callback_path}': {e}"
+        )
+        return None
+    except AttributeError as e:
+        current_app.logger.error(
+            f"Post-login callback function not found in '{callback_path}': {e}"
+        )
+        return None
+    except Exception as e:
+        current_app.logger.error(
+            f"Error in post-login callback '{callback_path}': {e}"
+        )
+        return None
+
+
 def init_google_oauth(app) -> None:
     """Initialize Google OAuth with the Flask app.
 
@@ -231,6 +291,12 @@ def callback():
             # (they'll be redirected to pending page and logged out there)
             login_user(user, remember=True, force=True)
 
+            # Call post-login callback if configured
+            callback_redirect = _call_post_login_callback(user, token)
+            if callback_redirect:
+                session.pop("next", None)  # Clear stored next URL
+                return redirect(callback_redirect)
+
             # Redirect to stored URL or home
             next_url = session.pop("next", None) or url_for("page.home")
             return redirect(next_url)
@@ -341,8 +407,9 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             return None
 
     if multi_tenant:
-        # Multi-tenant mode: Block public email domains
-        if is_public_email_domain(domain):
+        # Multi-tenant mode: Block public email domains (unless explicitly allowed)
+        allow_public_emails = current_app.config.get("FEATHER_ALLOW_PUBLIC_EMAILS", False)
+        if is_public_email_domain(domain) and not allow_public_emails:
             _set_toast(
                 "Public email domains (Gmail, Outlook, etc.) are not allowed. "
                 "Please sign in with your work email.",
@@ -383,30 +450,39 @@ def _get_or_create_user(user_info: dict, token: dict = None):
         # Normal login: Check if tenant exists (multi-tenant mode only)
         tenant = None
         if multi_tenant:
-            tenant = Tenant.query.filter_by(domain=domain).first()
-            if not tenant:
-                # NO auto-create - tenant must exist
-                _set_toast(
-                    f"No organization found for {domain}. Please contact your administrator.",
-                    "error"
-                )
-                session["_auth_error_handled"] = True
-                current_app.logger.warning(
-                    f"Blocked signup - no tenant for domain: {email}"
-                )
-                return None
+            # Skip tenant lookup for public emails when allowed (app handles account creation)
+            is_public = is_public_email_domain(domain) if domain else False
+            allow_public_emails = current_app.config.get("FEATHER_ALLOW_PUBLIC_EMAILS", False)
 
-            # Check if tenant is active
-            if hasattr(tenant, "status") and tenant.status != "active":
-                _set_toast(
-                    f"The organization for {domain} is not yet active. Please contact your administrator.",
-                    "error"
-                )
-                session["_auth_error_handled"] = True
-                current_app.logger.warning(
-                    f"Blocked signup - tenant not active: {email} (tenant: {tenant.slug})"
-                )
-                return None
+            if is_public and allow_public_emails:
+                # Public email with FEATHER_ALLOW_PUBLIC_EMAILS=True
+                # Skip tenant lookup - app is responsible for account creation
+                tenant = None
+            else:
+                tenant = Tenant.query.filter_by(domain=domain).first()
+                if not tenant:
+                    # NO auto-create - tenant must exist
+                    _set_toast(
+                        f"No organization found for {domain}. Please contact your administrator.",
+                        "error"
+                    )
+                    session["_auth_error_handled"] = True
+                    current_app.logger.warning(
+                        f"Blocked signup - no tenant for domain: {email}"
+                    )
+                    return None
+
+                # Check if tenant is active
+                if hasattr(tenant, "status") and tenant.status != "active":
+                    _set_toast(
+                        f"The organization for {domain} is not yet active. Please contact your administrator.",
+                        "error"
+                    )
+                    session["_auth_error_handled"] = True
+                    current_app.logger.warning(
+                        f"Blocked signup - tenant not active: {email} (tenant: {tenant.slug})"
+                    )
+                    return None
 
         # Generate username from email prefix
         username = email.split("@")[0]
@@ -441,14 +517,18 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             current_app.logger.info(
                 f"Created new user from Google: {email} (tenant: {tenant.slug}, suspended)"
             )
+            _set_toast(
+                "Your account has been created but requires approval from an administrator.",
+                "info"
+            )
         else:
             current_app.logger.info(
-                f"Created new user from Google: {email} (single-tenant, suspended)"
+                f"Created new user from Google: {email} (no tenant, suspended)"
             )
-        _set_toast(
-            "Your account has been created but requires approval from an administrator.",
-            "info"
-        )
+            _set_toast(
+                "Your account has been created and is pending setup.",
+                "info"
+            )
 
     # Update refresh token if provided and user has the field
     if token and hasattr(user, "google_refresh_token") and token.get("refresh_token"):

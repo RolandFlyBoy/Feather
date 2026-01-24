@@ -136,6 +136,7 @@ from feather.services.base import Service, transactional, singleton
 # Role-based access control decorators for routes.
 from feather.auth.decorators import (
     admin_required,
+    login_only,
     role_required,
     permission_required,
     platform_admin_required,
@@ -238,6 +239,7 @@ __all__ = [
     "singleton",
     # Authentication - Role-based access control
     "admin_required",
+    "login_only",
     "role_required",
     "permission_required",
     "platform_admin_required",

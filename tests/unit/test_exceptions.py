@@ -96,6 +96,18 @@ class TestExceptionStatusCodes:
         exc = DatabaseError()
         assert exc.status_code == 500
 
+    def test_account_pending_error_is_403(self):
+        """AccountPendingError returns 403 Forbidden."""
+        from feather.exceptions import AccountPendingError
+        exc = AccountPendingError()
+        assert exc.status_code == 403
+
+    def test_account_suspended_error_is_403(self):
+        """AccountSuspendedError returns 403 Forbidden."""
+        from feather.exceptions import AccountSuspendedError
+        exc = AccountSuspendedError()
+        assert exc.status_code == 403
+
 
 class TestExceptionErrorCodes:
     """Test that exceptions have correct error codes."""
@@ -129,6 +141,18 @@ class TestExceptionErrorCodes:
         from feather import ConflictError
         exc = ConflictError("Already exists")
         assert exc.error_code == "CONFLICT"
+
+    def test_account_pending_error_code(self):
+        """AccountPendingError has ACCOUNT_PENDING code."""
+        from feather.exceptions import AccountPendingError
+        exc = AccountPendingError()
+        assert exc.error_code == "ACCOUNT_PENDING"
+
+    def test_account_suspended_error_code(self):
+        """AccountSuspendedError has ACCOUNT_SUSPENDED code."""
+        from feather.exceptions import AccountSuspendedError
+        exc = AccountSuspendedError()
+        assert exc.error_code == "ACCOUNT_SUSPENDED"
 
 
 class TestExceptionStringRepresentation:

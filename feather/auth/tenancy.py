@@ -48,7 +48,12 @@ from typing import Callable
 from flask import current_app, g
 from flask_login import current_user
 
-from feather.exceptions import AuthenticationError, AuthorizationError
+from feather.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    AccountPendingError,
+    AccountSuspendedError,
+)
 
 
 def get_current_tenant_id() -> str:
@@ -82,7 +87,13 @@ def get_current_tenant_id() -> str:
     if callable(is_active):
         is_active = is_active()
     if not is_active:
-        raise AuthorizationError("Account suspended")
+        # Check if user was ever approved to distinguish pending vs suspended
+        # approved_at is set when admin first activates the account
+        approved_at = getattr(current_user, "approved_at", None)
+        if approved_at is None:
+            raise AccountPendingError("Your account is pending approval")
+        else:
+            raise AccountSuspendedError("Your account has been suspended")
 
     # Platform admins can operate without a tenant
     if getattr(current_user, "is_platform_admin", False):

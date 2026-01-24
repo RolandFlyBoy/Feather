@@ -4,27 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ error_code }} - {{ error_title }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #f9fafb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container { text-align: center; padding: 0 1rem; }
+        .icon-wrapper {
+            width: 6rem;
+            height: 6rem;
+            margin: 0 auto 1.5rem;
+            border-radius: 9999px;
+            background-color: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon-wrapper .material-symbols-outlined {
+            color: #9ca3af;
+            font-size: 48px;
+        }
+        .error-code {
+            font-size: 4.5rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+        .error-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 1rem;
+        }
+        .error-message {
+            color: #4b5563;
+            max-width: 28rem;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center" style="font-family: 'Inter', sans-serif;">
-    <div class="text-center px-4">
-        <!-- Icon -->
-        <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
-            <span class="material-symbols-outlined text-gray-400 text-[48px]">{{ error_icon | default('error') }}</span>
+<body>
+    <div class="container">
+        <div class="icon-wrapper">
+            <span class="material-symbols-outlined">{{ error_icon | default('error') }}</span>
         </div>
-
-        <!-- Error Code -->
-        <h1 class="text-7xl font-bold text-gray-900 mb-2">{{ error_code }}</h1>
-
-        <!-- Error Title -->
-        <h2 class="text-xl font-semibold text-gray-700 mb-4">{{ error_title }}</h2>
-
-        <!-- Error Message -->
-        <p class="text-gray-600 max-w-md mx-auto">{{ error_message }}</p>
+        <h1 class="error-code">{{ error_code }}</h1>
+        <h2 class="error-title">{{ error_title }}</h2>
+        <p class="error-message">{{ error_message }}</p>
     </div>
 </body>
 </html>

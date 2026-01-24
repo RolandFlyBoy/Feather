@@ -128,7 +128,13 @@ def register_error_handlers(app: "Flask") -> None:
     Args:
         app: Flask application instance.
     """
-    from feather.exceptions import FeatherException, AuthenticationError, AuthorizationError
+    from feather.exceptions import (
+        FeatherException,
+        AuthenticationError,
+        AuthorizationError,
+        AccountPendingError,
+        AccountSuspendedError,
+    )
 
     @app.errorhandler(FeatherException)
     def handle_feather_exception(error: FeatherException):
@@ -166,6 +172,19 @@ def register_error_handlers(app: "Flask") -> None:
 
                 # OAuth configured: redirect to home page (which has login)
                 return redirect(url_for('page.home'))
+
+            # Handle account pending/suspended with dedicated pages
+            if isinstance(error, AccountPendingError):
+                try:
+                    return redirect(url_for('page.account_pending'))
+                except Exception:
+                    pass  # Fall through to generic auth error
+
+            if isinstance(error, AccountSuspendedError):
+                try:
+                    return redirect(url_for('page.account_suspended'))
+                except Exception:
+                    pass  # Fall through to generic auth error
 
             if isinstance(error, AuthorizationError):
                 # Render authorization error template with next_url

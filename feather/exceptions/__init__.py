@@ -337,11 +337,69 @@ class RateLimitError(FeatherException):
         super().__init__(message, status_code=429, error_code="RATE_LIMIT_ERROR")
 
 
+class AccountPendingError(AuthorizationError):
+    """403 Forbidden - User account is pending approval.
+
+    Raised when an authenticated user tries to access a protected resource
+    but their account has not yet been approved by an administrator.
+
+    This is distinct from AccountSuspendedError - pending means the account
+    was never approved, while suspended means it was approved then deactivated.
+
+    Args:
+        message: Human-readable error message. Defaults to "Account pending approval".
+
+    Example::
+
+        # In auth flow
+        if not current_user.active and not current_user.approved_at:
+            raise AccountPendingError()
+
+    Note:
+        The @auth_required decorator raises this automatically for pending users.
+        Use @login_only for pages that should be accessible to pending users.
+    """
+
+    def __init__(self, message: str = "Account pending approval"):
+        super().__init__(message)
+        self.error_code = "ACCOUNT_PENDING"
+
+
+class AccountSuspendedError(AuthorizationError):
+    """403 Forbidden - User account has been suspended.
+
+    Raised when an authenticated user tries to access a protected resource
+    but their account has been suspended by an administrator.
+
+    This is distinct from AccountPendingError - suspended means the account
+    was previously approved but has been deactivated.
+
+    Args:
+        message: Human-readable error message. Defaults to "Account suspended".
+
+    Example::
+
+        # In auth flow
+        if not current_user.active and current_user.approved_at:
+            raise AccountSuspendedError()
+
+    Note:
+        The @auth_required decorator raises this automatically for suspended users.
+        Use @login_only for pages that should be accessible to suspended users.
+    """
+
+    def __init__(self, message: str = "Account suspended"):
+        super().__init__(message)
+        self.error_code = "ACCOUNT_SUSPENDED"
+
+
 __all__ = [
     "FeatherException",
     "ValidationError",
     "AuthenticationError",
     "AuthorizationError",
+    "AccountPendingError",
+    "AccountSuspendedError",
     "NotFoundError",
     "ConflictError",
     "StorageError",
