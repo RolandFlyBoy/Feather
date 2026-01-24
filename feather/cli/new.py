@@ -3532,9 +3532,8 @@ def _build_requirements_content(
 # For local development, Feather is linked via:
 #   pip install -e /path/to/feather
 
-# For deployment, uncomment ONE of these:
-# git+https://github.com/RolandFlyBoy/Feather.git
-# feather-framework>=0.1.0  # (when published to PyPI)
+# For deployment, uncomment this:
+# feather-framework
 
 # Python 3.13+ compatibility (audioop removed from stdlib)
 audioop-lts>=0.2.1; python_version >= "3.13"
