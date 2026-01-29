@@ -1599,6 +1599,52 @@ class ErrorLog(Model):
     created_at    # When it occurred
 ```
 
+### Interactive Shell
+
+The `feather shell` command launches an interactive Python shell with your Flask application context pre-loaded. This is invaluable for debugging, data exploration, and administrative tasks—especially in production environments.
+
+**What's auto-loaded:**
+- `app` — Flask application instance
+- `db` — SQLAlchemy database instance
+- All models from your `models/` directory (User, Post, etc.)
+
+**Usage:**
+```bash
+feather shell
+```
+
+**Example session:**
+```python
+Feather Interactive Shell
+========================================
+
+Available variables:
+  User: type
+  Post: type
+  app: Flask
+  db: SQLAlchemy
+
+>>> User.query.count()
+42
+>>> user = User.query.filter_by(email='admin@example.com').first()
+>>> user.role = 'admin'
+>>> db.session.commit()
+```
+
+**Production use cases:**
+
+The shell is particularly valuable in production environments like **Render Web Shell**, **Heroku console**, or any SSH access to your server:
+
+| Task | Example |
+|------|---------|
+| Check user status | `User.query.filter_by(email='...').first()` |
+| Count records | `Post.query.count()` |
+| Fix data issues | `user.active = True; db.session.commit()` |
+| Debug queries | `User.query.filter_by(role='admin').all()` |
+| Run one-off migrations | Direct database operations when needed |
+
+**IPython support:** If IPython is installed (`pip install ipython`), the shell uses it for enhanced features like tab completion and syntax highlighting.
+
 ---
 
 ## Testing
