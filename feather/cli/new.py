@@ -634,6 +634,11 @@ export default defineConfig({
   }
 }
 
+/* Admin color variable */
+:root {
+  --color-navy: #0B1F33;
+}
+
 /* Material Icons - use: <span class="icon">home</span> */
 @layer components {
   .icon {
@@ -674,27 +679,342 @@ export default defineConfig({
     margin: 4px 0;
   }
 
-  /* Admin Panel Styles - CHRP-inspired */
+  /* Admin Panel Styles — Sidebar Layout */
 
-  /* Header - 80px (h-20) fixed black header */
-  .admin-header {
-    background: #000;
+  /* App Shell */
+  .app-shell {
+    @apply min-h-screen bg-white;
   }
 
-  /* Tab Navigation */
-  .admin-nav-item {
-    transition: background-color 0.15s;
-    border-bottom: 2px solid transparent;
+  /* Desktop Sidebar */
+  .desktop-sidebar {
+    @apply hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col;
   }
 
-  .admin-nav-item:hover {
-    background-color: #f3f4f6;
+  .sidebar-inner {
+    @apply flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6;
   }
 
-  .admin-nav-item.active {
+  .sidebar-logo {
+    @apply flex h-16 shrink-0 items-center gap-3;
+    text-decoration: none;
+  }
+
+  .sidebar-logo-icon {
+    @apply h-8 w-8;
+    color: var(--color-navy);
+  }
+
+  .sidebar-logo-text {
+    @apply font-semibold text-gray-900;
+  }
+
+  .sidebar-logo-text-group {
+    @apply flex flex-col;
+  }
+
+  .sidebar-logo-subtitle {
+    @apply text-xs font-normal;
+    color: #6b7280;
+  }
+
+  .sidebar-nav {
+    @apply flex flex-1 flex-col;
+  }
+
+  .sidebar-nav-list {
+    @apply flex flex-1 flex-col gap-y-4;
+  }
+
+  .sidebar-nav-section {
+    @apply -mx-2 space-y-1;
+  }
+
+  .sidebar-nav-item {
+    @apply flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700;
+    @apply hover:bg-gray-50;
+    text-decoration: none;
+  }
+
+  .sidebar-nav-item:hover {
+    color: var(--color-navy);
+  }
+
+  .sidebar-nav-item.active {
+    @apply bg-gray-50;
+    color: var(--color-navy);
+  }
+
+  .sidebar-nav-item .icon {
+    @apply size-6 shrink-0 text-gray-400;
+  }
+
+  .sidebar-nav-item:hover .icon,
+  .sidebar-nav-item.active .icon {
+    color: var(--color-navy);
+  }
+
+  /* Mobile Drawer */
+  .mobile-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(17, 24, 39, 0.8);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .mobile-drawer-backdrop.hidden {
+    display: none;
+  }
+
+  .mobile-drawer-backdrop.open {
+    opacity: 1;
+  }
+
+  .mobile-drawer-panel {
+    position: fixed;
+    inset-block: 0;
+    left: 0;
+    z-index: 51;
+    width: 100%;
+    max-width: 20rem;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .mobile-drawer-panel.open {
+    transform: translateX(0);
+  }
+
+  .mobile-drawer-inner {
+    @apply flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4;
+    height: 100%;
+  }
+
+  .mobile-drawer-header {
+    @apply flex h-16 shrink-0 items-center justify-between;
+  }
+
+  .mobile-drawer-close {
+    @apply -m-2.5 p-2.5 text-gray-400 hover:text-gray-600;
+    cursor: pointer;
+  }
+
+  /* Content Wrapper with Header */
+  .app-content-wrapper {
+    @apply lg:pl-72;
+  }
+
+  .app-header {
+    @apply sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 sm:gap-x-6 sm:px-6 lg:px-8;
+  }
+
+  .header-hamburger {
+    @apply -m-2.5 p-2.5 text-gray-700 lg:hidden;
+    cursor: pointer;
+  }
+
+  .header-hamburger .icon {
+    @apply size-6;
+  }
+
+  .header-separator {
+    @apply h-6 w-px bg-gray-900/10 lg:hidden;
+  }
+
+  .header-mobile-logo {
+    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-2 lg:hidden;
+    color: var(--color-navy);
+    text-decoration: none;
+  }
+
+  .header-mobile-logo-icon {
+    @apply h-6 w-6;
+  }
+
+  .header-mobile-logo-text {
+    @apply font-semibold text-gray-900 text-sm;
+  }
+
+  /* Profile Dropdown (details/summary — CSS-only) */
+  .header-profile-dropdown {
+    @apply relative ml-auto;
+  }
+
+  .header-profile-btn {
+    @apply -m-1.5 flex items-center p-1.5;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .header-profile-btn::-webkit-details-marker {
+    display: none;
+  }
+
+  .header-profile-btn::marker {
+    display: none;
+    content: '';
+  }
+
+  .header-profile-dropdown[open] > .header-profile-btn::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    cursor: default;
+  }
+
+  .header-profile-avatar {
+    @apply size-8 rounded-full bg-gray-50;
+  }
+
+  .header-profile-avatar-fallback {
+    @apply size-8 rounded-full flex items-center justify-center text-white text-xs font-semibold;
+    background: var(--color-navy);
+  }
+
+  .header-profile-name {
+    @apply hidden lg:flex lg:items-center;
+  }
+
+  .header-profile-name span {
+    @apply ml-4 text-sm font-semibold leading-6 text-gray-900;
+  }
+
+  .header-profile-name .icon {
+    @apply ml-2 size-5 text-gray-400;
+  }
+
+  .header-dropdown-menu {
+    @apply absolute right-0 z-50 mt-2.5 w-48 rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5;
+    top: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-0.25rem);
+    transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms;
+  }
+
+  .header-profile-dropdown[open] .header-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .header-dropdown-link {
+    @apply flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50;
+    text-decoration: none;
+  }
+
+  .header-dropdown-link .icon {
+    @apply size-5 text-gray-400;
+  }
+
+  .header-dropdown-divider {
+    @apply my-1 border-t border-gray-100;
+  }
+
+  /* Main Content Area */
+  .app-content {
+    @apply py-10;
+  }
+
+  .app-content-container {
+    @apply px-4 sm:px-6 lg:px-8;
+    max-width: 80rem;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+
+  /* Confirm Modal */
+  .confirm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .confirm-modal-overlay.hidden {
+    display: none;
+  }
+
+  .confirm-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.75);
+  }
+
+  .confirm-modal {
+    position: relative;
+    z-index: 1;
+    background: #fff;
+    border-radius: 1rem;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  }
+
+  .confirm-modal-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .confirm-modal-close:hover {
     background: #f3f4f6;
+    color: #374151;
+  }
+
+  .confirm-modal-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    margin: 0 auto 1rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+
+  .confirm-modal-icon-question {
+    background: linear-gradient(135deg, #93c5fd, #3b82f6);
+  }
+
+  .confirm-modal-title {
+    font-size: 1.125rem;
     font-weight: 600;
-    border-bottom-color: #000;
+    color: #111827;
+    margin-bottom: 0.5rem;
+  }
+
+  .confirm-modal-message {
+    font-size: 0.9375rem;
+    color: #374151;
+    line-height: 1.5;
+  }
+
+  .confirm-modal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
   }
 
   /* Table styles */
@@ -813,31 +1133,6 @@ export default defineConfig({
     padding: 1.5rem;
   }
 
-  /* Fixed layout with scrollable content */
-  /* Header: 80px (h-20), Nav: 49px */
-  .admin-content-scroll {
-    height: calc(100vh - 5rem - 49px);
-    overflow-y: auto;
-    padding-bottom: 2rem;
-  }
-
-  /* Avatar dropdown */
-  .admin-avatar-dropdown {
-    display: none;
-    position: absolute;
-    right: 0;
-    top: calc(100% + 0.5rem);
-    min-width: 240px;
-    background: #fff;
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    z-index: 50;
-  }
-
-  .admin-avatar-dropdown.show {
-    display: block;
-  }
-
   /* Input styles */
   .admin-input {
     width: 100%;
@@ -849,8 +1144,8 @@ export default defineConfig({
 
   .admin-input:focus {
     outline: none;
-    box-shadow: 0 0 0 2px #000;
-    border-color: transparent;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
   }
 
   /* Search input with icon */
@@ -1189,43 +1484,151 @@ export default defineConfig({
     to { transform: rotate(360deg); }
   }
 
-  /* Admin Feather logo font */
-  .admin-logo-text {
-    font-family: 'Lobster', cursive;
-  }
-
   /* Admin chart container */
   .admin-chart-container {
     height: 250px;
   }
+}
 
-  /* Dark mode — Admin */
-  .dark .admin-nav-item:hover { background-color: #374151; }
-  .dark .admin-nav-item.active { background: #374151; border-bottom-color: #f9fafb; }
-  .dark .admin-table-header { background: #1f2937; border-bottom-color: #374151; }
-  .dark .admin-table-row:hover { background-color: #1f2937; }
-  .dark .admin-badge-active { background-color: #064e3b; color: #6ee7b7; }
-  .dark .admin-badge-suspended { background-color: #7f1d1d; color: #fca5a5; }
-  .dark .admin-badge-pending { background-color: #78350f; color: #fde68a; }
-  .dark .admin-badge-admin { background-color: #e5e7eb; color: #111827; }
-  .dark .admin-btn-primary { background: #e5e7eb; color: #111827; }
-  .dark .admin-btn-primary:hover { background: #d1d5db; }
-  .dark .admin-btn-secondary { background: #374151; color: #e5e7eb; border-color: #4b5563; }
-  .dark .admin-btn-secondary:hover { background: #4b5563; }
-  .dark .admin-btn-danger { background: #ef4444; }
-  .dark .admin-btn-danger:hover { background: #f87171; }
-  .dark .admin-card { background: #1f2937; }
-  .dark .admin-card-header { border-bottom-color: #374151; }
-  .dark .admin-card-icon { background: #e5e7eb; color: #111827; }
-  .dark .admin-card-title { color: #f9fafb; }
-  .dark .admin-card-subtitle { color: #9ca3af; }
-  .dark .admin-card-body { color: #e5e7eb; }
-  .dark .admin-avatar-dropdown { background: #1f2937; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3); }
-  .dark .admin-input { background: #374151; border-color: #4b5563; color: #f9fafb; }
-  .dark .admin-input:focus { box-shadow: 0 0 0 2px #818cf8; }
-  .dark .admin-stat-value { color: #f9fafb; }
-  .dark .admin-stat-label { color: #9ca3af; }
-  .dark .admin-content-scroll { scrollbar-color: #4b5563 transparent; }
+/* Dark mode overrides — outside @layer so they override Tailwind utilities */
+
+/* Dark mode — Admin Layout */
+  .dark .app-shell { background: #1e293b; }
+  .dark .sidebar-inner { background: #1e293b; border-color: #334155; }
+  .dark .sidebar-logo-icon { color: #818cf8; }
+  .dark .sidebar-logo-text { color: #f1f5f9; }
+  .dark .sidebar-logo-subtitle { color: #94a3b8; }
+  .dark .sidebar-nav-item { color: #cbd5e1; }
+  .dark .sidebar-nav-item:hover,
+  .dark .sidebar-nav-item.active { background: #334155; color: #f1f5f9; }
+  .dark .sidebar-nav-item .icon { color: #94a3b8; }
+  .dark .sidebar-nav-item:hover .icon,
+  .dark .sidebar-nav-item.active .icon { color: #f1f5f9; }
+  .dark .mobile-drawer-inner { background: #1e293b; }
+  .dark .mobile-drawer-close { color: #94a3b8; }
+  .dark .app-header { background: #1e293b; border-color: #334155; }
+  .dark .header-hamburger { color: #cbd5e1; }
+  .dark .header-separator { background: #475569; }
+  .dark .header-mobile-logo { color: #f1f5f9; }
+  .dark .header-mobile-logo-icon { color: #818cf8; }
+  .dark .header-mobile-logo-text { color: #f1f5f9; }
+  .dark .header-profile-name span { color: #f1f5f9; }
+  .dark .header-profile-avatar-fallback { background: #475569; }
+  .dark .header-dropdown-menu { background: #2a3a4e; box-shadow: 0 0 0 1px #475569; }
+  .dark .header-dropdown-link { color: #e2e8f0; }
+  .dark .header-dropdown-link:hover { background: #3d4f63; }
+  .dark .header-dropdown-divider { border-color: #475569; }
+  .dark .confirm-modal { background: #1e293b; }
+  .dark .confirm-modal-close { color: #94a3b8; }
+  .dark .confirm-modal-close:hover { background: #334155; color: #f1f5f9; }
+  .dark .confirm-modal-title { color: #f1f5f9; }
+  .dark .confirm-modal-message { color: #cbd5e1; }
+
+  /* Dark mode — Admin Components */
+  .dark .admin-table-header { background: #283548; border-color: #334155; }
+  .dark .admin-table-header th { color: #94a3b8; }
+  .dark .admin-table-row { border-color: #334155; }
+  .dark .admin-table-row:hover { background-color: #253345; }
+  .dark .admin-badge-active { background-color: rgba(22, 163, 74, 0.2); color: #4ade80; }
+  .dark .admin-badge-suspended { background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+  .dark .admin-badge-pending { background-color: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+  .dark .admin-badge-admin { background: #475569; color: #f1f5f9; }
+  .dark .admin-btn-primary { background: #475569; color: #f1f5f9; }
+  .dark .admin-btn-primary:hover { background: #64748b; }
+  .dark .admin-btn-secondary { background: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark .admin-btn-secondary:hover { background: #334155; }
+  .dark .admin-btn-danger { background: rgba(220, 38, 38, 0.8); }
+  .dark .admin-btn-danger:hover { background: rgba(220, 38, 38, 1); }
+  .dark .admin-card { background: #1e293b; border-color: #334155; }
+  .dark .admin-card-header { border-color: #334155; }
+  .dark .admin-card-icon { background: #334155; }
+  .dark .admin-card-title { color: #f1f5f9; }
+  .dark .admin-card-subtitle { color: #94a3b8; }
+  .dark .admin-card-body { color: #e2e8f0; }
+  .dark .admin-input { background: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark .admin-input:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.15); }
+  .dark .admin-stat-value { color: #f1f5f9; }
+  .dark .admin-stat-label { color: #94a3b8; }
+  .dark .admin-chart-container { background: #1e293b; }
+
+  /* Dark mode — Admin content scoped overrides (Tailwind utilities in admin pages) */
+  .dark .admin-content .bg-white { background: #1e293b; }
+  .dark .admin-content .bg-gray-50 { background: #253345; }
+  .dark .admin-content .bg-gray-100 { background: #334155; }
+  .dark .admin-content .bg-black { background: #475569; }
+  .dark .admin-content .text-gray-900 { color: #f1f5f9; }
+  .dark .admin-content .text-gray-800 { color: #e2e8f0; }
+  .dark .admin-content .text-gray-700 { color: #cbd5e1; }
+  .dark .admin-content .text-gray-600 { color: #94a3b8; }
+  .dark .admin-content .text-gray-500 { color: #64748b; }
+  .dark .admin-content .text-gray-400 { color: #64748b; }
+  .dark .admin-content h2, .dark .admin-content h3, .dark .admin-content h4 { color: #f1f5f9; }
+  .dark .admin-content p { color: #cbd5e1; }
+  .dark .admin-content .font-semibold { color: #f1f5f9; }
+  .dark .admin-content .border-gray-200 { border-color: #334155; }
+  .dark .admin-content .border-gray-300 { border-color: #475569; }
+  .dark .admin-content .divide-gray-200 > * + * { border-color: #334155; }
+  .dark .admin-content .shadow { box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3); border: 1px solid #334155; }
+  .dark .admin-content .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5) !important;
+    border: 1px solid #334155 !important;
+  }
+  .dark .admin-content .hover\\:bg-gray-50:hover { background: #253345 !important; }
+  .dark .admin-content .toggle-track { background: #475569; }
+  .dark .admin-content .toggle-track.active { background: #6366f1; }
+  .admin-content tbody tr { border-bottom: 1px solid #f3f4f6; }
+  .admin-content tbody tr:last-child { border-bottom: none; }
+  .admin-content tbody tr:nth-child(even) { background: #f9fafb; }
+  .admin-content tbody tr:hover { background: #f3f4f6; }
+  .dark .admin-content tbody tr { border-color: #334155; }
+  .dark .admin-content tbody tr:nth-child(even) { background: #253345; }
+  .dark .admin-content tbody tr:hover { background: #334155; }
+  .admin-content .divide-y > * + * { border-top-width: 0; }
+  .dark .admin-content .bg-green-600 { background: rgba(22, 163, 74, 0.7); }
+  .dark .admin-content .bg-blue-600 { background: rgba(37, 99, 235, 0.7); }
+  .dark .admin-content .bg-green-100 { background: rgba(22, 163, 74, 0.15); }
+  .dark .admin-content .bg-yellow-100 { background: rgba(245, 158, 11, 0.2); }
+  .dark .admin-content .bg-red-100 { background: rgba(239, 68, 68, 0.2); }
+  .dark .admin-content .bg-purple-100 { background: rgba(124, 58, 237, 0.2); }
+  .dark .admin-content .bg-blue-100 { background: rgba(59, 130, 246, 0.2); }
+  .dark .admin-content .text-green-800 { color: #4ade80; }
+  .dark .admin-content .text-green-600 { color: #4ade80; }
+  .dark .admin-content .text-yellow-800 { color: #fbbf24; }
+  .dark .admin-content .text-red-800 { color: #fca5a5; }
+  .dark .admin-content .text-red-600 { color: #f87171; }
+  .dark .admin-content .text-purple-800 { color: #c4b5fd; }
+  .dark .admin-content .text-blue-800 { color: #93c5fd; }
+  .dark .admin-content select { background: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark .admin-content input:not([type="checkbox"]):not([type="radio"]) { background: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark .admin-content textarea { background: #1e293b; color: #e2e8f0; }
+  .dark .admin-content .bg-gray-300 { background: #475569; }
+  .dark .admin-content .bg-green-50 { background: rgba(22, 163, 74, 0.1); }
+  .dark .admin-content .bg-red-50 { background: rgba(239, 68, 68, 0.1); }
+  .dark .admin-content .border-green-200 { border-color: rgba(22, 163, 74, 0.3); }
+  .dark .admin-content .border-red-200 { border-color: rgba(239, 68, 68, 0.3); }
+  .dark .admin-content .text-yellow-600 { color: #fbbf24; }
+  .dark .admin-content .text-white { color: #f1f5f9; }
+  .dark .admin-content .text-gray-300 { color: #4b5563; }
+  .dark .admin-content .font-medium { color: #e2e8f0; }
+  .dark .admin-content .hover\\:bg-gray-200:hover { background: #374151 !important; }
+  .dark .admin-content .hover\\:text-gray-900:hover { color: #f1f5f9 !important; }
+  .dark .admin-content .hover\\:text-gray-600:hover { color: #94a3b8 !important; }
+  .dark .admin-content select { outline-color: #475569; }
+  .dark .admin-content input::placeholder,
+  .dark .admin-content textarea::placeholder { color: #64748b; }
+  .dark .admin-content .shadow-xl {
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5) !important;
+    border: 1px solid #334155 !important;
+  }
+  .dark .admin-content input:focus,
+  .dark .admin-content textarea:focus {
+    border-color: #818cf8 !important;
+    box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3);
+    outline: none;
+  }
+  /* Keep toggle knobs white in dark mode */
+  .dark .admin-content .sr-only + div + div.rounded-full { background: white !important; }
+
   .dark .auth-page { background: #111827; }
   .dark .page-header { background: #000; }
   .dark .page-title { color: #f9fafb; }
@@ -1238,7 +1641,6 @@ export default defineConfig({
   .dark .code-inline { background: #374151; color: #e5e7eb; }
   .dark .code-block-dark { background: #0f172a; }
   .dark .code-label { color: #9ca3af; }
-}
 
 /* Add your custom styles below */
 """
@@ -1523,6 +1925,9 @@ def home():
     <link rel="stylesheet" href="{{ feather_asset('styles') }}">
     {% endif %}
 
+    <!-- Dark mode: restore preference before render to avoid flash -->
+    <script src="/feather-static/dark-mode.js"></script>
+
     {% block extra_head %}{% endblock %}
 </head>
 <body class="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-gray-100" hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
@@ -1544,7 +1949,6 @@ def home():
     <script src="/feather-static/dropdown.js"></script>
     <script src="/feather-static/toast.js"></script>
     <script src="/feather-static/prompt-modal.js"></script>
-    <script src="/feather-static/dark-mode.js"></script>
 
     <!-- App JS (shared utilities) -->
     {% if config.DEBUG %}
@@ -1771,8 +2175,8 @@ Flask route example:
             <button data-toggle-dark-mode
                     class="p-2 rounded-lg text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
                     title="Toggle dark mode">
-                <span data-light-icon class="material-symbols-outlined">bedtime</span>
-                <span data-dark-icon class="material-symbols-outlined hidden">sunny</span>
+                <span class="dark:hidden"><span class="material-symbols-outlined">bedtime</span></span>
+                <span class="hidden dark:inline"><span class="material-symbols-outlined">sunny</span></span>
             </button>
         </div>
         <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center justify-center gap-3">
@@ -1898,8 +2302,8 @@ Flask route example:
             <button data-toggle-dark-mode
                     class="p-2 rounded-lg text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
                     title="Toggle dark mode">
-                <span data-light-icon class="material-symbols-outlined">bedtime</span>
-                <span data-dark-icon class="material-symbols-outlined hidden">sunny</span>
+                <span class="dark:hidden"><span class="material-symbols-outlined">bedtime</span></span>
+                <span class="hidden dark:inline"><span class="material-symbols-outlined">sunny</span></span>
             </button>
         </div>
         <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center justify-center gap-3">
@@ -2391,31 +2795,38 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
 (function() {
   "use strict";
 
-  // Avatar dropdown toggle
-  function initAvatarDropdown() {
-    const avatarBtn = document.getElementById("admin-avatar-btn");
-    const dropdown = document.getElementById("admin-avatar-dropdown");
-    const avatarImg = document.getElementById("admin-avatar-img");
+  // Mobile sidebar drawer
+  function initMobileSidebar() {
+    var backdrop = document.getElementById("mobile-sidebar-backdrop");
+    var panel = document.getElementById("mobile-sidebar");
+    if (!backdrop || !panel) return;
 
-    if (avatarImg) {
-      avatarImg.addEventListener("error", () => {
-        const fallback = avatarImg.dataset.fallback;
-        if (fallback && avatarImg.src !== fallback) avatarImg.src = fallback;
+    function openSidebar() {
+      backdrop.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      requestAnimationFrame(function() {
+        backdrop.classList.add("open");
+        panel.classList.add("open");
       });
     }
 
-    if (avatarBtn && dropdown) {
-      avatarBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle("show");
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!dropdown.contains(e.target) && !avatarBtn.contains(e.target)) {
-          dropdown.classList.remove("show");
-        }
-      });
+    function closeSidebar() {
+      backdrop.classList.remove("open");
+      panel.classList.remove("open");
+      document.body.style.overflow = "";
+      setTimeout(function() { backdrop.classList.add("hidden"); }, 300);
     }
+
+    document.addEventListener("click", function(e) {
+      if (e.target.closest("[data-action=\'open-sidebar\']")) openSidebar();
+      if (e.target.closest("[data-action=\'close-sidebar\']")) closeSidebar();
+    });
+
+    backdrop.addEventListener("click", function(e) {
+      if (e.target === backdrop) closeSidebar();
+    });
+
+    window._closeMobileSidebar = closeSidebar;
   }
 
   // Custom confirm modal for admin
@@ -2449,7 +2860,7 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
     // Modal backdrop and cancel clicks
     modal.addEventListener("click", (e) => {
       const action = e.target.dataset.action;
-      if (action === "cancel" || e.target === modal.querySelector(".absolute.inset-0")) {
+      if (action === "cancel") {
         closeConfirmModal();
       }
     });
@@ -2461,14 +2872,16 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
     confirmCallback = null;
   }
 
-  // Expose closeConfirmModal globally for the modal backdrop
   window.closeConfirmModal = closeConfirmModal;
 
   // Handle escape key
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       closeConfirmModal();
-      document.getElementById("admin-avatar-dropdown")?.classList.remove("show");
+      if (window._closeMobileSidebar) window._closeMobileSidebar();
+      // Close profile dropdown
+      var details = document.querySelector(".header-profile-dropdown[open]");
+      if (details) details.removeAttribute("open");
     }
   });
 
@@ -2487,13 +2900,22 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
   // Handle email selection in admin tools
   function initEmailSelector() {
     document.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-action='select-email']");
+      const btn = e.target.closest("[data-action=\'select-email\']");
       if (btn) {
         const email = btn.dataset.email;
-        const input = document.querySelector("[name='to']");
+        const input = document.querySelector("[name=\'to\']");
         const dropdown = document.getElementById("user-dropdown");
         if (input) input.value = email;
         if (dropdown) dropdown.innerHTML = "";
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      const dropdown = document.getElementById("user-dropdown");
+      const input = document.getElementById("email-to-input");
+      if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+        dropdown.innerHTML = "";
       }
     });
   }
@@ -2508,26 +2930,24 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
     });
   }
 
-  // Handle admin avatar image fallbacks
-  function initAvatarFallbacks() {
-    document.querySelectorAll(".admin-avatar-img").forEach((img) => {
-      img.addEventListener("error", () => {
-        const fallback = img.dataset.fallback;
-        if (fallback && img.src !== fallback) img.src = fallback;
-      });
-    });
-  }
-
   // Handle tenant modal
   function initTenantModal() {
     const modal = document.getElementById("create-tenant-modal");
     if (!modal) return;
 
     document.addEventListener("click", (e) => {
-      const action = e.target.dataset.action;
+      const el = e.target.closest("[data-action]");
+      if (!el) return;
+      const action = el.dataset.action;
       if (action === "show-create-tenant") {
         modal.classList.remove("hidden");
       } else if (action === "hide-create-tenant") {
+        modal.classList.add("hidden");
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !modal.classList.contains("hidden")) {
         modal.classList.add("hidden");
       }
     });
@@ -2536,21 +2956,19 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
   // Initialize on DOM ready
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      initAvatarDropdown();
+      initMobileSidebar();
       initConfirmModal();
       initPendingToast();
       initEmailSelector();
       initClickableRows();
-      initAvatarFallbacks();
       initTenantModal();
     });
   } else {
-    initAvatarDropdown();
+    initMobileSidebar();
     initConfirmModal();
     initPendingToast();
     initEmailSelector();
     initClickableRows();
-    initAvatarFallbacks();
     initTenantModal();
   }
 })();
@@ -3656,15 +4074,6 @@ def _build_requirements_content(
     return """# Project Dependencies
 # ALL deps come from Feather framework:
 # Flask, SQLAlchemy, authlib, redis, GCS, reportlab, gunicorn, pytest, etc.
-
-# For local development, Feather is linked via:
-#   pip install -e /path/to/feather
-
-# For deployment, uncomment this:
-# feather-framework
-
-# Python 3.13+ compatibility (audioop removed from stdlib)
-audioop-lts>=0.2.1; python_version >= "3.13"
 """
 
 
@@ -4454,6 +4863,7 @@ import json
 
 from flask import abort, Blueprint, jsonify, make_response, redirect, render_template, request, session, url_for
 from flask_login import current_user
+from markupsafe import escape as html_escape
 
 from feather.auth import admin_required
 from services.admin_service import AdminService
@@ -4698,14 +5108,15 @@ def search_users_dropdown():
 
     html = '<div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">'
     for user in users:
-        display_name = getattr(user, "display_name", None) or user.email
+        display_name = html_escape(getattr(user, "display_name", None) or user.email)
+        email = html_escape(user.email)
         profile_url = getattr(user, "profile_image_url", None)
-        avatar_url = profile_url if profile_url and profile_url.strip() else AdminService.fallback_avatar(user)
-        fallback_url = AdminService.fallback_avatar(user)
+        avatar_url = html_escape(profile_url if profile_url and profile_url.strip() else AdminService.fallback_avatar(user))
+        fallback_url = html_escape(AdminService.fallback_avatar(user))
         html += f"""
         <button type="button"
                 data-action="select-email"
-                data-email="{user.email}"
+                data-email="{email}"
                 class="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
             <img src="{avatar_url}"
                  data-fallback="{fallback_url}"
@@ -4714,7 +5125,7 @@ def search_users_dropdown():
                  class="w-6 h-6 rounded-full admin-avatar-img">
             <div>
                 <span class="font-medium">{display_name}</span>
-                <span class="text-gray-500"> - {user.email}</span>
+                <span class="text-gray-500"> - {email}</span>
             </div>
         </button>
         """
@@ -5553,149 +5964,207 @@ class AdminService(Service):
 
 
 def _build_admin_base_template(tenant_mode: str) -> str:
-    """Build admin base template with navigation."""
-    # Build navigation tabs
-    tenant_tab = ""
+    """Build admin base template with sidebar navigation."""
+    # Build tenant nav item (only for multi-tenant mode)
+    tenant_nav = ""
     if tenant_mode == "multi":
-        tenant_tab = '''
-                    {% if current_user.is_platform_admin is defined and current_user.is_platform_admin %}
-                    <a href="{{ url_for('admin.tenants_page') }}"
-                       class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint in ['admin.tenants_page', 'admin.tenant_detail_page'] %}active{% else %}text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100{% endif %}">
-                        Tenants
-                    </a>
-                    {% endif %}'''
+        tenant_nav = '''
+                                        {% if current_user.is_platform_admin is defined and current_user.is_platform_admin %}
+                                        <li>
+                                            <a href="{{ url_for('admin.tenants_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint in ['admin.tenants_page', 'admin.tenant_detail_page'] %}active{% endif %}">
+                                                {{ icon("business", size="md") }}
+                                                Tenants
+                                            </a>
+                                        </li>
+                                        {% endif %}'''
+
+    # Feather SVG logo (compact version for sidebar)
+    feather_logo_svg = '''<svg class="sidebar-logo-icon" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+                    <g><path fill="#b399c8" d="M42.3339,49.147a29.9446,29.9446,0,0,1-19.3378-8.1514h0c-8.0137-7.3643-8.378-18.0752-8.5332-22.6484l-.0215-.627a2.9039,2.9039,0,0,1,3.457-2.9512c17.0049,3.3555,21.6943,16.3243,22.0557,17.4a49.5426,49.5426,0,0,1,3.5742,15.9219,1,1,0,0,1-.9668,1.0518C42.5322,49.144,42.455,49.147,42.3339,49.147Z"/>
+                    <path fill="#61b2e4" d="M44.4355,55.3159c-11.6455,0-17.3757-6.9734-17.6521-7.3542a1,1,0,0,1,.2617-1.4239,11.1031,11.1031,0,0,1,12.7742-1.5734c-1.4648-9.0782,1.877-13.5684,2.0312-13.77a.9982.9982,0,0,1,.75-.39.9705.9705,0,0,1,.78.3242c8.9434,9.7715,8.793,16.5322,7.9072,19.6914-.0341.1406-1.0615,4.0918-4.7714,4.4063C45.8046,55.2876,45.1113,55.3159,44.4355,55.3159Z"/></g>
+                    <g><path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M55.1837,57.69S34.96,45.877,23.0974,24.2062"/>
+                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M45.2281,54.3024C33.2973,54.7629,27.6,47.4216,27.6,47.4216"/>
+                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M40.528,42.4827c-.5595-7.1945,2.1157-10.6784,2.1157-10.6784,8.8346,9.6533,8.4063,16.1616,7.6813,18.7468"/>
+                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M37.0138,47.4216A30.15,30.15,0,0,1,23.673,40.26c-8.0725-7.4186-8.0674-18.2414-8.2321-22.5774a1.9032,1.9032,0,0,1,2.2642-1.9314C34.6938,19.1027,39.02,32.5284,39.02,32.5284"/></g>
+                </svg>'''
+
+    # Build the navigation list (reused in both desktop sidebar and mobile drawer)
+    nav_items = '''<ul role="list" class="sidebar-nav-section">
+                                        <li>
+                                            <a href="{{ url_for('admin.users_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint in ['admin.users_page', 'admin.user_detail_page', 'admin.index'] %}active{% endif %}">
+                                                {{ icon("people", size="md") }}
+                                                Users
+                                            </a>
+                                        </li>''' + tenant_nav + '''
+                                        <li>
+                                            <a href="{{ url_for('admin.tools_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.tools_page' %}active{% endif %}">
+                                                {{ icon("build", size="md") }}
+                                                Tools
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ url_for('admin.analytics_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.analytics_page' %}active{% endif %}">
+                                                {{ icon("analytics", size="md") }}
+                                                Analytics
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ url_for('admin.logs_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.logs_page' %}active{% endif %}">
+                                                {{ icon("receipt_long", size="md") }}
+                                                Logs
+                                            </a>
+                                        </li>
+                                    </ul>'''
 
     return '''{% extends "base.html" %}
+{% from "components/icon.html" import icon %}
 
 {% block title %}{% block admin_title %}Admin{% endblock %} - Admin{% endblock %}
 
 {% block content %}
-<div class="admin-page bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
-<!-- Fixed Header -->
-<header class="admin-header fixed top-0 left-0 right-0 z-40 h-20">
-    <div class="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
-        <!-- Left: Admin branding -->
-        <a href="{{ url_for('admin.index') }}" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <svg class="w-12 h-12" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
-                <g id="color">
-                    <path fill="#b399c8" d="M42.3339,49.147a29.9446,29.9446,0,0,1-19.3378-8.1514h0c-8.0137-7.3643-8.378-18.0752-8.5332-22.6484l-.0215-.627a2.9039,2.9039,0,0,1,3.457-2.9512c17.0049,3.3555,21.6943,16.3243,22.0557,17.4a49.5426,49.5426,0,0,1,3.5742,15.9219,1,1,0,0,1-.9668,1.0518C42.5322,49.144,42.455,49.147,42.3339,49.147Z"/>
-                    <path fill="#61b2e4" d="M44.4355,55.3159c-11.6455,0-17.3757-6.9734-17.6521-7.3542a1,1,0,0,1,.2617-1.4239,11.1031,11.1031,0,0,1,12.7742-1.5734c-1.4648-9.0782,1.877-13.5684,2.0312-13.77a.9982.9982,0,0,1,.75-.39.9705.9705,0,0,1,.78.3242c8.9434,9.7715,8.793,16.5322,7.9072,19.6914-.0341.1406-1.0615,4.0918-4.7714,4.4063C45.8046,55.2876,45.1113,55.3159,44.4355,55.3159Z"/>
-                </g>
-                <g id="line">
-                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M55.1837,57.69S34.96,45.877,23.0974,24.2062"/>
-                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M45.2281,54.3024C33.2973,54.7629,27.6,47.4216,27.6,47.4216"/>
-                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M40.528,42.4827c-.5595-7.1945,2.1157-10.6784,2.1157-10.6784,8.8346,9.6533,8.4063,16.1616,7.6813,18.7468"/>
-                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M37.0138,47.4216A30.15,30.15,0,0,1,23.673,40.26c-8.0725-7.4186-8.0674-18.2414-8.2321-22.5774a1.9032,1.9032,0,0,1,2.2642-1.9314C34.6938,19.1027,39.02,32.5284,39.02,32.5284"/>
-                </g>
-            </svg>
-            <div class="flex flex-col">
-                <span class="text-white text-[32px] leading-none admin-logo-text">Feather</span>
-                <span class="text-white/70 text-sm font-normal">Admin</span>
-            </div>
-        </a>
+<div class="app-shell">
+    <!-- Mobile sidebar backdrop -->
+    <div id="mobile-sidebar-backdrop" class="mobile-drawer-backdrop hidden"></div>
 
-        <!-- Right: Avatar dropdown -->
-        <div class="relative">
-            <button id="admin-avatar-btn" class="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
-                {% if current_user and current_user.is_authenticated %}
-                {% set display_name = current_user.display_name or current_user.username or current_user.email or 'Admin' %}
-                {% set fallback_url = 'https://ui-avatars.com/api/?name=' ~ display_name|urlencode ~ '&background=000&color=fff&size=128' %}
-                <img id="admin-avatar-img"
-                     src="{{ current_user.profile_image_url or fallback_url }}"
-                     alt="{{ display_name }}"
-                     class="w-10 h-10 rounded-full ring-2 ring-white ring-opacity-50"
-                     referrerpolicy="no-referrer"
-                     crossorigin="anonymous"
-                     data-fallback="{{ fallback_url }}">
-                {% else %}
-                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-white text-[20px]">person</span>
-                </div>
-                {% endif %}
-                <span class="material-symbols-outlined text-white text-[20px]">expand_more</span>
-            </button>
-
-            <!-- Avatar Dropdown Menu -->
-            <div id="admin-avatar-dropdown" class="admin-avatar-dropdown">
-                {% if current_user and current_user.is_authenticated %}
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <p class="font-semibold text-gray-900 dark:text-gray-100">{{ current_user.display_name or current_user.username or 'Admin' }}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ current_user.email }}</p>
-                </div>
-                {% endif %}
-                <div class="py-2">
-                    <a href="/" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-                        <span class="material-symbols-outlined text-[20px]">home</span>
-                        <span>Back to Site</span>
-                    </a>
-                    <a href="{{ url_for('auth.logout') }}" class="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors cursor-pointer">
-                        <span class="material-symbols-outlined text-[20px]">logout</span>
-                        <span>Sign Out</span>
-                    </a>
-                </div>
+    <!-- Mobile sidebar panel -->
+    <div id="mobile-sidebar" class="mobile-drawer-panel">
+        <div class="mobile-drawer-inner">
+            <div class="mobile-drawer-header">
+                <a href="{{ url_for('admin.index') }}" class="sidebar-logo">
+                    ''' + feather_logo_svg + '''
+                    <div class="sidebar-logo-text-group">
+                        <span class="sidebar-logo-text">Feather</span>
+                        <span class="sidebar-logo-subtitle">Admin</span>
+                    </div>
+                </a>
+                <button type="button" class="mobile-drawer-close" data-action="close-sidebar">
+                    {{ icon("close", size="md") }}
+                </button>
             </div>
+            <nav class="sidebar-nav">
+                <ul role="list" class="sidebar-nav-list">
+                    <li>
+                        ''' + nav_items + '''
+                    </li>
+                </ul>
+            </nav>
         </div>
     </div>
-</header>
 
-<!-- Main Content Area -->
-<div class="pt-20">
-    <!-- Tab Navigation -->
-    <nav class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 fixed top-20 left-0 right-0 z-30">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex gap-8">
-                <a href="{{ url_for('admin.users_page') }}"
-                   class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint in ['admin.users_page', 'admin.user_detail_page', 'admin.index'] %}active{% else %}text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100{% endif %}">
-                    Users
-                </a>''' + tenant_tab + '''
-                <a href="{{ url_for('admin.tools_page') }}"
-                   class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint == 'admin.tools_page' %}active{% else %}text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100{% endif %}">
-                    Tools
-                </a>
-                <a href="{{ url_for('admin.analytics_page') }}"
-                   class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint == 'admin.analytics_page' %}active{% else %}text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100{% endif %}">
-                    Analytics
-                </a>
-                <a href="{{ url_for('admin.logs_page') }}"
-                   class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint == 'admin.logs_page' %}active{% else %}text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100{% endif %}">
-                    Logs
-                </a>
-            </div>
+    <!-- Desktop sidebar -->
+    <div class="desktop-sidebar">
+        <div class="sidebar-inner">
+            <a href="{{ url_for('admin.index') }}" class="sidebar-logo">
+                ''' + feather_logo_svg + '''
+                <div class="sidebar-logo-text-group">
+                    <span class="sidebar-logo-text">Feather</span>
+                    <span class="sidebar-logo-subtitle">Admin</span>
+                </div>
+            </a>
+            <nav class="sidebar-nav">
+                <ul role="list" class="sidebar-nav-list">
+                    <li>
+                        ''' + nav_items + '''
+                    </li>
+                </ul>
+            </nav>
         </div>
-    </nav>
+    </div>
 
-    <!-- Scrollable Content Area -->
-    <div class="admin-content-scroll pt-[49px]">
-        <main class="max-w-7xl mx-auto px-4 py-6">
-            {% block admin_content %}{% endblock %}
+    <!-- Content wrapper with header -->
+    <div class="app-content-wrapper">
+        <!-- Sticky header -->
+        <div class="app-header">
+            <!-- Hamburger (mobile only) -->
+            <button type="button" class="header-hamburger" data-action="open-sidebar">
+                <span class="sr-only">Open sidebar</span>
+                {{ icon("menu", size="md") }}
+            </button>
+            <div class="header-separator" aria-hidden="true"></div>
+
+            <!-- Centered logo (mobile only) -->
+            <a href="{{ url_for('admin.index') }}" class="header-mobile-logo">
+                {{ icon("spa", size="md", class="header-mobile-logo-icon") }}
+                <span class="header-mobile-logo-text">Admin</span>
+            </a>
+
+            <!-- Spacer -->
+            <div class="flex-1"></div>
+
+            <!-- Profile dropdown (native details/summary) -->
+            <details class="header-profile-dropdown">
+                <summary class="header-profile-btn">
+                    <span class="sr-only">Open user menu</span>
+                    {% if current_user and current_user.is_authenticated %}
+                    {% if current_user.profile_image_url %}
+                    <img src="{{ current_user.profile_image_url }}"
+                         alt=""
+                         class="header-profile-avatar"
+                         referrerpolicy="no-referrer">
+                    {% else %}
+                    <div class="header-profile-avatar-fallback">
+                        {{ icon("person", size="sm") }}
+                    </div>
+                    {% endif %}
+                    <span class="header-profile-name">
+                        <span aria-hidden="true">{{ current_user.display_name or current_user.username or current_user.email.split('@')[0] }}</span>
+                        {{ icon("expand_more", size="sm") }}
+                    </span>
+                    {% else %}
+                    <div class="header-profile-avatar-fallback">
+                        {{ icon("person", size="sm") }}
+                    </div>
+                    {% endif %}
+                </summary>
+                <div class="header-dropdown-menu">
+                    <a href="/" class="header-dropdown-link">
+                        {{ icon("home", size="sm") }}
+                        Back to Site
+                    </a>
+                    <div class="header-dropdown-divider"></div>
+                    <a href="{{ url_for('auth.logout') }}" class="header-dropdown-link">
+                        {{ icon("logout", size="sm") }}
+                        Sign out
+                    </a>
+                </div>
+            </details>
+        </div>
+
+        <!-- Main content -->
+        <main class="app-content admin-content">
+            <div class="app-content-container">
+                {% block admin_content %}{% endblock %}
+            </div>
         </main>
     </div>
 </div>
 
 <!-- Confirm Modal -->
-<div id="confirm-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/50" data-action="cancel"></div>
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-        <div class="p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Confirm</h3>
-            <p id="confirm-message" class="text-gray-600 dark:text-gray-400">Are you sure?</p>
+<div id="confirm-modal" class="confirm-modal-overlay hidden">
+    <div class="confirm-modal-backdrop" data-action="cancel"></div>
+    <div class="confirm-modal">
+        <button type="button" class="confirm-modal-close" data-action="cancel">
+            {{ icon("close", size="sm") }}
+        </button>
+        <div class="confirm-modal-icon confirm-modal-icon-question">
+            {{ icon("help", size="lg") }}
         </div>
-        <div class="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-700">
-            <button data-action="cancel"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 cursor-pointer">
-                Cancel
-            </button>
-            <button id="confirm-button"
-                    class="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 cursor-pointer">
-                Confirm
-            </button>
+        <h3 class="confirm-modal-title">Confirm</h3>
+        <p id="confirm-message" class="confirm-modal-message">Are you sure?</p>
+        <div class="confirm-modal-actions">
+            <button data-action="cancel" class="admin-btn admin-btn-secondary">Cancel</button>
+            <button id="confirm-button" class="admin-btn admin-btn-primary">Confirm</button>
         </div>
     </div>
 </div>
 
 <!-- Toast Container -->
 <div id="toast-container"></div>
-</div><!-- /.admin-page -->
 {% endblock %}
 
 {% block scripts %}
@@ -5723,9 +6192,9 @@ def _build_admin_users_template() -> str:
 <div class="space-y-6">
 
     <!-- Search Bar -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+    <div class="bg-white rounded-lg shadow p-4">
         <div class="flex items-center gap-4">
-            <span class="material-symbols-outlined text-gray-400 dark:text-gray-500">search</span>
+            <span class="material-symbols-outlined text-gray-400">search</span>
             <input type="text"
                    name="q"
                    value="{{ search }}"
@@ -5734,10 +6203,10 @@ def _build_admin_users_template() -> str:
                    hx-trigger="input changed delay:500ms"
                    hx-target="#users-table-container"
                    hx-select="#users-table-container"
-                   class="flex-1 outline-none text-sm dark:text-gray-100 dark:placeholder-gray-500 dark:bg-transparent">
+                   class="flex-1 outline-none text-sm">
             {% if search %}
             <a href="{{ url_for('admin.users_page') }}"
-               class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+               class="text-gray-400 hover:text-gray-600">
                 <span class="material-symbols-outlined">close</span>
             </a>
             {% endif %}
@@ -5756,20 +6225,20 @@ def _build_admin_users_template() -> str:
 
 def _build_admin_users_table_partial() -> str:
     """Build admin users table partial."""
-    return '''<div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+    return '''<div class="bg-white rounded-lg shadow overflow-hidden">
     <table class="w-full">
         <thead class="admin-table-header">
             <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">User</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Email</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Role</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Joined</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">User</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Joined</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+        <tbody class="divide-y divide-gray-200">
             {% for user in users %}
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+            <tr class="hover:bg-gray-50 cursor-pointer"
                 data-href="{{ url_for('admin.user_detail_page', user_id=user.id) }}">
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
@@ -5782,40 +6251,40 @@ def _build_admin_users_table_partial() -> str:
                         <div>
                             <p class="font-medium">{{ user.display_name or user.email }}</p>
                             {% if user.username is defined and user.username %}
-                            <p class="text-sm text-gray-600 dark:text-gray-400">@{{ user.username }}</p>
+                            <p class="text-sm text-gray-600">@{{ user.username }}</p>
                             {% endif %}
                         </div>
                     </div>
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ user.email }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ user.email }}</td>
                 <td class="px-4 py-3">
                     {% if user.role == 'admin' %}
-                    <span class="px-2 py-1 text-xs bg-black text-white dark:bg-white dark:text-black rounded">Admin</span>
+                    <span class="px-2 py-1 text-xs bg-black text-white rounded">Admin</span>
                     {% elif user.role == 'editor' %}
-                    <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">Editor</span>
+                    <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">Editor</span>
                     {% elif user.role == 'moderator' %}
-                    <span class="px-2 py-1 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 rounded">Moderator</span>
+                    <span class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">Moderator</span>
                     {% else %}
-                    <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded">{{ (user.role or 'user')|title }}</span>
+                    <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">{{ (user.role or 'user')|title }}</span>
                     {% endif %}
                 </td>
                 <td class="px-4 py-3">
                     {% if user.active %}
-                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">Active</span>
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
                     {% elif user.approved_at is defined and user.approved_at %}
-                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded">Suspended</span>
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
                     {% else %}
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">Pending</span>
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
                     {% endif %}
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ user.created_at.strftime('%b %d, %Y') }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ user.created_at.strftime('%b %d, %Y') }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
     {% if not users %}
-    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+    <div class="p-8 text-center text-gray-500">
         <span class="material-symbols-outlined text-4xl mb-2">search_off</span>
         <p class="text-sm">No users found</p>
     </div>
@@ -5825,7 +6294,7 @@ def _build_admin_users_table_partial() -> str:
 <!-- Pagination -->
 {% if pagination.pages > 1 %}
 <div class="flex items-center justify-between mt-4">
-    <div class="text-sm text-gray-600 dark:text-gray-400">
+    <div class="text-sm text-gray-600">
         Showing {{ pagination.start }}-{{ pagination.end }} of {{ pagination.total }}
     </div>
     <div class="flex gap-2">
@@ -5834,11 +6303,11 @@ def _build_admin_users_table_partial() -> str:
            hx-get="{{ url_for('admin.users_page', page=pagination.page - 1) }}"
            hx-target="#users-table-container"
            hx-select="#users-table-container"
-           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700">
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
             Previous
         </a>
         {% else %}
-        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed dark:bg-gray-800 dark:border-gray-600">
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
             Previous
         </button>
         {% endif %}
@@ -5847,11 +6316,11 @@ def _build_admin_users_table_partial() -> str:
            hx-get="{{ url_for('admin.users_page', page=pagination.page + 1) }}"
            hx-target="#users-table-container"
            hx-select="#users-table-container"
-           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700">
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
             Next
         </a>
         {% else %}
-        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed dark:bg-gray-800 dark:border-gray-600">
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
             Next
         </button>
         {% endif %}
@@ -5870,14 +6339,14 @@ def _build_admin_user_detail_template() -> str:
 {% block admin_content %}
 <div class="space-y-6">
     <!-- Back button -->
-    <a href="{{ url_for('admin.users_page') }}" class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+    <a href="{{ url_for('admin.users_page') }}" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
         <span class="material-symbols-outlined text-[20px]">arrow_back</span>
         Back to Users
     </a>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- User Profile Card (Left Column) -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div class="bg-white rounded-lg shadow">
             <div class="p-6 text-center">
                 {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
                 <img src="{{ avatar_url }}"
@@ -5885,32 +6354,32 @@ def _build_admin_user_detail_template() -> str:
                      class="w-24 h-24 rounded-full mx-auto mb-4"
                      referrerpolicy="no-referrer"
                      crossorigin="anonymous">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ user.display_name or user.email }}</h2>
+                <h2 class="text-xl font-semibold text-gray-900">{{ user.display_name or user.email }}</h2>
                 {% if user.username is defined and user.username %}
-                <p class="text-gray-600 dark:text-gray-400">@{{ user.username }}</p>
+                <p class="text-gray-600">@{{ user.username }}</p>
                 {% endif %}
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ user.email }}</p>
+                <p class="text-sm text-gray-500 mt-1">{{ user.email }}</p>
             </div>
 
-            <div class="border-t border-gray-200 dark:border-gray-700 p-6 space-y-4">
+            <div class="border-t border-gray-200 p-6 space-y-4">
                 <div class="flex justify-between text-sm">
-                    <span class="text-gray-600 dark:text-gray-400">Joined</span>
+                    <span class="text-gray-600">Joined</span>
                     <span class="font-medium">{{ user.created_at.strftime('%b %d, %Y') }}</span>
                 </div>
                 <div class="flex justify-between text-sm">
-                    <span class="text-gray-600 dark:text-gray-400">Status</span>
+                    <span class="text-gray-600">Status</span>
                     <span id="status-pill">
                     {% if user.active %}
-                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">Active</span>
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
                     {% elif user.approved_at is defined and user.approved_at %}
-                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded">Suspended</span>
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
                     {% else %}
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">Pending</span>
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
                     {% endif %}
                     </span>
                 </div>
                 <div class="flex justify-between text-sm">
-                    <span class="text-gray-600 dark:text-gray-400">Role</span>
+                    <span class="text-gray-600">Role</span>
                     <span class="font-medium">{{ (user.role or 'user')|title }}</span>
                 </div>
             </div>
@@ -5929,15 +6398,15 @@ def _build_admin_user_detail_template() -> str:
 def _build_admin_user_actions_partial() -> str:
     """Build admin user actions partial."""
     return '''<!-- User Actions Card -->
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6 border-b border-gray-200">
         <div class="flex items-center gap-3">
             <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
                 <span class="material-symbols-outlined text-white text-[28px]">badge</span>
             </div>
             <div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">User Management</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Manage user status and role</p>
+                <h3 class="text-lg font-semibold text-gray-900">User Management</h3>
+                <p class="text-sm text-gray-600">Manage user status and role</p>
             </div>
         </div>
     </div>
@@ -5946,8 +6415,8 @@ def _build_admin_user_actions_partial() -> str:
         <!-- Account Status Toggle -->
         <label class="flex items-center justify-between cursor-pointer">
             <div>
-                <p class="font-medium text-gray-900 dark:text-gray-100">Account Status</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
+                <p class="font-medium text-gray-900">Account Status</p>
+                <p class="text-sm text-gray-600">
                     {% if user.active %}
                     User can access the application
                     {% elif user.approved_at is defined and user.approved_at %}
@@ -5971,10 +6440,10 @@ def _build_admin_user_actions_partial() -> str:
         </label>
 
         <!-- Role Dropdown -->
-        <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between pt-4 border-t border-gray-200">
             <div>
-                <p class="font-medium text-gray-900 dark:text-gray-100">Role</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">User's access level</p>
+                <p class="font-medium text-gray-900">Role</p>
+                <p class="text-sm text-gray-600">User's access level</p>
             </div>
             <div class="grid grid-cols-1">
                 <select name="role"
@@ -5982,13 +6451,13 @@ def _build_admin_user_actions_partial() -> str:
                         hx-target="#user-actions"
                         hx-swap="innerHTML"
                         hx-trigger="change"
-                        class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                        class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer">
                     <option value="user" {% if user.role == 'user' or not user.role %}selected{% endif %}>User</option>
                     <option value="editor" {% if user.role == 'editor' %}selected{% endif %}>Editor</option>
                     <option value="moderator" {% if user.role == 'moderator' %}selected{% endif %}>Moderator</option>
                     <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
                 </select>
-                <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500 dark:text-gray-400">
+                <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500">
                     <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" fill-rule="evenodd" clip-rule="evenodd" />
                 </svg>
             </div>
@@ -6017,15 +6486,15 @@ def _build_admin_tools_template(include_email: bool = False) -> str:
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
     <!-- Email Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
                     <span class="material-symbols-outlined text-white text-[28px]">mail</span>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold dark:text-gray-100">Send Email</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Send an email to a user</p>
+                    <h3 class="text-lg font-semibold">Send Email</h3>
+                    <p class="text-sm text-gray-600">Send an email to a user</p>
                 </div>
             </div>
         </div>
@@ -6036,7 +6505,7 @@ def _build_admin_tools_template(include_email: bool = False) -> str:
                   class="space-y-4">
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Recipient</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Recipient</label>
                     <input type="text"
                            id="email-to-input"
                            name="to"
@@ -6044,24 +6513,24 @@ def _build_admin_tools_template(include_email: bool = False) -> str:
                            hx-get="{{ url_for('admin.search_users_dropdown') }}"
                            hx-trigger="input changed delay:300ms"
                            hx-target="#user-dropdown"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black">
                     <div id="user-dropdown" class="relative"></div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
                     <input type="text"
                            name="subject"
                            required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
                     <textarea name="body"
                               rows="6"
                               required
-                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"></textarea>
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"></textarea>
                 </div>
 
                 <div class="flex justify-end">
@@ -6078,31 +6547,6 @@ def _build_admin_tools_template(include_email: bool = False) -> str:
     </div>
 
 </div>
-
-<script>
-// Handle user selection from dropdown
-document.addEventListener('click', function(e) {
-    if (e.target.closest('[data-action="select-email"]')) {
-        var btn = e.target.closest('[data-action="select-email"]');
-        var email = btn.dataset.email;
-        var input = document.getElementById('email-to-input');
-        if (input) {
-            input.value = email;
-        }
-        // Clear the dropdown
-        document.getElementById('user-dropdown').innerHTML = '';
-    }
-});
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(e) {
-    var dropdown = document.getElementById('user-dropdown');
-    var input = document.getElementById('email-to-input');
-    if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
-        dropdown.innerHTML = '';
-    }
-});
-</script>
 {% endblock %}
 '''
     else:
@@ -6116,10 +6560,10 @@ document.addEventListener('click', function(e) {
 
     <h2 class="text-2xl font-bold">Tools</h2>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+    <div class="bg-white rounded-lg shadow p-12 text-center">
         <span class="material-symbols-outlined text-gray-300 text-5xl">build</span>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mt-4">No tools configured</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Admin tools will appear here when enabled.</p>
+        <h3 class="text-lg font-medium text-gray-900 mt-4">No tools configured</h3>
+        <p class="text-sm text-gray-500 mt-2">Admin tools will appear here when enabled.</p>
     </div>
 
 </div>
@@ -6130,11 +6574,11 @@ document.addEventListener('click', function(e) {
 def _build_admin_email_result_partial() -> str:
     """Build admin email result partial."""
     return '''{% if success %}
-<div class="p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 text-sm">
+<div class="p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
     {{ message }}
 </div>
 {% else %}
-<div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 text-sm">
+<div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
     {{ message }}
 </div>
 {% endif %}
@@ -6155,12 +6599,12 @@ def _build_admin_analytics_template() -> str:
 
         <div class="grid grid-cols-1">
             <select id="time-range-select"
-                    class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                    class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer">
                 <option value="7">Last 7 Days</option>
                 <option value="30" selected>Last 30 Days</option>
                 <option value="90">Last 90 Days</option>
             </select>
-            <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500 dark:text-gray-400">
+            <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500">
                 <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" fill-rule="evenodd" clip-rule="evenodd" />
             </svg>
         </div>
@@ -6168,33 +6612,33 @@ def _build_admin_analytics_template() -> str:
 
     <!-- Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Total Users</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total_users }}</p>
+                    <p class="text-sm text-gray-600">Total Users</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.total_users }}</p>
                 </div>
                 <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
                     <span class="material-symbols-outlined text-white text-[28px]">group</span>
                 </div>
             </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Active Users</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.active_users }}</p>
+                    <p class="text-sm text-gray-600">Active Users</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.active_users }}</p>
                 </div>
                 <div class="w-12 h-12 rounded-lg bg-green-600 flex items-center justify-center">
                     <span class="material-symbols-outlined text-white text-[28px]">check_circle</span>
                 </div>
             </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">New This Month</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.new_this_month }}</p>
+                    <p class="text-sm text-gray-600">New This Month</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.new_this_month }}</p>
                 </div>
                 <div class="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center">
                     <span class="material-symbols-outlined text-white text-[28px]">person_add</span>
@@ -6206,15 +6650,15 @@ def _build_admin_analytics_template() -> str:
     <!-- Charts Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <!-- User Growth Chart -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
                 <div class="flex items-center gap-3">
                     <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
                         <span class="material-symbols-outlined text-white text-[28px]">trending_up</span>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold dark:text-gray-100">User Growth</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">New registrations</p>
+                        <h3 class="text-lg font-semibold">User Growth</h3>
+                        <p class="text-sm text-gray-600">New registrations</p>
                     </div>
                 </div>
             </div>
@@ -6254,46 +6698,46 @@ def _build_admin_logs_template() -> str:
 
     <!-- Error Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Client Errors (4xx)</p>
+                    <p class="text-sm text-gray-600">Client Errors (4xx)</p>
                     <p class="text-2xl font-bold text-yellow-600">{{ stats.errors_4xx }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                <div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
                     <span class="material-symbols-outlined text-yellow-600 text-[28px]">warning</span>
                 </div>
             </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Server Errors (5xx)</p>
+                    <p class="text-sm text-gray-600">Server Errors (5xx)</p>
                     <p class="text-2xl font-bold text-red-600">{{ stats.errors_5xx }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <div class="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
                     <span class="material-symbols-outlined text-red-600 text-[28px]">error</span>
                 </div>
             </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Total Errors (7d)</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total }}</p>
+                    <p class="text-sm text-gray-600">Total Errors (7d)</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
                 </div>
-                <div class="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-gray-900 dark:text-gray-100 text-[28px]">bug_report</span>
+                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-900 text-[28px]">bug_report</span>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Error Log Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
             <div class="flex items-center justify-between">
-                <h4 class="font-semibold text-gray-900 dark:text-gray-100">Recent Errors</h4>
+                <h4 class="font-semibold text-gray-900">Recent Errors</h4>
                 <div class="flex items-center gap-3">
                     <!-- Search -->
                     <input type="text"
@@ -6306,7 +6750,7 @@ def _build_admin_logs_template() -> str:
                            hx-target="#logs-table-container"
                            hx-select="#logs-table-container"
                            hx-include="#logs-filter"
-                           class="w-64 px-3 py-1.5 text-sm border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                           class="w-64 px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
 
                     <!-- Filter -->
                     <div class="grid grid-cols-1">
@@ -6317,12 +6761,12 @@ def _build_admin_logs_template() -> str:
                                 hx-target="#logs-table-container"
                                 hx-select="#logs-table-container"
                                 hx-include="#logs-search"
-                                class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                                class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer">
                             <option value="">All Errors</option>
                             <option value="client" {% if filter == 'client' %}selected{% endif %}>Client Errors</option>
                             <option value="server" {% if filter == 'server' %}selected{% endif %}>Server Errors</option>
                         </select>
-                        <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500 dark:text-gray-400">
+                        <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500">
                             <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" fill-rule="evenodd" clip-rule="evenodd" />
                         </svg>
                     </div>
@@ -6347,33 +6791,33 @@ def _build_admin_logs_table_partial() -> str:
     return '''<table class="w-full">
     <thead class="admin-table-header">
         <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Type</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Message</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Path</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Time</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Type</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Message</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Path</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Time</th>
         </tr>
     </thead>
-    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+    <tbody class="divide-y divide-gray-200">
         {% for log in logs %}
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+        <tr class="hover:bg-gray-50">
             <td class="px-4 py-3">
                 {% set event_type = log.event_type if log.event_type is defined else 'Error' %}
                 {% if event_type in ['NotFoundError', 'ValidationError', 'AuthenticationError', 'AuthorizationError'] %}
-                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">{{ event_type }}</span>
+                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">{{ event_type }}</span>
                 {% else %}
-                <span class="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded">{{ event_type }}</span>
+                <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">{{ event_type }}</span>
                 {% endif %}
             </td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-md truncate">{{ log.message }}</td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 font-mono">{{ log.path or '-' }}</td>
-            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ log.created_at.strftime('%b %d, %H:%M') }}</td>
+            <td class="px-4 py-3 text-sm text-gray-600 max-w-md truncate">{{ log.message }}</td>
+            <td class="px-4 py-3 text-sm text-gray-600 font-mono">{{ log.path or '-' }}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">{{ log.created_at.strftime('%b %d, %H:%M') }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 
 {% if not logs %}
-<div class="p-8 text-center text-gray-500 dark:text-gray-400">
+<div class="p-8 text-center text-gray-500">
     <span class="material-symbols-outlined text-4xl mb-2">check_circle</span>
     <p class="text-sm">No errors found</p>
 </div>
@@ -6381,8 +6825,8 @@ def _build_admin_logs_table_partial() -> str:
 
 <!-- Pagination -->
 {% if pagination.pages > 1 %}
-<div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-    <div class="text-sm text-gray-600 dark:text-gray-400">
+<div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+    <div class="text-sm text-gray-600">
         Showing {{ pagination.start }}-{{ pagination.end }} of {{ pagination.total }}
     </div>
     <div class="flex gap-2">
@@ -6391,11 +6835,11 @@ def _build_admin_logs_table_partial() -> str:
            hx-get="{{ url_for('admin.logs_page', page=pagination.page - 1, search=search, filter=filter) }}"
            hx-target="#logs-table-container"
            hx-select="#logs-table-container"
-           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700">
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
             Previous
         </a>
         {% else %}
-        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed dark:bg-gray-800 dark:border-gray-600">
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
             Previous
         </button>
         {% endif %}
@@ -6404,11 +6848,11 @@ def _build_admin_logs_table_partial() -> str:
            hx-get="{{ url_for('admin.logs_page', page=pagination.page + 1, search=search, filter=filter) }}"
            hx-target="#logs-table-container"
            hx-select="#logs-table-container"
-           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700">
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
             Next
         </a>
         {% else %}
-        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed dark:bg-gray-800 dark:border-gray-600">
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
             Next
         </button>
         {% endif %}
@@ -6427,8 +6871,8 @@ def _build_admin_tenants_template() -> str:
     <!-- Header with Create Button -->
     <div class="flex items-center justify-between">
         <div>
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">Tenants</h2>
-            <p class="text-sm text-gray-600 dark:text-gray-400">Manage organizations in the platform</p>
+            <h2 class="text-2xl font-semibold text-gray-900">Tenants</h2>
+            <p class="text-sm text-gray-600">Manage organizations in the platform</p>
         </div>
         <button data-action="show-create-tenant"
                 class="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800">
@@ -6439,47 +6883,47 @@ def _build_admin_tenants_template() -> str:
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-lg bg-black flex items-center justify-center">
                     <span class="material-symbols-outlined text-white text-xl">business</span>
                 </div>
                 <div>
                     <p class="text-2xl font-semibold">{{ stats.total }}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Total Tenants</p>
+                    <p class="text-sm text-gray-600">Total Tenants</p>
                 </div>
             </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
                     <span class="material-symbols-outlined text-green-600 text-xl">check_circle</span>
                 </div>
                 <div>
                     <p class="text-2xl font-semibold">{{ stats.active }}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Active</p>
+                    <p class="text-sm text-gray-600">Active</p>
                 </div>
             </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
                     <span class="material-symbols-outlined text-yellow-600 text-xl">schedule</span>
                 </div>
                 <div>
                     <p class="text-2xl font-semibold">{{ stats.pending }}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Pending</p>
+                    <p class="text-sm text-gray-600">Pending</p>
                 </div>
             </div>
         </div>
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
                     <span class="material-symbols-outlined text-red-600 text-xl">block</span>
                 </div>
                 <div>
                     <p class="text-2xl font-semibold">{{ stats.suspended }}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Suspended</p>
+                    <p class="text-sm text-gray-600">Suspended</p>
                 </div>
             </div>
         </div>
@@ -6487,21 +6931,21 @@ def _build_admin_tenants_template() -> str:
 
     <!-- Status Filter -->
     <div class="flex items-center gap-2">
-        <span class="text-sm text-gray-600 dark:text-gray-400">Filter:</span>
+        <span class="text-sm text-gray-600">Filter:</span>
         <a href="{{ url_for('admin.tenants_page') }}"
-           class="px-3 py-1.5 text-sm rounded-lg {% if not status_filter %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600{% endif %}">
+           class="px-3 py-1.5 text-sm rounded-lg {% if not status_filter %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
             All
         </a>
         <a href="{{ url_for('admin.tenants_page', status='active') }}"
-           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'active' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600{% endif %}">
+           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'active' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
             Active
         </a>
         <a href="{{ url_for('admin.tenants_page', status='pending') }}"
-           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'pending' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600{% endif %}">
+           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'pending' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
             Pending
         </a>
         <a href="{{ url_for('admin.tenants_page', status='suspended') }}"
-           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'suspended' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600{% endif %}">
+           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'suspended' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
             Suspended
         </a>
     </div>
@@ -6516,11 +6960,11 @@ def _build_admin_tenants_template() -> str:
 <div id="create-tenant-modal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-black/50" data-action="hide-create-tenant"></div>
-        <div class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Tenant</h3>
+                <h3 class="text-lg font-semibold text-gray-900">Create New Tenant</h3>
                 <button data-action="hide-create-tenant"
-                        class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+                        class="text-gray-400 hover:text-gray-600">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
@@ -6529,32 +6973,32 @@ def _build_admin_tenants_template() -> str:
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tenant Name</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tenant Name</label>
                     <input type="text" name="name" required
                            placeholder="Acme Corporation"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Domain</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email Domain</label>
                     <input type="text" name="domain" required
                            placeholder="acme.com"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Users with this email domain can join</p>
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black">
+                    <p class="text-xs text-gray-500 mt-1">Users with this email domain can join</p>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Admin Email</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Admin Email</label>
                     <input type="email" name="admin_email" required
                            placeholder="admin@acme.com"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">This user will be the tenant admin</p>
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black">
+                    <p class="text-xs text-gray-500 mt-1">This user will be the tenant admin</p>
                 </div>
 
                 <div class="flex justify-end gap-3 pt-4">
                     <button type="button"
                             data-action="hide-create-tenant"
-                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600">
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
                         Cancel
                     </button>
                     <button type="submit"
@@ -6572,51 +7016,51 @@ def _build_admin_tenants_template() -> str:
 
 def _build_admin_tenants_table_partial() -> str:
     """Build admin tenants table partial (multi-tenant only)."""
-    return '''<div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+    return '''<div class="bg-white rounded-lg shadow overflow-hidden">
     <table class="w-full">
         <thead class="admin-table-header">
             <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Tenant</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Domain</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Users</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase">Created</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Tenant</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Domain</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Users</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Created</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+        <tbody class="divide-y divide-gray-200">
             {% for tenant in tenants %}
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+            <tr class="hover:bg-gray-50 cursor-pointer"
                 data-href="{{ url_for('admin.tenant_detail_page', tenant_id=tenant.id) }}">
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-gray-600 dark:text-gray-400">business</span>
+                        <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-gray-600">business</span>
                         </div>
                         <div>
                             <p class="font-medium">{{ tenant.name }}</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">{{ tenant.slug }}</p>
+                            <p class="text-sm text-gray-600">{{ tenant.slug }}</p>
                         </div>
                     </div>
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ tenant.domain }}</td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ tenant.user_count if tenant.user_count is defined else '-' }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ tenant.domain }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ tenant.user_count if tenant.user_count is defined else '-' }}</td>
                 <td class="px-4 py-3">
                     {% if tenant.status == 'active' %}
-                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">Active</span>
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
                     {% elif tenant.status == 'pending' %}
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">Pending</span>
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
                     {% else %}
-                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded">Suspended</span>
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
                     {% endif %}
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ tenant.created_at.strftime('%b %d, %Y') }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ tenant.created_at.strftime('%b %d, %Y') }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
     {% if not tenants %}
-    <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+    <div class="p-8 text-center text-gray-500">
         <span class="material-symbols-outlined text-4xl mb-2">business</span>
         <p class="text-sm">No tenants found</p>
     </div>
@@ -6626,27 +7070,27 @@ def _build_admin_tenants_table_partial() -> str:
 <!-- Pagination -->
 {% if pagination.pages > 1 %}
 <div class="flex items-center justify-between mt-4">
-    <div class="text-sm text-gray-600 dark:text-gray-400">
+    <div class="text-sm text-gray-600">
         Showing {{ pagination.start }}-{{ pagination.end }} of {{ pagination.total }}
     </div>
     <div class="flex gap-2">
         {% if pagination.has_prev %}
         <a href="?page={{ pagination.page - 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
-           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
             Previous
         </a>
         {% else %}
-        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
             Previous
         </button>
         {% endif %}
         {% if pagination.has_next %}
         <a href="?page={{ pagination.page + 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
-           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
             Next
         </a>
         {% else %}
-        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
             Next
         </button>
         {% endif %}
@@ -6665,53 +7109,53 @@ def _build_admin_tenant_detail_template() -> str:
     <!-- Back link and header -->
     <div>
         <a href="{{ url_for('admin.tenants_page') }}"
-           class="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4">
+           class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
             <span class="material-symbols-outlined text-sm mr-1">arrow_back</span>
             Back to Tenants
         </a>
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">{{ tenant.name }}</h2>
+        <h2 class="text-2xl font-semibold text-gray-900">{{ tenant.name }}</h2>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left Column: Tenant Info -->
         <div class="lg:col-span-2">
             <!-- Tenant Profile Card -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-6 border-b border-gray-200">
                     <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-gray-600 dark:text-gray-400 text-3xl">business</span>
+                        <div class="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-gray-600 text-3xl">business</span>
                         </div>
                         <div>
-                            <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ tenant.name }}</h3>
-                            <p class="text-gray-600 dark:text-gray-400">{{ tenant.slug }}</p>
+                            <h3 class="text-xl font-semibold text-gray-900">{{ tenant.name }}</h3>
+                            <p class="text-gray-600">{{ tenant.slug }}</p>
                         </div>
                     </div>
                 </div>
                 <div class="p-6">
                     <dl class="grid grid-cols-2 gap-4">
                         <div>
-                            <dt class="text-sm text-gray-600 dark:text-gray-400">Domain</dt>
+                            <dt class="text-sm text-gray-600">Domain</dt>
                             <dd class="font-medium">{{ tenant.domain }}</dd>
                         </div>
                         <div>
-                            <dt class="text-sm text-gray-600 dark:text-gray-400">Status</dt>
+                            <dt class="text-sm text-gray-600">Status</dt>
                             <dd>
                                 {% if tenant.status == 'active' %}
-                                <span class="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">Active</span>
+                                <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
                                 {% elif tenant.status == 'pending' %}
-                                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">Pending</span>
+                                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
                                 {% else %}
-                                <span class="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded">Suspended</span>
+                                <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
                                 {% endif %}
                             </dd>
                         </div>
                         <div>
-                            <dt class="text-sm text-gray-600 dark:text-gray-400">Created</dt>
+                            <dt class="text-sm text-gray-600">Created</dt>
                             <dd class="font-medium">{{ tenant.created_at.strftime('%B %d, %Y') }}</dd>
                         </div>
                         <div>
-                            <dt class="text-sm text-gray-600 dark:text-gray-400">Users</dt>
+                            <dt class="text-sm text-gray-600">Users</dt>
                             <dd class="font-medium">{{ users|length }}</dd>
                         </div>
                     </dl>
@@ -6726,14 +7170,14 @@ def _build_admin_tenant_detail_template() -> str:
     </div>
 
     <!-- Users in Tenant (Full Width) -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h4 class="font-semibold text-gray-900 dark:text-gray-100">Users in {{ tenant.name }}</h4>
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <h4 class="font-semibold text-gray-900">Users in {{ tenant.name }}</h4>
         </div>
-        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+        <div class="divide-y divide-gray-200">
             {% for user in users %}
             <a href="{{ url_for('admin.user_detail_page', user_id=user.id) }}"
-               class="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+               class="flex items-center gap-3 p-4 hover:bg-gray-50">
                 {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
                 <img src="{{ avatar_url }}"
                      alt="{{ user.display_name or user.email }}"
@@ -6741,23 +7185,23 @@ def _build_admin_tenant_detail_template() -> str:
                      referrerpolicy="no-referrer">
                 <div class="flex-1">
                     <p class="font-medium">{{ user.display_name or user.email }}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ user.email }}</p>
+                    <p class="text-sm text-gray-600">{{ user.email }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                     {% if user.role == 'admin' %}
-                    <span class="px-2 py-1 text-xs bg-black text-white dark:bg-white dark:text-black rounded">Admin</span>
+                    <span class="px-2 py-1 text-xs bg-black text-white rounded">Admin</span>
                     {% endif %}
                     {% if user.active %}
-                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">Active</span>
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
                     {% else %}
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">Pending</span>
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
                     {% endif %}
                 </div>
             </a>
             {% endfor %}
 
             {% if not users %}
-            <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+            <div class="p-8 text-center text-gray-500">
                 <span class="material-symbols-outlined text-4xl mb-2">group</span>
                 <p class="text-sm">No users in this tenant</p>
             </div>
@@ -6772,15 +7216,15 @@ def _build_admin_tenant_detail_template() -> str:
 def _build_admin_tenant_actions_partial() -> str:
     """Build admin tenant actions partial (multi-tenant only)."""
     return '''<!-- Tenant Status Card -->
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow">
-    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6 border-b border-gray-200">
         <div class="flex items-center gap-3">
             <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
                 <span class="material-symbols-outlined text-white text-[28px]">settings</span>
             </div>
             <div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Tenant Status</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Manage tenant access</p>
+                <h3 class="text-lg font-semibold text-gray-900">Tenant Status</h3>
+                <p class="text-sm text-gray-600">Manage tenant access</p>
             </div>
         </div>
     </div>
@@ -6789,8 +7233,8 @@ def _build_admin_tenant_actions_partial() -> str:
         <!-- Status Toggle -->
         <label class="flex items-center justify-between cursor-pointer">
             <div>
-                <p class="font-medium text-gray-900 dark:text-gray-100">Active Status</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
+                <p class="font-medium text-gray-900">Active Status</p>
+                <p class="text-sm text-gray-600">
                     {% if tenant.status == 'active' %}
                     Tenant users can access the application
                     {% elif tenant.status == 'pending' %}
@@ -6814,8 +7258,8 @@ def _build_admin_tenant_actions_partial() -> str:
         </label>
 
         <!-- Info Section -->
-        <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <p class="text-sm text-gray-600 dark:text-gray-400">
+        <div class="pt-4 border-t border-gray-200">
+            <p class="text-sm text-gray-600">
                 {% if tenant.status == 'active' %}
                 <span class="material-symbols-outlined text-green-600 text-sm align-middle mr-1">check_circle</span>
                 Users from <strong>{{ tenant.domain }}</strong> can sign up and access the app.

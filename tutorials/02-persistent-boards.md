@@ -121,9 +121,15 @@ def board():
         <h1 class="kanban-title">
             {{ icon("view_kanban", size="lg") }} Kanban Board
         </h1>
-        <button class="btn-primary">
-            {{ icon("add", size="sm") }} Add Column
-        </button>
+        <div class="kanban-header-right">
+            <button class="btn-primary">
+                {{ icon("add", size="sm") }} Add Column
+            </button>
+            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+                <span class="material-symbols-outlined icon-light">bedtime</span>
+                <span class="material-symbols-outlined icon-dark">sunny</span>
+            </button>
+        </div>
     </header>
 
     <div class="kanban-board">
@@ -162,17 +168,36 @@ Add these kanban classes inside `@layer components`:
 
 ```css
 @layer components {
+    /* Dark Mode Toggle */
+    .dark-mode-toggle {
+        @apply p-2 rounded-lg text-gray-500 hover:bg-gray-200
+               dark:text-gray-400 dark:hover:bg-gray-700 transition-colors;
+    }
+
+    .dark-mode-toggle .icon-light {
+        @apply dark:hidden;
+    }
+
+    .dark-mode-toggle .icon-dark {
+        @apply hidden dark:inline;
+    }
+
     /* Kanban Layout */
     .kanban-container {
-        @apply min-h-screen bg-gray-100 p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 p-6;
     }
 
     .kanban-header {
         @apply mb-6 flex items-center justify-between;
     }
 
+    .kanban-header-right {
+        @apply flex items-center gap-3;
+    }
+
     .kanban-title {
-        @apply text-2xl font-bold text-gray-900 flex items-center gap-2;
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100
+               flex items-center gap-2;
     }
 
     .kanban-board {
@@ -182,7 +207,8 @@ Add these kanban classes inside `@layer components`:
 
     /* Columns */
     .kanban-column {
-        @apply flex-shrink-0 w-72 bg-gray-200 rounded-lg p-3 flex flex-col;
+        @apply flex-shrink-0 w-72 bg-gray-200 dark:bg-gray-800
+               rounded-lg p-3 flex flex-col;
     }
 
     .column-header {
@@ -190,11 +216,12 @@ Add these kanban classes inside `@layer components`:
     }
 
     .column-title {
-        @apply font-semibold text-gray-700;
+        @apply font-semibold text-gray-700 dark:text-gray-300;
     }
 
     .card-count {
-        @apply text-sm text-gray-500 bg-gray-300 px-2 py-0.5 rounded-full;
+        @apply text-sm text-gray-500 dark:text-gray-400
+               bg-gray-300 dark:bg-gray-700 px-2 py-0.5 rounded-full;
     }
 
     .column-cards {
@@ -202,21 +229,21 @@ Add these kanban classes inside `@layer components`:
     }
 
     .column-footer {
-        @apply mt-3 pt-3 border-t border-gray-300;
+        @apply mt-3 pt-3 border-t border-gray-300 dark:border-gray-600;
     }
 
     .empty-column {
-        @apply text-sm text-gray-400 text-center py-4;
+        @apply text-sm text-gray-400 dark:text-gray-500 text-center py-4;
     }
 
     /* Cards */
     .kanban-card {
-        @apply bg-white rounded-lg shadow-sm p-3 cursor-pointer
-               hover:shadow-md transition-shadow;
+        @apply bg-white dark:bg-gray-700 rounded-lg shadow-sm p-3
+               cursor-pointer hover:shadow-md transition-shadow;
     }
 
     .card-title {
-        @apply text-sm text-gray-800;
+        @apply text-sm text-gray-800 dark:text-gray-200;
     }
 
     /* Buttons */
@@ -228,8 +255,8 @@ Add these kanban classes inside `@layer components`:
 
     .btn-add-card {
         @apply w-full flex items-center justify-center gap-1
-               text-sm text-gray-500 py-2 rounded
-               hover:bg-gray-300 transition-colors;
+               text-sm text-gray-500 dark:text-gray-400 py-2 rounded
+               hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors;
     }
 }
 ```
@@ -564,9 +591,15 @@ Replace `templates/pages/board.html`:
         <h1 class="kanban-title">
             {{ icon("view_kanban", size="lg") }} Kanban Board
         </h1>
-        <button id="add-column-btn" class="btn-primary">
-            {{ icon("add", size="sm") }} Add Column
-        </button>
+        <div class="kanban-header-right">
+            <button id="add-column-btn" class="btn-primary">
+                {{ icon("add", size="sm") }} Add Column
+            </button>
+            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+                <span class="material-symbols-outlined icon-light">bedtime</span>
+                <span class="material-symbols-outlined icon-dark">sunny</span>
+            </button>
+        </div>
     </header>
 
     <div id="kanban-board" class="kanban-board">
@@ -578,9 +611,15 @@ Replace `templates/pages/board.html`:
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ feather_asset('js/board.js') }}"></script>
+{% if config.DEBUG %}
+<script type="module" src="http://localhost:5173/static/js/board.js"></script>
+{% else %}
+<script src="{{ url_for('static', filename='js/board.js') }}"></script>
+{% endif %}
 {% endblock %}
 ```
+
+> **Note:** Regular JavaScript files (like `board.js`) are not Vite entry points — only `vendor`, `styles`, and `islands/*` are built by Vite. In debug mode, we load from the Vite dev server for hot reload. In production, we load directly via `url_for`.
 
 Create `static/js/board.js`:
 
@@ -625,11 +664,14 @@ Add to `static/css/app.css`:
 ```css
     /* New classes for HTMX interactions */
     .btn-icon-danger {
-        @apply text-gray-400 hover:text-red-600 transition-colors;
+        @apply text-gray-400 dark:text-gray-500
+               hover:text-red-600 dark:hover:text-red-400 transition-colors;
     }
 
     .btn-icon-subtle {
-        @apply text-gray-300 hover:text-red-600 transition-colors opacity-0;
+        @apply text-gray-300 dark:text-gray-600
+               hover:text-red-600 dark:hover:text-red-400
+               transition-colors opacity-0;
     }
 
     /* Show delete button when hovering card */
@@ -642,7 +684,9 @@ Add to `static/css/app.css`:
     }
 
     .input-card-title {
-        @apply w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg
+        @apply w-full px-3 py-2 text-sm bg-white dark:bg-gray-700
+               border border-gray-300 dark:border-gray-600 rounded-lg
+               dark:text-gray-100 dark:placeholder-gray-400
                focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
     }
 

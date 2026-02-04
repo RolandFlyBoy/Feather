@@ -581,9 +581,9 @@ def home(kanban_service: KanbanService):
     if not current_user.is_authenticated:
         return render_template("pages/login.html")
 
-    # Redirect suspended users to pending page
+    # Redirect suspended users to pending page (scaffolded route)
     if not current_user.is_active:
-        return redirect(url_for("page.pending"))
+        return redirect(url_for("page.account_pending"))
 
     kanbans = kanban_service.list_for_tenant()
     return render_template("pages/dashboard.html", kanbans=kanbans)
@@ -754,6 +754,10 @@ Create `templates/pages/dashboard.html`:
             <button id="new-board-btn" class="btn-primary">
                 {{ icon("add", size="sm") }} New Board
             </button>
+            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+                <span class="material-symbols-outlined icon-light">bedtime</span>
+                <span class="material-symbols-outlined icon-dark">sunny</span>
+            </button>
             <div class="user-menu" data-island="user-menu">
                 <button class="user-menu-trigger">
                     <img src="{{ current_user.profile_image_url or '/feather-static/favicon.svg' }}"
@@ -897,6 +901,10 @@ Create `templates/pages/board.html`:
             <button id="add-column-btn" class="btn-primary" data-kanban-id="{{ kanban.id }}">
                 {{ icon("add", size="sm") }} Add Column
             </button>
+            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+                <span class="material-symbols-outlined icon-light">bedtime</span>
+                <span class="material-symbols-outlined icon-dark">sunny</span>
+            </button>
             <div class="user-menu" data-island="user-menu">
                 <button class="user-menu-trigger">
                     <img src="{{ current_user.profile_image_url or '/feather-static/favicon.svg' }}"
@@ -968,30 +976,31 @@ Create `templates/pages/board.html`:
 Create `templates/partials/column.html`:
 
 ```html
-<div class="kanban-column" data-column-id="{{ column.id }}">
+<div id="column-{{ column.id }}" class="kanban-column">
     <div class="column-header">
         <h3 class="column-title">{{ column.title }}</h3>
         <button class="btn-icon-danger"
                 hx-delete="/htmx/columns/{{ column.id }}"
-                hx-target="closest .kanban-column"
+                hx-target="#column-{{ column.id }}"
                 hx-swap="outerHTML"
                 hx-confirm="Delete this column and all its cards?">
             <span class="material-symbols-outlined text-sm">delete</span>
         </button>
     </div>
 
-    <div class="column-cards" data-column-id="{{ column.id }}">
+    <div id="column-{{ column.id }}-cards" class="column-cards" data-id="{{ column.id }}">
         {% for card in column.cards %}
             {% include "partials/card.html" %}
+        {% else %}
+            <p class="empty-column empty-placeholder">No cards yet</p>
         {% endfor %}
-        <p class="empty-column">No cards yet</p>
     </div>
 
     <div class="column-footer">
         <form hx-post="/htmx/columns/{{ column.id }}/cards"
-              hx-target="previous .column-cards"
+              hx-target="#column-{{ column.id }}-cards"
               hx-swap="beforeend"
-              hx-on::after-request="this.reset()">
+              hx-on::after-request="if(event.detail.successful) { this.reset(); this.closest('.kanban-column').querySelector('.empty-placeholder')?.remove(); }">
             <input type="text"
                    name="title"
                    placeholder="Add a card..."
@@ -1005,7 +1014,7 @@ Create `templates/partials/column.html`:
 Create `templates/partials/card.html`:
 
 ```html
-<div class="kanban-card" data-card-id="{{ card.id }}">
+<div id="card-{{ card.id }}" class="kanban-card" data-id="{{ card.id }}">
     <div class="card-content">
         <span class="drag-handle material-symbols-outlined">drag_indicator</span>
         <div class="card-body">
@@ -1019,7 +1028,7 @@ Create `templates/partials/card.html`:
         </div>
         <button class="btn-icon-subtle"
                 hx-delete="/htmx/cards/{{ card.id }}"
-                hx-target="closest .kanban-card"
+                hx-target="#card-{{ card.id }}"
                 hx-swap="outerHTML"
                 hx-confirm="Delete this card?">
             <span class="material-symbols-outlined text-sm">close</span>
@@ -1209,11 +1218,25 @@ Add to `static/css/app.css`:
 
 ```css
 @layer components {
+    /* Dark Mode Toggle */
+    .dark-mode-toggle {
+        @apply p-2 rounded-lg text-gray-500 hover:bg-gray-200
+               dark:text-gray-400 dark:hover:bg-gray-700 transition-colors;
+    }
+
+    .dark-mode-toggle .icon-light {
+        @apply dark:hidden;
+    }
+
+    .dark-mode-toggle .icon-dark {
+        @apply hidden dark:inline;
+    }
+
     /* ========================================
        Dashboard Layout
        ======================================== */
     .dashboard-container {
-        @apply min-h-screen bg-gray-100 p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 p-6;
     }
 
     .dashboard-header {
@@ -1229,7 +1252,7 @@ Add to `static/css/app.css`:
     }
 
     .dashboard-title {
-        @apply text-2xl font-bold text-gray-900 flex items-center gap-2;
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2;
     }
 
     /* Board Grid */
@@ -1238,7 +1261,7 @@ Add to `static/css/app.css`:
     }
 
     .kanban-card-item {
-        @apply bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow relative;
+        @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow relative;
     }
 
     .kanban-card-link {
@@ -1246,11 +1269,11 @@ Add to `static/css/app.css`:
     }
 
     .kanban-card-icon {
-        @apply w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0;
+        @apply w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center flex-shrink-0;
     }
 
     .kanban-card-icon .material-symbols-outlined {
-        @apply text-indigo-600 text-2xl;
+        @apply text-indigo-600 dark:text-indigo-400 text-2xl;
     }
 
     .kanban-card-content {
@@ -1258,15 +1281,15 @@ Add to `static/css/app.css`:
     }
 
     .kanban-card-title {
-        @apply font-semibold text-gray-900 truncate;
+        @apply font-semibold text-gray-900 dark:text-gray-100 truncate;
     }
 
     .kanban-card-meta {
-        @apply text-sm text-gray-500 mt-1;
+        @apply text-sm text-gray-500 dark:text-gray-400 mt-1;
     }
 
     .kanban-card-delete {
-        @apply absolute top-2 right-2 p-1 rounded hover:bg-red-50;
+        @apply absolute top-2 right-2 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20;
     }
 
     /* Empty State */
@@ -1278,7 +1301,7 @@ Add to `static/css/app.css`:
        Kanban Board Layout
        ======================================== */
     .kanban-container {
-        @apply min-h-screen bg-gray-100 p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 p-6;
     }
 
     .kanban-header {
@@ -1294,12 +1317,13 @@ Add to `static/css/app.css`:
     }
 
     .kanban-title {
-        @apply text-2xl font-bold text-gray-900 flex items-center gap-2;
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2;
     }
 
     .back-link {
         @apply w-8 h-8 flex items-center justify-center rounded-lg
-               text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-colors;
+               text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100
+               hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors;
     }
 
     .kanban-board-wrapper {
@@ -1312,14 +1336,14 @@ Add to `static/css/app.css`:
     }
 
     .empty-board {
-        @apply flex items-center justify-center w-full text-gray-500;
+        @apply flex items-center justify-center w-full text-gray-500 dark:text-gray-400;
     }
 
     /* ========================================
        Columns
        ======================================== */
     .kanban-column {
-        @apply flex-shrink-0 w-72 bg-gray-200 rounded-lg p-3 flex flex-col;
+        @apply flex-shrink-0 w-72 bg-gray-200 dark:bg-gray-800 rounded-lg p-3 flex flex-col;
     }
 
     .column-header {
@@ -1327,7 +1351,7 @@ Add to `static/css/app.css`:
     }
 
     .column-title {
-        @apply font-semibold text-gray-700;
+        @apply font-semibold text-gray-700 dark:text-gray-300;
     }
 
     .column-cards {
@@ -1335,11 +1359,11 @@ Add to `static/css/app.css`:
     }
 
     .column-footer {
-        @apply mt-3 pt-3 border-t border-gray-300;
+        @apply mt-3 pt-3 border-t border-gray-300 dark:border-gray-600;
     }
 
     .empty-column {
-        @apply text-sm text-gray-400 text-center py-4;
+        @apply text-sm text-gray-400 dark:text-gray-500 text-center py-4;
     }
 
     /* Hide "No cards yet" when cards exist */
@@ -1351,7 +1375,7 @@ Add to `static/css/app.css`:
        Cards
        ======================================== */
     .kanban-card {
-        @apply bg-white rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow;
+        @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow;
     }
 
     .card-content {
@@ -1363,18 +1387,18 @@ Add to `static/css/app.css`:
     }
 
     .card-title {
-        @apply text-sm text-gray-800;
+        @apply text-sm text-gray-800 dark:text-gray-200;
     }
 
     .card-attachments {
-        @apply flex items-center gap-1 text-xs text-gray-400 mt-1;
+        @apply flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 mt-1;
     }
 
     /* ========================================
        Drag and Drop
        ======================================== */
     .drag-handle {
-        @apply text-gray-300 hover:text-gray-500 cursor-grab;
+        @apply text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab;
     }
 
     .kanban-card.dragging {
@@ -1382,7 +1406,7 @@ Add to `static/css/app.css`:
     }
 
     .column-cards.drag-over {
-        @apply bg-gray-300 ring-1 ring-indigo-400 ring-inset;
+        @apply bg-gray-300 dark:bg-gray-700 ring-1 ring-indigo-400 ring-inset;
     }
 
     .feather-drop-placeholder {
@@ -1400,20 +1424,21 @@ Add to `static/css/app.css`:
 
     .btn-secondary {
         @apply inline-flex items-center gap-2 px-4 py-2
-               bg-white text-gray-700 border border-gray-300 rounded-lg
-               hover:bg-gray-50 transition-colors;
+               bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300
+               border border-gray-300 dark:border-gray-600 rounded-lg
+               hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors;
     }
 
     .btn-text {
-        @apply text-sm text-gray-500 hover:text-gray-700;
+        @apply text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200;
     }
 
     .btn-icon-danger {
-        @apply text-gray-400 hover:text-red-600 transition-colors;
+        @apply text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors;
     }
 
     .btn-icon-subtle {
-        @apply text-gray-300 hover:text-red-600 transition-colors opacity-0;
+        @apply text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 transition-colors opacity-0;
     }
 
     /* Show delete button on hover */
@@ -1423,7 +1448,8 @@ Add to `static/css/app.css`:
     }
 
     .input-card-title {
-        @apply w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg
+        @apply w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300
+               dark:border-gray-600 rounded-lg
                focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
     }
 
@@ -1435,7 +1461,8 @@ Add to `static/css/app.css`:
     }
 
     .user-menu-trigger {
-        @apply flex items-center gap-2 p-1 rounded-full hover:bg-gray-200 transition-colors;
+        @apply flex items-center gap-2 p-1 rounded-full hover:bg-gray-200
+               dark:hover:bg-gray-700 transition-colors;
     }
 
     .user-avatar {
@@ -1443,8 +1470,8 @@ Add to `static/css/app.css`:
     }
 
     .user-menu-flyout {
-        @apply absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg
-               border border-gray-200 py-2 z-50;
+        @apply absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg
+               border border-gray-200 dark:border-gray-700 py-2 z-50;
     }
 
     .user-menu-flyout.hidden {
@@ -1456,35 +1483,35 @@ Add to `static/css/app.css`:
     }
 
     .user-name {
-        @apply font-semibold text-gray-900;
+        @apply font-semibold text-gray-900 dark:text-gray-100;
     }
 
     .user-email {
-        @apply text-sm text-gray-500 truncate;
+        @apply text-sm text-gray-500 dark:text-gray-400 truncate;
     }
 
     .user-role {
-        @apply text-xs text-gray-400 capitalize mt-1;
+        @apply text-xs text-gray-400 dark:text-gray-500 capitalize mt-1;
     }
 
     .user-menu-divider {
-        @apply my-2 border-gray-200;
+        @apply my-2 border-gray-200 dark:border-gray-700;
     }
 
     .user-menu-item {
-        @apply flex items-center gap-2 px-4 py-2 text-sm text-gray-700
-               hover:bg-gray-100 transition-colors;
+        @apply flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300
+               hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors;
     }
 
     /* ========================================
        Login Page
        ======================================== */
     .login-container {
-        @apply min-h-screen bg-gray-100 flex items-center justify-center p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-6;
     }
 
     .login-card {
-        @apply bg-white rounded-xl shadow-lg p-8 w-full max-w-sm text-center;
+        @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-sm text-center;
     }
 
     .login-logo {
@@ -1496,11 +1523,11 @@ Add to `static/css/app.css`:
     }
 
     .login-title {
-        @apply text-2xl font-bold text-gray-900 mb-2;
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2;
     }
 
     .login-subtitle {
-        @apply text-gray-500 mb-6;
+        @apply text-gray-500 dark:text-gray-400 mb-6;
     }
 
     .btn-google {
