@@ -52,6 +52,14 @@
             margin: 0 auto;
             line-height: 1.5;
         }
+        @media (prefers-color-scheme: dark) {
+            body { background-color: #111827; }
+            .icon-wrapper { background-color: #1f2937; }
+            .icon-wrapper .material-symbols-outlined { color: #6b7280; }
+            .error-code { color: #f9fafb; }
+            .error-title { color: #d1d5db; }
+            .error-message { color: #9ca3af; }
+        }
     </style>
 </head>
 <body>
@@ -62,6 +70,9 @@
         <h1 class="error-code">{{ error_code }}</h1>
         <h2 class="error-title">{{ error_title }}</h2>
         <p class="error-message">{{ error_message }}</p>
+        {% if config.DEBUG and error_detail %}
+        <p style="color:#6b7280;font-size:0.8rem;max-width:36rem;margin:1rem auto 0;font-family:monospace;word-break:break-word;">{{ error_detail }}</p>
+        {% endif %}
     </div>
 </body>
 </html>

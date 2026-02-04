@@ -115,29 +115,60 @@ def downgrade():
 
 
 @db_group.command()
-def seed():
-    """Run database seed data."""
+@click.option("--extra-only", is_flag=True, help="Run only extra seed files from seeds/ directory")
+def seed(extra_only):
+    """Run database seed data.
+
+    Runs seeds.py first, then any .py files in seeds/ directory (alphabetically).
+    Use --extra-only to skip seeds.py and only run seeds/ directory files.
+    """
     if not Path("app.py").exists():
         raise click.ClickException("Not in a Feather project directory.")
 
     seed_file = Path("seeds.py")
-    if not seed_file.exists():
-        raise click.ClickException("No seeds.py file found. Create one with your seed data.")
+    seeds_dir = Path("seeds")
 
-    click.echo("Running seed data...")
+    if not seed_file.exists() and not seeds_dir.exists():
+        raise click.ClickException(
+            "No seeds.py file or seeds/ directory found. Create one with your seed data."
+        )
 
-    result = subprocess.run(
-        [sys.executable, "seeds.py"],
-        capture_output=True,
-        text=True,
-    )
+    # Run main seeds.py
+    if seed_file.exists() and not extra_only:
+        click.echo("Running seeds.py...")
 
-    if result.returncode == 0:
-        click.echo(result.stdout)
-        click.echo(click.style("Seed data applied!", fg="green"))
-    else:
+        result = subprocess.run(
+            [sys.executable, "seeds.py"],
+            capture_output=True,
+            text=True,
+        )
+
         if result.stdout:
             click.echo(result.stdout)
-        if result.stderr:
-            click.echo(result.stderr)
-        raise click.ClickException("Failed to run seed data")
+        if result.returncode != 0:
+            if result.stderr:
+                click.echo(result.stderr)
+            raise click.ClickException("Failed to run seeds.py")
+
+    # Run extra seed files from seeds/ directory
+    if seeds_dir.exists():
+        seed_files = sorted(
+            f for f in seeds_dir.glob("*.py") if not f.name.startswith("_")
+        )
+        for sf in seed_files:
+            click.echo(f"Running {sf}...")
+
+            result = subprocess.run(
+                [sys.executable, str(sf)],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.stdout:
+                click.echo(result.stdout)
+            if result.returncode != 0:
+                if result.stderr:
+                    click.echo(result.stderr)
+                raise click.ClickException(f"Failed to run {sf}")
+
+    click.echo(click.style("Seed data applied!", fg="green"))

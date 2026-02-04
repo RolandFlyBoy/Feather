@@ -68,6 +68,7 @@ from feather.core.decorators import api, page
 from feather.core.helpers import setup_template_helpers
 from feather.core.error_handlers import register_error_handlers
 from feather.core.middleware import init_request_id, setup_logging
+from feather.core.security import init_security_headers
 from feather.core.health import init_health
 from feather.db import db, migrate
 
@@ -167,7 +168,16 @@ class Feather(Flask):
         # Step 2: Load configuration from config.py or environment
         self._setup_config(config_class)
 
-        # Step 2.5: Enable ProxyFix for reverse proxy support
+        # Step 2.5: Validate SECRET_KEY in production
+        if not self.debug and not self.config.get("TESTING"):
+            secret = self.config.get("SECRET_KEY")
+            if not secret or secret == "dev-secret-key-change-in-production":
+                raise RuntimeError(
+                    "SECRET_KEY must be set to a secure value in production. "
+                    'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+                )
+
+        # Step 2.6: Enable ProxyFix for reverse proxy support
         # Needed for both production (Render, Heroku, AWS ALB, nginx) and development (ngrok, localtunnel).
         # Without ProxyFix, Flask doesn't see the true protocol and secure cookies/OAuth break.
         # Safe to enable unconditionally - only reads X-Forwarded-* headers if they exist.
@@ -209,10 +219,13 @@ class Feather(Flask):
         json_logging = os.environ.get("FLASK_ENV") == "production"
         setup_logging(self, json_format=json_logging)
 
-        # Step 11: Register health check endpoints (/health, /health/live, /health/ready)
+        # Step 11: Security headers (production only)
+        init_security_headers(self)
+
+        # Step 12: Register health check endpoints (/health, /health/live, /health/ready)
         init_health(self)
 
-        # Step 12: Initialize authentication (if User model exists)
+        # Step 13: Initialize authentication (if User model exists)
         self._setup_auth()
 
     def _setup_config(self, config_class: Optional[str] = None):

@@ -62,14 +62,16 @@ def _create_dockerfile():
     content = '''# Dockerfile for Feather App on Render
 FROM python:3.11-slim
 
-# Install system dependencies including Node.js
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \\
-    ffmpeg \\
     libpq-dev \\
     gcc \\
-    git \\
     curl \\
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \\
+    libffi-dev \\
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 22
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \\
     && apt-get install -y nodejs \\
     && rm -rf /var/lib/apt/lists/*
 
@@ -79,7 +81,7 @@ WORKDIR /app
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \\
-    && pip install --no-cache-dir git+https://github.com/RolandFlyBoy/Feather.git \\
+    && pip install --no-cache-dir feather-framework \\
     && pip install --no-cache-dir -r requirements.txt
 
 # Install Node dependencies and build frontend

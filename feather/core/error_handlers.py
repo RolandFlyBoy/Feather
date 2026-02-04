@@ -230,6 +230,7 @@ def register_error_handlers(app: "Flask") -> None:
                 error_code=404,
                 error_title="Page Not Found",
                 error_message="The page you're looking for doesn't exist or has been moved.",
+                error_detail=f"Path: {request.path}",
                 error_icon="search_off",
             ), 404
         except Exception:
@@ -261,6 +262,7 @@ def register_error_handlers(app: "Flask") -> None:
                 error_code=500,
                 error_title="Server Error",
                 error_message="Something went wrong on our end. Please try again later.",
+                error_detail=str(error),
                 error_icon="error",
             ), 500
         except Exception:
