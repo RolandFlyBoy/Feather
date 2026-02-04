@@ -54,7 +54,7 @@ dependencies = [
     # Cloud storage
     "google-cloud-storage>=3.0.0",
     # PDF generation
-    "reportlab>=4.4.0",
+    "weasyprint>=63.0",
     # Caching and background jobs
     "redis>=7.0.0",
     "rq>=2.0.0",

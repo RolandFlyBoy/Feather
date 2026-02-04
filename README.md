@@ -22,6 +22,8 @@ Feather provides production-ready infrastructure so you can focus on your applic
 | **Caching** | Memory or Redis |
 | **File Storage** | Local filesystem or Google Cloud Storage |
 | **Email** | Resend for transactional emails |
+| **Dark Mode** | Cookie-persisted toggle on every page, including admin |
+| **Security Headers** | CSP, HSTS, X-Frame-Options, Referrer-Policy (production) |
 | **Rate Limiting** | In-memory (or Redis for distributed) |
 | **Events** | Pub/sub with sync and async listeners |
 | **Error Logging** | Database-backed, tenant-scoped |
@@ -273,6 +275,38 @@ await this.optimistic(
 [Google Material Icons](https://fonts.google.com/icons): `{{ icon("home") }}`, `{{ icon("settings", size="lg") }}`
 
 Sizes: `sm` (18px), `md` (24px), `lg` (36px), `xl` (48px)
+
+### Dark Mode
+
+Every scaffolded app includes a dark mode toggle that persists across pages via a `dm` cookie. The toggle is in the header of every page, including the admin panel.
+
+**How it works:**
+- A `dark-mode.js` script (loaded in `<head>`) reads the `dm` cookie and applies a `.dark` class to `<html>` before first render — no flash of wrong theme
+- Clicking any element with `data-toggle-dark-mode` toggles the class and updates the cookie
+- All CSS uses `dark:` variants via Tailwind's custom variant: `@custom-variant dark (&:where(.dark, .dark *))`
+
+**Toggle button (scaffolded in templates):**
+```html
+<button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+    <span class="material-symbols-outlined icon-light">bedtime</span>
+    <span class="material-symbols-outlined icon-dark">sunny</span>
+</button>
+```
+
+**CSS classes (in `app.css`):**
+```css
+.dark-mode-toggle .icon-light { @apply dark:hidden; }
+.dark-mode-toggle .icon-dark  { @apply hidden dark:inline; }
+```
+
+When adding custom styles, include `dark:` variants for every color-related class. Feather recommends CSS classes with `@apply` rather than inline Tailwind, so dark mode support looks like:
+
+```css
+.my-card {
+    @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+           border border-gray-200 dark:border-gray-700;
+}
+```
 
 ---
 
@@ -1597,6 +1631,49 @@ class ErrorLog(Model):
     tenant_id     # Tenant scope
     stack_trace   # Full traceback (for 500 errors)
     created_at    # When it occurred
+```
+
+### Security Headers
+
+Feather automatically adds security headers to all responses in production (`DEBUG=False`). No configuration needed — headers are applied by default and skipped in development.
+
+**Headers applied:**
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `Content-Security-Policy` | Configurable directives | Controls resource loading |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Forces HTTPS |
+| `X-Content-Type-Options` | `nosniff` | Prevents MIME-type sniffing |
+| `X-Frame-Options` | `DENY` | Prevents clickjacking |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Controls referrer info |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | Restricts browser APIs |
+
+**Default CSP directives:**
+```
+default-src 'self'
+script-src  'self'
+style-src   'self' 'unsafe-inline' https://fonts.googleapis.com
+font-src    'self' https://fonts.gstatic.com
+img-src     'self' data: https://*.googleusercontent.com
+connect-src 'self'
+frame-ancestors 'none'
+```
+
+**Extending CSP** (e.g., for Stripe):
+```python
+# config.py
+class ProductionConfig(Config):
+    FEATHER_CSP_DIRECTIVES = {
+        "script-src": "'self' https://js.stripe.com",
+        "frame-src": "'self' https://js.stripe.com",
+    }
+```
+
+Custom directives are merged with defaults — you only need to specify the ones you're changing.
+
+**Disabling** (not recommended):
+```python
+FEATHER_SECURITY_HEADERS = False
 ```
 
 ### Interactive Shell

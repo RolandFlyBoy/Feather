@@ -21,7 +21,7 @@
 - Feather project scaffolding (minimal, no database)
 - Jinja2 templates and template inheritance
 - Component macros (icons)
-- Tailwind CSS styling
+- Tailwind CSS styling with dark mode support
 - Vite hot module replacement
 
 ## Prerequisites
@@ -164,9 +164,15 @@ Create `templates/pages/board.html`:
         <h1 class="kanban-title">
             {{ icon("view_kanban", size="lg") }} Kanban Board
         </h1>
-        <button class="btn-primary">
-            {{ icon("add", size="sm") }} Add Column
-        </button>
+        <div class="kanban-header-right">
+            <button class="btn-primary">
+                {{ icon("add", size="sm") }} Add Column
+            </button>
+            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+                <span class="material-symbols-outlined icon-light">bedtime</span>
+                <span class="material-symbols-outlined icon-dark">sunny</span>
+            </button>
+        </div>
     </header>
 
     <div class="kanban-board">
@@ -212,17 +218,36 @@ Add to `static/css/app.css` (after the existing content):
 
 ```css
 @layer components {
+    /* Dark Mode Toggle */
+    .dark-mode-toggle {
+        @apply p-2 rounded-lg text-gray-500 hover:bg-gray-200
+               dark:text-gray-400 dark:hover:bg-gray-700 transition-colors;
+    }
+
+    .dark-mode-toggle .icon-light {
+        @apply dark:hidden;
+    }
+
+    .dark-mode-toggle .icon-dark {
+        @apply hidden dark:inline;
+    }
+
     /* Kanban Layout */
     .kanban-container {
-        @apply min-h-screen bg-gray-100 p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 p-6;
     }
 
     .kanban-header {
         @apply mb-6 flex items-center justify-between;
     }
 
+    .kanban-header-right {
+        @apply flex items-center gap-3;
+    }
+
     .kanban-title {
-        @apply text-2xl font-bold text-gray-900 flex items-center gap-2;
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100
+               flex items-center gap-2;
     }
 
     .kanban-board {
@@ -232,7 +257,8 @@ Add to `static/css/app.css` (after the existing content):
 
     /* Columns */
     .kanban-column {
-        @apply flex-shrink-0 w-72 bg-gray-200 rounded-lg p-3 flex flex-col;
+        @apply flex-shrink-0 w-72 bg-gray-200 dark:bg-gray-800
+               rounded-lg p-3 flex flex-col;
     }
 
     .column-header {
@@ -240,11 +266,12 @@ Add to `static/css/app.css` (after the existing content):
     }
 
     .column-title {
-        @apply font-semibold text-gray-700;
+        @apply font-semibold text-gray-700 dark:text-gray-300;
     }
 
     .card-count {
-        @apply text-sm text-gray-500 bg-gray-300 px-2 py-0.5 rounded-full;
+        @apply text-sm text-gray-500 dark:text-gray-400
+               bg-gray-300 dark:bg-gray-700 px-2 py-0.5 rounded-full;
     }
 
     .column-cards {
@@ -252,21 +279,21 @@ Add to `static/css/app.css` (after the existing content):
     }
 
     .column-footer {
-        @apply mt-3 pt-3 border-t border-gray-300;
+        @apply mt-3 pt-3 border-t border-gray-300 dark:border-gray-600;
     }
 
     .empty-column {
-        @apply text-sm text-gray-400 text-center py-4;
+        @apply text-sm text-gray-400 dark:text-gray-500 text-center py-4;
     }
 
     /* Cards */
     .kanban-card {
-        @apply bg-white rounded-lg shadow-sm p-3 cursor-pointer
-               hover:shadow-md transition-shadow;
+        @apply bg-white dark:bg-gray-700 rounded-lg shadow-sm p-3
+               cursor-pointer hover:shadow-md transition-shadow;
     }
 
     .card-title {
-        @apply text-sm text-gray-800;
+        @apply text-sm text-gray-800 dark:text-gray-200;
     }
 
     /* Buttons */
@@ -278,8 +305,8 @@ Add to `static/css/app.css` (after the existing content):
 
     .btn-add-card {
         @apply w-full flex items-center justify-center gap-1
-               text-sm text-gray-500 py-2 rounded
-               hover:bg-gray-300 transition-colors;
+               text-sm text-gray-500 dark:text-gray-400 py-2 rounded
+               hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors;
     }
 }
 ```
@@ -291,6 +318,10 @@ Feather recommends CSS classes with `@apply` instead of inline Tailwind:
 - Styles are reusable across templates
 - Easier to maintain and refactor
 - Clear separation of concerns
+
+**Dark mode support:**
+
+Every color-related `@apply` includes a `dark:` variant. The scaffolded `base.html` loads Feather's `dark-mode.js`, which toggles a `.dark` class on `<html>` when any element with `data-toggle-dark-mode` is clicked. The toggle button uses two icon spans (`icon-light` and `icon-dark`) whose visibility is controlled by CSS — `icon-light` is hidden in dark mode, and `icon-dark` is hidden in light mode. No custom JavaScript needed.
 
 ### Step 5: Run and View
 
@@ -312,7 +343,8 @@ Open http://localhost:5173 - you should see your Kanban board!
 Your app should now have:
 - A Kanban board with 3 columns
 - Cards displayed in columns
-- Styled with Tailwind CSS
+- Styled with Tailwind CSS (light and dark mode)
+- Dark mode toggle in the header
 - Material icons for visual elements
 
 **The buttons don't work yet** - that's what we'll add in the next tutorial!
@@ -331,6 +363,7 @@ static/css/app.css            # Added Kanban CSS classes
 - **Component macros** with `from ... import`
 - **Material icons** with the `icon` macro
 - **Tailwind CSS** with `@apply` in CSS classes
+- **Dark mode** with `dark:` variants and toggle button
 - **Jinja2 loops** with `{% for %}` and `{% else %}`
 
 ## Next Tutorial

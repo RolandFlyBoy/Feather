@@ -509,6 +509,11 @@ htmlcov/
     "tailwindcss": "^4.0.0",
     "terser": "^5.0.0",
     "vite-plugin-full-reload": "^1.2.0"
+  }},
+  "dependencies": {{
+    "echarts": "^5.5.0",
+    "htmx.org": "^2.0.4",
+    "idiomorph": "^0.3.0"
   }}
 }}
 '''
@@ -581,6 +586,8 @@ export default defineConfig({
     manifest: true,
     rollupOptions: {
       input: {
+        // Vendor libs (htmx, echarts) - must load before other scripts
+        vendor: resolve(__dirname, "static/js/vendor.js"),
         // Styles
         styles: resolve(__dirname, "static/css/app.css"),
         // Islands (auto-discovered)
@@ -608,7 +615,7 @@ export default defineConfig({
     feather_templates_path = Path(feather.__file__).parent / "templates"
 
     (project_path / "static/css/app.css").write_text(
-        f'@import "tailwindcss";\n\n/* Scan Feather framework templates for Tailwind classes */\n@source "{feather_templates_path}/**/*.html";\n\n'
+        f'@import "tailwindcss";\n\n/* Scan Feather framework templates for Tailwind classes */\n@source "{feather_templates_path}/**/*.html";\n\n/* Dark mode — manual toggle via .dark class on <html> */\n@custom-variant dark (&:where(.dark, .dark *));\n\n'
         + """/* Sensible defaults */
 @layer base {
   /* Interactive elements get pointer cursor */
@@ -625,6 +632,11 @@ export default defineConfig({
     cursor: not-allowed;
     opacity: 0.5;
   }
+}
+
+/* Admin color variable */
+:root {
+  --color-navy: #0B1F33;
 }
 
 /* Material Icons - use: <span class="icon">home</span> */
@@ -667,27 +679,342 @@ export default defineConfig({
     margin: 4px 0;
   }
 
-  /* Admin Panel Styles - CHRP-inspired */
+  /* Admin Panel Styles — Sidebar Layout */
 
-  /* Header - 80px (h-20) fixed black header */
-  .admin-header {
-    background: #000;
+  /* App Shell */
+  .app-shell {
+    @apply min-h-screen bg-white;
   }
 
-  /* Tab Navigation */
-  .admin-nav-item {
-    transition: background-color 0.15s;
-    border-bottom: 2px solid transparent;
+  /* Desktop Sidebar */
+  .desktop-sidebar {
+    @apply hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col;
   }
 
-  .admin-nav-item:hover {
-    background-color: #f3f4f6;
+  .sidebar-inner {
+    @apply flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6;
   }
 
-  .admin-nav-item.active {
+  .sidebar-logo {
+    @apply flex h-16 shrink-0 items-center gap-3;
+    text-decoration: none;
+  }
+
+  .sidebar-logo-icon {
+    @apply h-8 w-8;
+    color: var(--color-navy);
+  }
+
+  .sidebar-logo-text {
+    @apply font-semibold text-gray-900;
+  }
+
+  .sidebar-logo-text-group {
+    @apply flex flex-col;
+  }
+
+  .sidebar-logo-subtitle {
+    @apply text-xs font-normal;
+    color: #6b7280;
+  }
+
+  .sidebar-nav {
+    @apply flex flex-1 flex-col;
+  }
+
+  .sidebar-nav-list {
+    @apply flex flex-1 flex-col gap-y-4;
+  }
+
+  .sidebar-nav-section {
+    @apply -mx-2 space-y-1;
+  }
+
+  .sidebar-nav-item {
+    @apply flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 text-gray-700;
+    @apply hover:bg-gray-50;
+    text-decoration: none;
+  }
+
+  .sidebar-nav-item:hover {
+    color: var(--color-navy);
+  }
+
+  .sidebar-nav-item.active {
+    @apply bg-gray-50;
+    color: var(--color-navy);
+  }
+
+  .sidebar-nav-item .icon {
+    @apply size-6 shrink-0 text-gray-400;
+  }
+
+  .sidebar-nav-item:hover .icon,
+  .sidebar-nav-item.active .icon {
+    color: var(--color-navy);
+  }
+
+  /* Mobile Drawer */
+  .mobile-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(17, 24, 39, 0.8);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .mobile-drawer-backdrop.hidden {
+    display: none;
+  }
+
+  .mobile-drawer-backdrop.open {
+    opacity: 1;
+  }
+
+  .mobile-drawer-panel {
+    position: fixed;
+    inset-block: 0;
+    left: 0;
+    z-index: 51;
+    width: 100%;
+    max-width: 20rem;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .mobile-drawer-panel.open {
+    transform: translateX(0);
+  }
+
+  .mobile-drawer-inner {
+    @apply flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4;
+    height: 100%;
+  }
+
+  .mobile-drawer-header {
+    @apply flex h-16 shrink-0 items-center justify-between;
+  }
+
+  .mobile-drawer-close {
+    @apply -m-2.5 p-2.5 text-gray-400 hover:text-gray-600;
+    cursor: pointer;
+  }
+
+  /* Content Wrapper with Header */
+  .app-content-wrapper {
+    @apply lg:pl-72;
+  }
+
+  .app-header {
+    @apply sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 sm:gap-x-6 sm:px-6 lg:px-8;
+  }
+
+  .header-hamburger {
+    @apply -m-2.5 p-2.5 text-gray-700 lg:hidden;
+    cursor: pointer;
+  }
+
+  .header-hamburger .icon {
+    @apply size-6;
+  }
+
+  .header-separator {
+    @apply h-6 w-px bg-gray-900/10 lg:hidden;
+  }
+
+  .header-mobile-logo {
+    @apply absolute left-1/2 -translate-x-1/2 flex items-center gap-2 lg:hidden;
+    color: var(--color-navy);
+    text-decoration: none;
+  }
+
+  .header-mobile-logo-icon {
+    @apply h-6 w-6;
+  }
+
+  .header-mobile-logo-text {
+    @apply font-semibold text-gray-900 text-sm;
+  }
+
+  /* Profile Dropdown (details/summary — CSS-only) */
+  .header-profile-dropdown {
+    @apply relative ml-auto;
+  }
+
+  .header-profile-btn {
+    @apply -m-1.5 flex items-center p-1.5;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .header-profile-btn::-webkit-details-marker {
+    display: none;
+  }
+
+  .header-profile-btn::marker {
+    display: none;
+    content: '';
+  }
+
+  .header-profile-dropdown[open] > .header-profile-btn::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    cursor: default;
+  }
+
+  .header-profile-avatar {
+    @apply size-8 rounded-full bg-gray-50;
+  }
+
+  .header-profile-avatar-fallback {
+    @apply size-8 rounded-full flex items-center justify-center text-white text-xs font-semibold;
+    background: var(--color-navy);
+  }
+
+  .header-profile-name {
+    @apply hidden lg:flex lg:items-center;
+  }
+
+  .header-profile-name span {
+    @apply ml-4 text-sm font-semibold leading-6 text-gray-900;
+  }
+
+  .header-profile-name .icon {
+    @apply ml-2 size-5 text-gray-400;
+  }
+
+  .header-dropdown-menu {
+    @apply absolute right-0 z-50 mt-2.5 w-48 rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5;
+    top: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-0.25rem);
+    transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms;
+  }
+
+  .header-profile-dropdown[open] .header-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .header-dropdown-link {
+    @apply flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50;
+    text-decoration: none;
+  }
+
+  .header-dropdown-link .icon {
+    @apply size-5 text-gray-400;
+  }
+
+  .header-dropdown-divider {
+    @apply my-1 border-t border-gray-100;
+  }
+
+  /* Main Content Area */
+  .app-content {
+    @apply py-10;
+  }
+
+  .app-content-container {
+    @apply px-4 sm:px-6 lg:px-8;
+    max-width: 80rem;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+
+  /* Confirm Modal */
+  .confirm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .confirm-modal-overlay.hidden {
+    display: none;
+  }
+
+  .confirm-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.75);
+  }
+
+  .confirm-modal {
+    position: relative;
+    z-index: 1;
+    background: #fff;
+    border-radius: 1rem;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  }
+
+  .confirm-modal-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .confirm-modal-close:hover {
     background: #f3f4f6;
+    color: #374151;
+  }
+
+  .confirm-modal-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    margin: 0 auto 1rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+
+  .confirm-modal-icon-question {
+    background: linear-gradient(135deg, #93c5fd, #3b82f6);
+  }
+
+  .confirm-modal-title {
+    font-size: 1.125rem;
     font-weight: 600;
-    border-bottom-color: #000;
+    color: #111827;
+    margin-bottom: 0.5rem;
+  }
+
+  .confirm-modal-message {
+    font-size: 0.9375rem;
+    color: #374151;
+    line-height: 1.5;
+  }
+
+  .confirm-modal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
   }
 
   /* Table styles */
@@ -806,31 +1133,6 @@ export default defineConfig({
     padding: 1.5rem;
   }
 
-  /* Fixed layout with scrollable content */
-  /* Header: 80px (h-20), Nav: 49px */
-  .admin-content-scroll {
-    height: calc(100vh - 5rem - 49px);
-    overflow-y: auto;
-    padding-bottom: 2rem;
-  }
-
-  /* Avatar dropdown */
-  .admin-avatar-dropdown {
-    display: none;
-    position: absolute;
-    right: 0;
-    top: calc(100% + 0.5rem);
-    min-width: 240px;
-    background: #fff;
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    z-index: 50;
-  }
-
-  .admin-avatar-dropdown.show {
-    display: block;
-  }
-
   /* Input styles */
   .admin-input {
     width: 100%;
@@ -842,8 +1144,8 @@ export default defineConfig({
 
   .admin-input:focus {
     outline: none;
-    box-shadow: 0 0 0 2px #000;
-    border-color: transparent;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
   }
 
   /* Search input with icon */
@@ -1182,16 +1484,163 @@ export default defineConfig({
     to { transform: rotate(360deg); }
   }
 
-  /* Admin Feather logo font */
-  .admin-logo-text {
-    font-family: 'Lobster', cursive;
-  }
-
   /* Admin chart container */
   .admin-chart-container {
     height: 250px;
   }
 }
+
+/* Dark mode overrides — outside @layer so they override Tailwind utilities */
+
+/* Dark mode — Admin Layout */
+  .dark .app-shell { background: #1e293b; }
+  .dark .sidebar-inner { background: #1e293b; border-color: #334155; }
+  .dark .sidebar-logo-icon { color: #818cf8; }
+  .dark .sidebar-logo-text { color: #f1f5f9; }
+  .dark .sidebar-logo-subtitle { color: #94a3b8; }
+  .dark .sidebar-nav-item { color: #cbd5e1; }
+  .dark .sidebar-nav-item:hover,
+  .dark .sidebar-nav-item.active { background: #334155; color: #f1f5f9; }
+  .dark .sidebar-nav-item .icon { color: #94a3b8; }
+  .dark .sidebar-nav-item:hover .icon,
+  .dark .sidebar-nav-item.active .icon { color: #f1f5f9; }
+  .dark .mobile-drawer-inner { background: #1e293b; }
+  .dark .mobile-drawer-close { color: #94a3b8; }
+  .dark .app-header { background: #1e293b; border-color: #334155; }
+  .dark .header-hamburger { color: #cbd5e1; }
+  .dark .header-separator { background: #475569; }
+  .dark .header-mobile-logo { color: #f1f5f9; }
+  .dark .header-mobile-logo-icon { color: #818cf8; }
+  .dark .header-mobile-logo-text { color: #f1f5f9; }
+  .dark .header-profile-name span { color: #f1f5f9; }
+  .dark .header-profile-avatar-fallback { background: #475569; }
+  .dark .header-dropdown-menu { background: #2a3a4e; box-shadow: 0 0 0 1px #475569; }
+  .dark .header-dropdown-link { color: #e2e8f0; }
+  .dark .header-dropdown-link:hover { background: #3d4f63; }
+  .dark .header-dropdown-divider { border-color: #475569; }
+  .dark .confirm-modal { background: #1e293b; }
+  .dark .confirm-modal-close { color: #94a3b8; }
+  .dark .confirm-modal-close:hover { background: #334155; color: #f1f5f9; }
+  .dark .confirm-modal-title { color: #f1f5f9; }
+  .dark .confirm-modal-message { color: #cbd5e1; }
+
+  /* Dark mode — Admin Components */
+  .dark .admin-table-header { background: #283548; border-color: #334155; }
+  .dark .admin-table-header th { color: #94a3b8; }
+  .dark .admin-table-row { border-color: #334155; }
+  .dark .admin-table-row:hover { background-color: #253345; }
+  .dark .admin-badge-active { background-color: rgba(22, 163, 74, 0.2); color: #4ade80; }
+  .dark .admin-badge-suspended { background-color: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+  .dark .admin-badge-pending { background-color: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+  .dark .admin-badge-admin { background: #475569; color: #f1f5f9; }
+  .dark .admin-btn-primary { background: #475569; color: #f1f5f9; }
+  .dark .admin-btn-primary:hover { background: #64748b; }
+  .dark .admin-btn-secondary { background: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark .admin-btn-secondary:hover { background: #334155; }
+  .dark .admin-btn-danger { background: rgba(220, 38, 38, 0.8); }
+  .dark .admin-btn-danger:hover { background: rgba(220, 38, 38, 1); }
+  .dark .admin-card { background: #1e293b; border-color: #334155; }
+  .dark .admin-card-header { border-color: #334155; }
+  .dark .admin-card-icon { background: #334155; }
+  .dark .admin-card-title { color: #f1f5f9; }
+  .dark .admin-card-subtitle { color: #94a3b8; }
+  .dark .admin-card-body { color: #e2e8f0; }
+  .dark .admin-input { background: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark .admin-input:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.15); }
+  .dark .admin-stat-value { color: #f1f5f9; }
+  .dark .admin-stat-label { color: #94a3b8; }
+  .dark .admin-chart-container { background: #1e293b; }
+
+  /* Dark mode — Admin content scoped overrides (Tailwind utilities in admin pages) */
+  .dark .admin-content .bg-white { background: #1e293b; }
+  .dark .admin-content .bg-gray-50 { background: #253345; }
+  .dark .admin-content .bg-gray-100 { background: #334155; }
+  .dark .admin-content .bg-black { background: #475569; }
+  .dark .admin-content .text-gray-900 { color: #f1f5f9; }
+  .dark .admin-content .text-gray-800 { color: #e2e8f0; }
+  .dark .admin-content .text-gray-700 { color: #cbd5e1; }
+  .dark .admin-content .text-gray-600 { color: #94a3b8; }
+  .dark .admin-content .text-gray-500 { color: #64748b; }
+  .dark .admin-content .text-gray-400 { color: #64748b; }
+  .dark .admin-content h2, .dark .admin-content h3, .dark .admin-content h4 { color: #f1f5f9; }
+  .dark .admin-content p { color: #cbd5e1; }
+  .dark .admin-content .font-semibold { color: #f1f5f9; }
+  .dark .admin-content .border-gray-200 { border-color: #334155; }
+  .dark .admin-content .border-gray-300 { border-color: #475569; }
+  .dark .admin-content .divide-gray-200 > * + * { border-color: #334155; }
+  .dark .admin-content .shadow { box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3); border: 1px solid #334155; }
+  .dark .admin-content .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5) !important;
+    border: 1px solid #334155 !important;
+  }
+  .dark .admin-content .hover\\:bg-gray-50:hover { background: #253345 !important; }
+  .dark .admin-content .toggle-track { background: #475569; }
+  .dark .admin-content .toggle-track.active { background: #6366f1; }
+  .admin-content tbody tr { border-bottom: 1px solid #f3f4f6; }
+  .admin-content tbody tr:last-child { border-bottom: none; }
+  .admin-content tbody tr:nth-child(even) { background: #f9fafb; }
+  .admin-content tbody tr:hover { background: #f3f4f6; }
+  .dark .admin-content tbody tr { border-color: #334155; }
+  .dark .admin-content tbody tr:nth-child(even) { background: #253345; }
+  .dark .admin-content tbody tr:hover { background: #334155; }
+  .admin-content .divide-y > * + * { border-top-width: 0; }
+  .dark .admin-content .bg-green-600 { background: rgba(22, 163, 74, 0.7); }
+  .dark .admin-content .bg-blue-600 { background: rgba(37, 99, 235, 0.7); }
+  .dark .admin-content .bg-green-100 { background: rgba(22, 163, 74, 0.15); }
+  .dark .admin-content .bg-yellow-100 { background: rgba(245, 158, 11, 0.2); }
+  .dark .admin-content .bg-red-100 { background: rgba(239, 68, 68, 0.2); }
+  .dark .admin-content .bg-purple-100 { background: rgba(124, 58, 237, 0.2); }
+  .dark .admin-content .bg-blue-100 { background: rgba(59, 130, 246, 0.2); }
+  .dark .admin-content .text-green-800 { color: #4ade80; }
+  .dark .admin-content .text-green-600 { color: #4ade80; }
+  .dark .admin-content .text-yellow-800 { color: #fbbf24; }
+  .dark .admin-content .text-red-800 { color: #fca5a5; }
+  .dark .admin-content .text-red-600 { color: #f87171; }
+  .dark .admin-content .text-purple-800 { color: #c4b5fd; }
+  .dark .admin-content .text-blue-800 { color: #93c5fd; }
+  .dark .admin-content select { background: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark .admin-content input:not([type="checkbox"]):not([type="radio"]) { background: #1e293b; color: #e2e8f0; border-color: #475569; }
+  .dark .admin-content textarea { background: #1e293b; color: #e2e8f0; }
+  .dark .admin-content .bg-gray-300 { background: #475569; }
+  .dark .admin-content .bg-green-50 { background: rgba(22, 163, 74, 0.1); }
+  .dark .admin-content .bg-red-50 { background: rgba(239, 68, 68, 0.1); }
+  .dark .admin-content .border-green-200 { border-color: rgba(22, 163, 74, 0.3); }
+  .dark .admin-content .border-red-200 { border-color: rgba(239, 68, 68, 0.3); }
+  .dark .admin-content .text-yellow-600 { color: #fbbf24; }
+  .dark .admin-content .text-white { color: #f1f5f9; }
+  .dark .admin-content .text-gray-300 { color: #4b5563; }
+  .dark .admin-content .font-medium { color: #e2e8f0; }
+  .dark .admin-content .hover\\:bg-gray-200:hover { background: #374151 !important; }
+  .dark .admin-content .hover\\:text-gray-900:hover { color: #f1f5f9 !important; }
+  .dark .admin-content .hover\\:text-gray-600:hover { color: #94a3b8 !important; }
+  .dark .admin-content select { outline-color: #475569; }
+  .dark .admin-content input::placeholder,
+  .dark .admin-content textarea::placeholder { color: #64748b; }
+  .dark .admin-content .shadow-xl {
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5) !important;
+    border: 1px solid #334155 !important;
+  }
+  .dark .admin-content input:focus,
+  .dark .admin-content textarea:focus {
+    border-color: #818cf8 !important;
+    box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3);
+    outline: none;
+  }
+  /* Keep toggle knobs white in dark mode */
+  .dark .admin-content .sr-only + div + div.rounded-full { background: white !important; }
+
+  .dark .auth-page { background: #111827; }
+  .dark .page-header { background: #000; }
+  .dark .page-title { color: #f9fafb; }
+  .dark .page-subtitle { color: #9ca3af; }
+  .dark .step-title { color: #f9fafb; }
+  .dark .step-text { color: #9ca3af; }
+  .dark .step-link { color: #e5e7eb; }
+  .dark .step-number { background: #e5e7eb; color: #111827; }
+  .dark .code-block,
+  .dark .code-inline { background: #374151; color: #e5e7eb; }
+  .dark .code-block-dark { background: #0f172a; }
+  .dark .code-label { color: #9ca3af; }
 
 /* Add your custom styles below */
 """
@@ -1476,22 +1925,30 @@ def home():
     <link rel="stylesheet" href="{{ feather_asset('styles') }}">
     {% endif %}
 
+    <!-- Dark mode: restore preference before render to avoid flash -->
+    <script src="/feather-static/dark-mode.js"></script>
+
     {% block extra_head %}{% endblock %}
 </head>
-<body class="min-h-screen bg-gray-50" hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-gray-100" hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
     {{ page_loader() }}
+    <script src="/feather-static/page-loader.js"></script>
     {{ htmx_indicator() }}
     {% block content %}{% endblock %}
 
-    <!-- HTMX -->
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    <!-- Idiomorph - morphing for HTMX polling without flicker -->
-    <script src="https://unpkg.com/idiomorph@0.3.0/dist/idiomorph-ext.min.js"></script>
+    <!-- Vendor libs (htmx, idiomorph, echarts) - bundled from npm -->
+    {% if config.DEBUG %}
+    <script type="module" src="http://localhost:5173/static/js/vendor.js"></script>
+    {% else %}
+    <script type="module" src="{{ feather_asset('vendor') }}"></script>
+    {% endif %}
 
     <!-- Framework JS (served from feather package) -->
     <script src="/feather-static/api.js"></script>
     <script src="/feather-static/feather.js"></script>
     <script src="/feather-static/dropdown.js"></script>
+    <script src="/feather-static/toast.js"></script>
+    <script src="/feather-static/prompt-modal.js"></script>
 
     <!-- App JS (shared utilities) -->
     {% if config.DEBUG %}
@@ -1512,17 +1969,9 @@ def home():
     <!-- Toast Notifications -->
     {{ toast() }}
 
-    <!-- Pending Toast (shown after redirect) -->
+    <!-- Pending Toast (shown after redirect, handled by toast.js) -->
     {% if pending_toast %}
     <div id="pending-toast-data" data-message="{{ pending_toast.message }}" data-type="{{ pending_toast.type }}" style="display:none;"></div>
-    <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        var el = document.getElementById("pending-toast-data");
-        if (el && window.showToast) {
-          window.showToast(el.dataset.message, el.dataset.type || "info");
-        }
-      });
-    </script>
     {% endif %}
 
     {% block scripts %}{% endblock %}
@@ -1722,29 +2171,37 @@ Flask route example:
 {% block content %}
 <div class="container mx-auto px-4 py-12">
     <div class="max-w-2xl mx-auto text-center">
-        <h1 class="text-3xl font-bold text-gray-900 mb-3 flex items-center justify-center gap-3">
+        <div class="flex justify-end mb-4">
+            <button data-toggle-dark-mode
+                    class="p-2 rounded-lg text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
+                    title="Toggle dark mode">
+                <span class="dark:hidden"><span class="material-symbols-outlined">bedtime</span></span>
+                <span class="hidden dark:inline"><span class="material-symbols-outlined">sunny</span></span>
+            </button>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center justify-center gap-3">
             <svg class="w-14 h-14" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
                 <path fill="#b399c8" d="M42.3339,49.147a29.9446,29.9446,0,0,1-19.3378-8.1514h0c-8.0137-7.3643-8.378-18.0752-8.5332-22.6484l-.0215-.627a2.9039,2.9039,0,0,1,3.457-2.9512c17.0049,3.3555,21.6943,16.3243,22.0557,17.4a49.5426,49.5426,0,0,1,3.5742,15.9219,1,1,0,0,1-.9668,1.0518C42.5322,49.144,42.455,49.147,42.3339,49.147Z"/>
                 <path fill="#61b2e4" d="M44.4355,55.3159c-11.6455,0-17.3757-6.9734-17.6521-7.3542a1,1,0,0,1,.2617-1.4239,11.1031,11.1031,0,0,1,12.7742-1.5734c-1.4648-9.0782,1.877-13.5684,2.0312-13.77a.9982.9982,0,0,1,.75-.39.9705.9705,0,0,1,.78.3242c8.9434,9.7715,8.793,16.5322,7.9072,19.6914-.0341.1406-1.0615,4.0918-4.7714,4.4063C45.8046,55.2876,45.1113,55.3159,44.4355,55.3159Z"/>
-                <path fill="none" stroke="#1f2937" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M55.1837,57.69S34.96,45.877,23.0974,24.2062"/>
-                <path fill="none" stroke="#1f2937" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M45.2281,54.3024C33.2973,54.7629,27.6,47.4216,27.6,47.4216"/>
-                <path fill="none" stroke="#1f2937" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M40.528,42.4827c-.5595-7.1945,2.1157-10.6784,2.1157-10.6784,8.8346,9.6533,8.4063,16.1616,7.6813,18.7468"/>
-                <path fill="none" stroke="#1f2937" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M37.0138,47.4216A30.15,30.15,0,0,1,23.673,40.26c-8.0725-7.4186-8.0674-18.2414-8.2321-22.5774a1.9032,1.9032,0,0,1,2.2642-1.9314C34.6938,19.1027,39.02,32.5284,39.02,32.5284"/>
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M55.1837,57.69S34.96,45.877,23.0974,24.2062"/>
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M45.2281,54.3024C33.2973,54.7629,27.6,47.4216,27.6,47.4216"/>
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M40.528,42.4827c-.5595-7.1945,2.1157-10.6784,2.1157-10.6784,8.8346,9.6533,8.4063,16.1616,7.6813,18.7468"/>
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M37.0138,47.4216A30.15,30.15,0,0,1,23.673,40.26c-8.0725-7.4186-8.0674-18.2414-8.2321-22.5774a1.9032,1.9032,0,0,1,2.2642-1.9314C34.6938,19.1027,39.02,32.5284,39.02,32.5284"/>
             </svg>
             Welcome to Feather
         </h1>
-        <p class="text-lg text-gray-600 mb-6">
+        <p class="text-lg text-gray-600 dark:text-gray-400 mb-6">
             An AI-native web framework for server-rendered apps using HTMX and vanilla JavaScript islands.
         </p>
 
         <!-- Interactive counter island demo -->
         <div data-island="counter" data-initial="0"
-             class="inline-flex items-center gap-4 p-4 bg-white rounded-xl shadow-lg mb-6">
+             class="inline-flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
             <button data-action="decrement"
-                    class="w-10 h-10 flex items-center justify-center bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
+                    class="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                 {{ icon("remove", size="sm") }}
             </button>
-            <span class="count text-2xl font-bold text-gray-900 w-12 text-center">0</span>
+            <span class="count text-2xl font-bold text-gray-900 dark:text-gray-100 w-12 text-center">0</span>
             <button data-action="increment"
                     class="w-10 h-10 flex items-center justify-center bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors">
                 {{ icon("add", size="sm") }}
@@ -1753,7 +2210,7 @@ Flask route example:
 
         {% if current_user.is_authenticated %}
         <!-- Logged in: Show profile card -->
-        <div class="bg-white rounded-xl shadow-lg p-6 text-left">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-left">
             <div class="flex items-start justify-between">
                 <div class="flex items-center gap-4">
                     {% if current_user.profile_image_url %}
@@ -1762,19 +2219,19 @@ Flask route example:
                          class="w-14 h-14 rounded-full"
                          referrerpolicy="no-referrer">
                     {% else %}
-                    <div class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+                    <div class="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                         {{ icon("person", size="md", class="text-gray-400") }}
                     </div>
                     {% endif %}
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                             {{ current_user.display_name or current_user.email }}
                         </h2>
-                        <p class="text-sm text-gray-500">{{ current_user.email }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ current_user.email }}</p>
                     </div>
                 </div>
                 <a href="{{ url_for('auth.logout') }}"
-                   class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                     {{ icon("logout", size="sm") }}
                     Sign Out
                 </a>
@@ -1782,12 +2239,12 @@ Flask route example:
 
             {% if not current_user.active %}
             {% set is_suspended = current_user.approved_at is defined and current_user.approved_at %}
-            <div class="mt-4 rounded-lg p-4 {% if is_suspended %}bg-red-50 border border-red-200{% else %}bg-gray-100{% endif %}">
-                <div class="flex items-center gap-2 {% if is_suspended %}text-red-800{% else %}text-gray-700{% endif %}">
-                    {{ icon("block" if is_suspended else "hourglass_empty", class="text-red-600" if is_suspended else "text-gray-500") }}
+            <div class="mt-4 rounded-lg p-4 {% if is_suspended %}bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800{% else %}bg-gray-100 dark:bg-gray-700{% endif %}">
+                <div class="flex items-center gap-2 {% if is_suspended %}text-red-800 dark:text-red-400{% else %}text-gray-700 dark:text-gray-300{% endif %}">
+                    {{ icon("block" if is_suspended else "hourglass_empty", class="text-red-600 dark:text-red-400" if is_suspended else "text-gray-500 dark:text-gray-400") }}
                     <span class="font-medium">{% if is_suspended %}Account Suspended{% else %}Pending Approval{% endif %}</span>
                 </div>
-                <p class="text-sm {% if is_suspended %}text-red-700{% else %}text-gray-600{% endif %} mt-1">
+                <p class="text-sm {% if is_suspended %}text-red-700 dark:text-red-400{% else %}text-gray-600 dark:text-gray-400{% endif %} mt-1">
                     {% if is_suspended %}
                     Your account has been suspended. Please contact your administrator.
                     {% else %}
@@ -1799,8 +2256,8 @@ Flask route example:
         </div>
         {% else %}
         <!-- Not logged in: Show sign in card -->
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <p class="text-gray-600 mb-4 text-sm">Try Google OAuth with automatic user creation and admin approval workflow.</p>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <p class="text-gray-600 dark:text-gray-400 mb-4 text-sm">Try Google OAuth with automatic user creation and admin approval workflow.</p>
             <a href="{{ url_for('google_auth.login') }}"
                class="inline-flex items-center gap-3 px-6 py-3 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800">
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
@@ -1814,8 +2271,8 @@ Flask route example:
         </div>
         {% endif %}
 
-        <p class="mt-6 text-sm text-gray-500">
-            Edit <code class="bg-gray-100 px-2 py-1 rounded">templates/pages/home.html</code> to get started.
+        <p class="mt-6 text-sm text-gray-500 dark:text-gray-400">
+            Edit <code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">templates/pages/home.html</code> to get started.
         </p>
     </div>
 </div>
@@ -1841,55 +2298,63 @@ Flask route example:
 {% block content %}
 <div class="container mx-auto px-4 py-12">
     <div class="max-w-2xl mx-auto text-center">
-        <h1 class="text-3xl font-bold text-gray-900 mb-3 flex items-center justify-center gap-3">
+        <div class="flex justify-end mb-4">
+            <button data-toggle-dark-mode
+                    class="p-2 rounded-lg text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
+                    title="Toggle dark mode">
+                <span class="dark:hidden"><span class="material-symbols-outlined">bedtime</span></span>
+                <span class="hidden dark:inline"><span class="material-symbols-outlined">sunny</span></span>
+            </button>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center justify-center gap-3">
             <svg class="w-14 h-14" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
                 <path fill="#b399c8" d="M42.3339,49.147a29.9446,29.9446,0,0,1-19.3378-8.1514h0c-8.0137-7.3643-8.378-18.0752-8.5332-22.6484l-.0215-.627a2.9039,2.9039,0,0,1,3.457-2.9512c17.0049,3.3555,21.6943,16.3243,22.0557,17.4a49.5426,49.5426,0,0,1,3.5742,15.9219,1,1,0,0,1-.9668,1.0518C42.5322,49.144,42.455,49.147,42.3339,49.147Z"/>
                 <path fill="#61b2e4" d="M44.4355,55.3159c-11.6455,0-17.3757-6.9734-17.6521-7.3542a1,1,0,0,1,.2617-1.4239,11.1031,11.1031,0,0,1,12.7742-1.5734c-1.4648-9.0782,1.877-13.5684,2.0312-13.77a.9982.9982,0,0,1,.75-.39.9705.9705,0,0,1,.78.3242c8.9434,9.7715,8.793,16.5322,7.9072,19.6914-.0341.1406-1.0615,4.0918-4.7714,4.4063C45.8046,55.2876,45.1113,55.3159,44.4355,55.3159Z"/>
-                <path fill="none" stroke="#1f2937" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M55.1837,57.69S34.96,45.877,23.0974,24.2062"/>
-                <path fill="none" stroke="#1f2937" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M45.2281,54.3024C33.2973,54.7629,27.6,47.4216,27.6,47.4216"/>
-                <path fill="none" stroke="#1f2937" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M40.528,42.4827c-.5595-7.1945,2.1157-10.6784,2.1157-10.6784,8.8346,9.6533,8.4063,16.1616,7.6813,18.7468"/>
-                <path fill="none" stroke="#1f2937" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M37.0138,47.4216A30.15,30.15,0,0,1,23.673,40.26c-8.0725-7.4186-8.0674-18.2414-8.2321-22.5774a1.9032,1.9032,0,0,1,2.2642-1.9314C34.6938,19.1027,39.02,32.5284,39.02,32.5284"/>
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M55.1837,57.69S34.96,45.877,23.0974,24.2062"/>
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M45.2281,54.3024C33.2973,54.7629,27.6,47.4216,27.6,47.4216"/>
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M40.528,42.4827c-.5595-7.1945,2.1157-10.6784,2.1157-10.6784,8.8346,9.6533,8.4063,16.1616,7.6813,18.7468"/>
+                <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M37.0138,47.4216A30.15,30.15,0,0,1,23.673,40.26c-8.0725-7.4186-8.0674-18.2414-8.2321-22.5774a1.9032,1.9032,0,0,1,2.2642-1.9314C34.6938,19.1027,39.02,32.5284,39.02,32.5284"/>
             </svg>
             Welcome to Feather
         </h1>
-        <p class="text-lg text-gray-600 mb-6">
+        <p class="text-lg text-gray-600 dark:text-gray-400 mb-6">
             An AI-native web framework for server-rendered apps using HTMX and vanilla JavaScript islands.
         </p>
 
         <!-- Interactive counter island demo -->
         <div data-island="counter" data-initial="0"
-             class="inline-flex items-center gap-4 p-4 bg-white rounded-xl shadow-lg mb-6">
+             class="inline-flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-6">
             <button data-action="decrement"
-                    class="w-10 h-10 flex items-center justify-center bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
+                    class="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                 {{ icon("remove", size="sm") }}
             </button>
-            <span class="count text-2xl font-bold text-gray-900 w-12 text-center">0</span>
+            <span class="count text-2xl font-bold text-gray-900 dark:text-gray-100 w-12 text-center">0</span>
             <button data-action="increment"
                     class="w-10 h-10 flex items-center justify-center bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors">
                 {{ icon("add", size="sm") }}
             </button>
         </div>
 
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-3">Your app is running!</h2>
-            <ul class="text-left text-sm text-gray-600 space-y-2">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Your app is running!</h2>
+            <ul class="text-left text-sm text-gray-600 dark:text-gray-400 space-y-2">
                 <li class="flex items-center gap-2">
                     {{ icon("check_circle", size="sm", class="text-green-500") }}
-                    Edit <code class="bg-gray-100 px-1.5 py-0.5 rounded">routes/pages/home.py</code> to change this page
+                    Edit <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">routes/pages/home.py</code> to change this page
                 </li>
                 <li class="flex items-center gap-2">
                     {{ icon("check_circle", size="sm", class="text-green-500") }}
-                    Create new routes in <code class="bg-gray-100 px-1.5 py-0.5 rounded">routes/pages/</code>
+                    Create new routes in <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">routes/pages/</code>
                 </li>
                 <li class="flex items-center gap-2">
                     {{ icon("check_circle", size="sm", class="text-green-500") }}
-                    Add templates in <code class="bg-gray-100 px-1.5 py-0.5 rounded">templates/pages/</code>
+                    Add templates in <code class="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">templates/pages/</code>
                 </li>
             </ul>
         </div>
 
-        <p class="mt-6 text-sm text-gray-500">
-            Edit <code class="bg-gray-100 px-2 py-1 rounded">templates/pages/home.html</code> to get started.
+        <p class="mt-6 text-sm text-gray-500 dark:text-gray-400">
+            Edit <code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">templates/pages/home.html</code> to get started.
         </p>
     </div>
 </div>
@@ -2208,30 +2673,59 @@ def test_home_page(client):
                 _build_email_service_content()
             )
 
-        # Admin Chart JS - Chart.js rendering for analytics
+        # Vendor JS - bundles htmx, echarts, idiomorph from npm (no CDN)
+        (project_path / "static/js/vendor.js").write_text(
+            '''// Vendor libraries - bundled to avoid external CDN dependencies
+import htmx from 'htmx.org';
+import * as echarts from 'echarts';
+
+// Expose to global scope FIRST (before extensions load)
+window.htmx = htmx;
+window.echarts = echarts;
+
+// Load htmx extensions AFTER htmx is global (they expect window.htmx)
+await import('idiomorph/dist/idiomorph-ext.min.js');
+'''
+        )
+
+        # Admin Chart JS - ECharts rendering for analytics
         (project_path / "static/js/admin-chart.js").write_text(
             '''/**
  * Admin Analytics Chart
  * ======================
- * Chart.js rendering for user growth analytics.
+ * ECharts rendering for user growth analytics.
  */
 
 (function() {
   "use strict";
 
-  const container = document.getElementById("chart-container");
-  const apiUrl = container?.dataset.apiUrl;
-  let chart = null;
+  var container = document.getElementById("chart-container");
+  var chartEl = document.getElementById("user-growth-chart");
+  var chart = null;
+
+  function isDark() {
+    return document.documentElement.classList.contains("dark");
+  }
+
+  function themeColors() {
+    var dark = isDark();
+    return {
+      text: dark ? "#94a3b8" : "#6b7280",
+      line: dark ? "#818cf8" : "#000",
+      area: dark ? "rgba(129, 140, 248, 0.1)" : "rgba(0, 0, 0, 0.1)",
+      splitLine: dark ? "#334155" : "#e5e7eb"
+    };
+  }
 
   async function loadAndRender(days) {
+    if (!container) return;
+    var apiUrl = container.dataset.apiUrl;
     if (!apiUrl) return;
 
     try {
-      const result = await ApiUtility.get(`${apiUrl}?days=${days}`);
+      var result = await ApiUtility.get(apiUrl + "?days=" + days);
       if (result.success && result.data) {
         renderChart(result.data);
-      } else {
-        console.error("Chart data error:", result.error);
       }
     } catch (error) {
       console.error("Failed to load user growth data:", error);
@@ -2239,42 +2733,50 @@ def test_home_page(client):
   }
 
   function renderChart(data) {
-    const ctx = document.getElementById("user-growth-canvas");
-    if (!ctx) return;
+    if (!chartEl) return;
+    if (chart) chart.dispose();
 
-    if (chart) chart.destroy();
+    chart = echarts.init(chartEl);
+    var colors = themeColors();
 
-    chart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: data.map(d => {
-          const date = new Date(d.date);
-          return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    chart.setOption({
+      tooltip: { trigger: "axis" },
+      grid: { left: 40, right: 20, top: 20, bottom: 30 },
+      xAxis: {
+        type: "category",
+        data: data.map(function(d) {
+          return new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
         }),
-        datasets: [{
-          label: "New Users",
-          data: data.map(d => d.count),
-          borderColor: "#000",
-          backgroundColor: "rgba(0, 0, 0, 0.1)",
-          fill: true,
-          tension: 0.4
-        }]
+        axisLabel: { color: colors.text },
+        axisLine: { lineStyle: { color: colors.splitLine } }
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }
-        }
-      }
+      yAxis: {
+        type: "value",
+        minInterval: 1,
+        axisLabel: { color: colors.text },
+        splitLine: { lineStyle: { color: colors.splitLine } }
+      },
+      series: [{
+        type: "line",
+        data: data.map(function(d) { return d.count; }),
+        smooth: true,
+        lineStyle: { color: colors.line },
+        itemStyle: { color: colors.line },
+        areaStyle: { color: colors.area }
+      }]
     });
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const selector = document.getElementById("time-range-select");
+  window.addEventListener("resize", function() {
+    if (chart) chart.resize();
+  });
+
+  document.addEventListener("DOMContentLoaded", function() {
+    var selector = document.getElementById("time-range-select");
     if (selector) {
-      selector.addEventListener("change", (e) => loadAndRender(parseInt(e.target.value)));
+      selector.addEventListener("change", function(e) {
+        loadAndRender(parseInt(e.target.value));
+      });
     }
     loadAndRender(30);
   });
@@ -2293,31 +2795,38 @@ def test_home_page(client):
 (function() {
   "use strict";
 
-  // Avatar dropdown toggle
-  function initAvatarDropdown() {
-    const avatarBtn = document.getElementById("admin-avatar-btn");
-    const dropdown = document.getElementById("admin-avatar-dropdown");
-    const avatarImg = document.getElementById("admin-avatar-img");
+  // Mobile sidebar drawer
+  function initMobileSidebar() {
+    var backdrop = document.getElementById("mobile-sidebar-backdrop");
+    var panel = document.getElementById("mobile-sidebar");
+    if (!backdrop || !panel) return;
 
-    if (avatarImg) {
-      avatarImg.addEventListener("error", () => {
-        const fallback = avatarImg.dataset.fallback;
-        if (fallback && avatarImg.src !== fallback) avatarImg.src = fallback;
+    function openSidebar() {
+      backdrop.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      requestAnimationFrame(function() {
+        backdrop.classList.add("open");
+        panel.classList.add("open");
       });
     }
 
-    if (avatarBtn && dropdown) {
-      avatarBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle("show");
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!dropdown.contains(e.target) && !avatarBtn.contains(e.target)) {
-          dropdown.classList.remove("show");
-        }
-      });
+    function closeSidebar() {
+      backdrop.classList.remove("open");
+      panel.classList.remove("open");
+      document.body.style.overflow = "";
+      setTimeout(function() { backdrop.classList.add("hidden"); }, 300);
     }
+
+    document.addEventListener("click", function(e) {
+      if (e.target.closest("[data-action=\'open-sidebar\']")) openSidebar();
+      if (e.target.closest("[data-action=\'close-sidebar\']")) closeSidebar();
+    });
+
+    backdrop.addEventListener("click", function(e) {
+      if (e.target === backdrop) closeSidebar();
+    });
+
+    window._closeMobileSidebar = closeSidebar;
   }
 
   // Custom confirm modal for admin
@@ -2351,7 +2860,7 @@ def test_home_page(client):
     // Modal backdrop and cancel clicks
     modal.addEventListener("click", (e) => {
       const action = e.target.dataset.action;
-      if (action === "cancel" || e.target === modal.querySelector(".absolute.inset-0")) {
+      if (action === "cancel") {
         closeConfirmModal();
       }
     });
@@ -2363,14 +2872,16 @@ def test_home_page(client):
     confirmCallback = null;
   }
 
-  // Expose closeConfirmModal globally for the modal backdrop
   window.closeConfirmModal = closeConfirmModal;
 
   // Handle escape key
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       closeConfirmModal();
-      document.getElementById("admin-avatar-dropdown")?.classList.remove("show");
+      if (window._closeMobileSidebar) window._closeMobileSidebar();
+      // Close profile dropdown
+      var details = document.querySelector(".header-profile-dropdown[open]");
+      if (details) details.removeAttribute("open");
     }
   });
 
@@ -2389,13 +2900,22 @@ def test_home_page(client):
   // Handle email selection in admin tools
   function initEmailSelector() {
     document.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-action='select-email']");
+      const btn = e.target.closest("[data-action=\'select-email\']");
       if (btn) {
         const email = btn.dataset.email;
-        const input = document.querySelector("[name='to']");
+        const input = document.querySelector("[name=\'to\']");
         const dropdown = document.getElementById("user-dropdown");
         if (input) input.value = email;
         if (dropdown) dropdown.innerHTML = "";
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      const dropdown = document.getElementById("user-dropdown");
+      const input = document.getElementById("email-to-input");
+      if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+        dropdown.innerHTML = "";
       }
     });
   }
@@ -2410,26 +2930,24 @@ def test_home_page(client):
     });
   }
 
-  // Handle admin avatar image fallbacks
-  function initAvatarFallbacks() {
-    document.querySelectorAll(".admin-avatar-img").forEach((img) => {
-      img.addEventListener("error", () => {
-        const fallback = img.dataset.fallback;
-        if (fallback && img.src !== fallback) img.src = fallback;
-      });
-    });
-  }
-
   // Handle tenant modal
   function initTenantModal() {
     const modal = document.getElementById("create-tenant-modal");
     if (!modal) return;
 
     document.addEventListener("click", (e) => {
-      const action = e.target.dataset.action;
+      const el = e.target.closest("[data-action]");
+      if (!el) return;
+      const action = el.dataset.action;
       if (action === "show-create-tenant") {
         modal.classList.remove("hidden");
       } else if (action === "hide-create-tenant") {
+        modal.classList.add("hidden");
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !modal.classList.contains("hidden")) {
         modal.classList.add("hidden");
       }
     });
@@ -2438,21 +2956,19 @@ def test_home_page(client):
   // Initialize on DOM ready
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
-      initAvatarDropdown();
+      initMobileSidebar();
       initConfirmModal();
       initPendingToast();
       initEmailSelector();
       initClickableRows();
-      initAvatarFallbacks();
       initTenantModal();
     });
   } else {
-    initAvatarDropdown();
+    initMobileSidebar();
     initConfirmModal();
     initPendingToast();
     initEmailSelector();
     initClickableRows();
-    initAvatarFallbacks();
     initTenantModal();
   }
 })();
@@ -3095,6 +3611,7 @@ class ProductionConfig(Config):
     """Production configuration."""
 
     DEBUG = False
+    SECRET_KEY = os.environ.get("SECRET_KEY")  # Required — no fallback
 '''
 
     if include_auth:
@@ -3165,6 +3682,14 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 """
 
+    # GCS - bucket name first, then credentials
+    if include_storage:
+        env += """
+# Google Cloud Storage (optional - local storage used if not configured)
+GCS_BUCKET=
+GCS_CREDENTIALS_JSON=
+"""
+
     # Background Jobs configuration
     if include_jobs:
         env += """
@@ -3192,14 +3717,6 @@ REDIS_URL=redis://localhost:6379/0
         env += """
 # Redis (only needed if JOB_BACKEND=rq)
 # REDIS_URL=redis://localhost:6379/0
-"""
-
-    # GCS - bucket name first, then credentials
-    if include_storage:
-        env += """
-# Google Cloud Storage (optional - local storage used if not configured)
-GCS_BUCKET=
-GCS_CREDENTIALS_JSON=
 """
 
     # Email (Resend)
@@ -3557,15 +4074,6 @@ def _build_requirements_content(
     return """# Project Dependencies
 # ALL deps come from Feather framework:
 # Flask, SQLAlchemy, authlib, redis, GCS, reportlab, gunicorn, pytest, etc.
-
-# For local development, Feather is linked via:
-#   pip install -e /path/to/feather
-
-# For deployment, uncomment this:
-# feather-framework
-
-# Python 3.13+ compatibility (audioop removed from stdlib)
-audioop-lts>=0.2.1; python_version >= "3.13"
 """
 
 
@@ -4208,24 +4716,24 @@ def _build_account_pending_template() -> str:
 {% block title %}Account Pending - My App{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4">
     <div class="max-w-md w-full text-center">
         <!-- Icon -->
-        <div class="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
+        <div class="mx-auto w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mb-6">
             <span class="material-symbols-outlined text-3xl text-yellow-600">hourglass_top</span>
         </div>
 
         <!-- Heading -->
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">Account Pending Approval</h1>
-        <p class="text-gray-600 mb-8">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Account Pending Approval</h1>
+        <p class="text-gray-600 dark:text-gray-400 mb-8">
             Your account has been created and is awaiting approval from an administrator.
             You'll receive access once your account has been reviewed.
         </p>
 
         <!-- Info Card -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 text-left">
-            <h2 class="font-medium text-gray-900 mb-3">What happens next?</h2>
-            <ul class="space-y-2 text-sm text-gray-600">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 text-left">
+            <h2 class="font-medium text-gray-900 dark:text-gray-100 mb-3">What happens next?</h2>
+            <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                 <li class="flex items-start gap-2">
                     <span class="material-symbols-outlined text-green-500 text-lg flex-shrink-0">check_circle</span>
                     <span>An administrator will review your account</span>
@@ -4242,7 +4750,7 @@ def _build_account_pending_template() -> str:
         </div>
 
         <!-- User Info -->
-        <div class="bg-gray-100 rounded-lg p-4 mb-6 text-sm text-gray-600">
+        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-6 text-sm text-gray-600 dark:text-gray-400">
             <p>Logged in as: <strong>{{ current_user.email }}</strong></p>
         </div>
 
@@ -4250,7 +4758,7 @@ def _build_account_pending_template() -> str:
         <div class="space-y-3">
             <form action="{{ url_for('page.account_logout') }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors">
+                <button type="submit" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
                     Sign Out
                 </button>
             </form>
@@ -4275,27 +4783,27 @@ def _build_account_suspended_template() -> str:
 {% block title %}Account Suspended - My App{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4">
     <div class="max-w-md w-full text-center">
         <!-- Icon -->
-        <div class="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
+        <div class="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6">
             <span class="material-symbols-outlined text-3xl text-red-600">block</span>
         </div>
 
         <!-- Heading -->
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">Account Suspended</h1>
-        <p class="text-gray-600 mb-8">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Account Suspended</h1>
+        <p class="text-gray-600 dark:text-gray-400 mb-8">
             Your account has been suspended by an administrator.
             If you believe this is an error, please contact your administrator.
         </p>
 
         <!-- Info Card -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 text-left">
-            <h2 class="font-medium text-gray-900 mb-3">Why was my account suspended?</h2>
-            <p class="text-sm text-gray-600 mb-3">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 text-left">
+            <h2 class="font-medium text-gray-900 dark:text-gray-100 mb-3">Why was my account suspended?</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
                 Account suspensions can occur for various reasons, including:
             </p>
-            <ul class="space-y-2 text-sm text-gray-600">
+            <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                 <li class="flex items-start gap-2">
                     <span class="material-symbols-outlined text-gray-400 text-lg flex-shrink-0">remove_circle_outline</span>
                     <span>Violation of terms of service</span>
@@ -4312,7 +4820,7 @@ def _build_account_suspended_template() -> str:
         </div>
 
         <!-- User Info -->
-        <div class="bg-gray-100 rounded-lg p-4 mb-6 text-sm text-gray-600">
+        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-6 text-sm text-gray-600 dark:text-gray-400">
             <p>Logged in as: <strong>{{ current_user.email }}</strong></p>
         </div>
 
@@ -4320,7 +4828,7 @@ def _build_account_suspended_template() -> str:
         <div class="space-y-3">
             <form action="{{ url_for('page.account_logout') }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors">
+                <button type="submit" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
                     Sign Out
                 </button>
             </form>
@@ -4355,6 +4863,7 @@ import json
 
 from flask import abort, Blueprint, jsonify, make_response, redirect, render_template, request, session, url_for
 from flask_login import current_user
+from markupsafe import escape as html_escape
 
 from feather.auth import admin_required
 from services.admin_service import AdminService
@@ -4453,11 +4962,11 @@ def toggle_user_status(user_id: str):
 
     # Build status pill HTML for OOB swap
     if user.active:
-        pill_html = '<span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>'
+        pill_html = '<span class="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">Active</span>'
     elif hasattr(user, 'approved_at') and user.approved_at:
-        pill_html = '<span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>'
+        pill_html = '<span class="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded">Suspended</span>'
     else:
-        pill_html = '<span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>'
+        pill_html = '<span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">Pending</span>'
 
     # Include OOB swap for the status pill in the profile card
     oob_pill = f'<span id="status-pill" hx-swap-oob="true">{pill_html}</span>'
@@ -4599,14 +5108,15 @@ def search_users_dropdown():
 
     html = '<div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">'
     for user in users:
-        display_name = getattr(user, "display_name", None) or user.email
+        display_name = html_escape(getattr(user, "display_name", None) or user.email)
+        email = html_escape(user.email)
         profile_url = getattr(user, "profile_image_url", None)
-        avatar_url = profile_url if profile_url and profile_url.strip() else AdminService.fallback_avatar(user)
-        fallback_url = AdminService.fallback_avatar(user)
+        avatar_url = html_escape(profile_url if profile_url and profile_url.strip() else AdminService.fallback_avatar(user))
+        fallback_url = html_escape(AdminService.fallback_avatar(user))
         html += f"""
         <button type="button"
                 data-action="select-email"
-                data-email="{user.email}"
+                data-email="{email}"
                 class="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
             <img src="{avatar_url}"
                  data-fallback="{fallback_url}"
@@ -4615,7 +5125,7 @@ def search_users_dropdown():
                  class="w-6 h-6 rounded-full admin-avatar-img">
             <div>
                 <span class="font-medium">{display_name}</span>
-                <span class="text-gray-500"> - {user.email}</span>
+                <span class="text-gray-500"> - {email}</span>
             </div>
         </button>
         """
@@ -5454,150 +5964,207 @@ class AdminService(Service):
 
 
 def _build_admin_base_template(tenant_mode: str) -> str:
-    """Build admin base template with navigation."""
-    # Build navigation tabs
-    tenant_tab = ""
+    """Build admin base template with sidebar navigation."""
+    # Build tenant nav item (only for multi-tenant mode)
+    tenant_nav = ""
     if tenant_mode == "multi":
-        tenant_tab = '''
-                    {% if current_user.is_platform_admin is defined and current_user.is_platform_admin %}
-                    <a href="{{ url_for('admin.tenants_page') }}"
-                       class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint in ['admin.tenants_page', 'admin.tenant_detail_page'] %}active{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                        Tenants
-                    </a>
-                    {% endif %}'''
+        tenant_nav = '''
+                                        {% if current_user.is_platform_admin is defined and current_user.is_platform_admin %}
+                                        <li>
+                                            <a href="{{ url_for('admin.tenants_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint in ['admin.tenants_page', 'admin.tenant_detail_page'] %}active{% endif %}">
+                                                {{ icon("business", size="md") }}
+                                                Tenants
+                                            </a>
+                                        </li>
+                                        {% endif %}'''
+
+    # Feather SVG logo (compact version for sidebar)
+    feather_logo_svg = '''<svg class="sidebar-logo-icon" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+                    <g><path fill="#b399c8" d="M42.3339,49.147a29.9446,29.9446,0,0,1-19.3378-8.1514h0c-8.0137-7.3643-8.378-18.0752-8.5332-22.6484l-.0215-.627a2.9039,2.9039,0,0,1,3.457-2.9512c17.0049,3.3555,21.6943,16.3243,22.0557,17.4a49.5426,49.5426,0,0,1,3.5742,15.9219,1,1,0,0,1-.9668,1.0518C42.5322,49.144,42.455,49.147,42.3339,49.147Z"/>
+                    <path fill="#61b2e4" d="M44.4355,55.3159c-11.6455,0-17.3757-6.9734-17.6521-7.3542a1,1,0,0,1,.2617-1.4239,11.1031,11.1031,0,0,1,12.7742-1.5734c-1.4648-9.0782,1.877-13.5684,2.0312-13.77a.9982.9982,0,0,1,.75-.39.9705.9705,0,0,1,.78.3242c8.9434,9.7715,8.793,16.5322,7.9072,19.6914-.0341.1406-1.0615,4.0918-4.7714,4.4063C45.8046,55.2876,45.1113,55.3159,44.4355,55.3159Z"/></g>
+                    <g><path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M55.1837,57.69S34.96,45.877,23.0974,24.2062"/>
+                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M45.2281,54.3024C33.2973,54.7629,27.6,47.4216,27.6,47.4216"/>
+                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M40.528,42.4827c-.5595-7.1945,2.1157-10.6784,2.1157-10.6784,8.8346,9.6533,8.4063,16.1616,7.6813,18.7468"/>
+                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M37.0138,47.4216A30.15,30.15,0,0,1,23.673,40.26c-8.0725-7.4186-8.0674-18.2414-8.2321-22.5774a1.9032,1.9032,0,0,1,2.2642-1.9314C34.6938,19.1027,39.02,32.5284,39.02,32.5284"/></g>
+                </svg>'''
+
+    # Build the navigation list (reused in both desktop sidebar and mobile drawer)
+    nav_items = '''<ul role="list" class="sidebar-nav-section">
+                                        <li>
+                                            <a href="{{ url_for('admin.users_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint in ['admin.users_page', 'admin.user_detail_page', 'admin.index'] %}active{% endif %}">
+                                                {{ icon("people", size="md") }}
+                                                Users
+                                            </a>
+                                        </li>''' + tenant_nav + '''
+                                        <li>
+                                            <a href="{{ url_for('admin.tools_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.tools_page' %}active{% endif %}">
+                                                {{ icon("build", size="md") }}
+                                                Tools
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ url_for('admin.analytics_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.analytics_page' %}active{% endif %}">
+                                                {{ icon("analytics", size="md") }}
+                                                Analytics
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ url_for('admin.logs_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.logs_page' %}active{% endif %}">
+                                                {{ icon("receipt_long", size="md") }}
+                                                Logs
+                                            </a>
+                                        </li>
+                                    </ul>'''
 
     return '''{% extends "base.html" %}
+{% from "components/icon.html" import icon %}
 
 {% block title %}{% block admin_title %}Admin{% endblock %} - Admin{% endblock %}
 
 {% block content %}
-<!-- Admin panel always uses light theme -->
-<div class="admin-page bg-white text-gray-900 min-h-screen">
-<!-- Fixed Header -->
-<header class="admin-header fixed top-0 left-0 right-0 z-40 h-20">
-    <div class="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
-        <!-- Left: Admin branding -->
-        <a href="{{ url_for('admin.index') }}" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <svg class="w-12 h-12" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
-                <g id="color">
-                    <path fill="#b399c8" d="M42.3339,49.147a29.9446,29.9446,0,0,1-19.3378-8.1514h0c-8.0137-7.3643-8.378-18.0752-8.5332-22.6484l-.0215-.627a2.9039,2.9039,0,0,1,3.457-2.9512c17.0049,3.3555,21.6943,16.3243,22.0557,17.4a49.5426,49.5426,0,0,1,3.5742,15.9219,1,1,0,0,1-.9668,1.0518C42.5322,49.144,42.455,49.147,42.3339,49.147Z"/>
-                    <path fill="#61b2e4" d="M44.4355,55.3159c-11.6455,0-17.3757-6.9734-17.6521-7.3542a1,1,0,0,1,.2617-1.4239,11.1031,11.1031,0,0,1,12.7742-1.5734c-1.4648-9.0782,1.877-13.5684,2.0312-13.77a.9982.9982,0,0,1,.75-.39.9705.9705,0,0,1,.78.3242c8.9434,9.7715,8.793,16.5322,7.9072,19.6914-.0341.1406-1.0615,4.0918-4.7714,4.4063C45.8046,55.2876,45.1113,55.3159,44.4355,55.3159Z"/>
-                </g>
-                <g id="line">
-                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M55.1837,57.69S34.96,45.877,23.0974,24.2062"/>
-                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M45.2281,54.3024C33.2973,54.7629,27.6,47.4216,27.6,47.4216"/>
-                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M40.528,42.4827c-.5595-7.1945,2.1157-10.6784,2.1157-10.6784,8.8346,9.6533,8.4063,16.1616,7.6813,18.7468"/>
-                    <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M37.0138,47.4216A30.15,30.15,0,0,1,23.673,40.26c-8.0725-7.4186-8.0674-18.2414-8.2321-22.5774a1.9032,1.9032,0,0,1,2.2642-1.9314C34.6938,19.1027,39.02,32.5284,39.02,32.5284"/>
-                </g>
-            </svg>
-            <div class="flex flex-col">
-                <span class="text-white text-[32px] leading-none admin-logo-text">Feather</span>
-                <span class="text-white/70 text-sm font-normal">Admin</span>
-            </div>
-        </a>
+<div class="app-shell">
+    <!-- Mobile sidebar backdrop -->
+    <div id="mobile-sidebar-backdrop" class="mobile-drawer-backdrop hidden"></div>
 
-        <!-- Right: Avatar dropdown -->
-        <div class="relative">
-            <button id="admin-avatar-btn" class="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
-                {% if current_user and current_user.is_authenticated %}
-                {% set display_name = current_user.display_name or current_user.username or current_user.email or 'Admin' %}
-                {% set fallback_url = 'https://ui-avatars.com/api/?name=' ~ display_name|urlencode ~ '&background=000&color=fff&size=128' %}
-                <img id="admin-avatar-img"
-                     src="{{ current_user.profile_image_url or fallback_url }}"
-                     alt="{{ display_name }}"
-                     class="w-10 h-10 rounded-full ring-2 ring-white ring-opacity-50"
-                     referrerpolicy="no-referrer"
-                     crossorigin="anonymous"
-                     data-fallback="{{ fallback_url }}">
-                {% else %}
-                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-white text-[20px]">person</span>
-                </div>
-                {% endif %}
-                <span class="material-symbols-outlined text-white text-[20px]">expand_more</span>
-            </button>
-
-            <!-- Avatar Dropdown Menu -->
-            <div id="admin-avatar-dropdown" class="admin-avatar-dropdown">
-                {% if current_user and current_user.is_authenticated %}
-                <div class="p-4 border-b border-gray-200">
-                    <p class="font-semibold text-gray-900">{{ current_user.display_name or current_user.username or 'Admin' }}</p>
-                    <p class="text-sm text-gray-600">{{ current_user.email }}</p>
-                </div>
-                {% endif %}
-                <div class="py-2">
-                    <a href="/" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer">
-                        <span class="material-symbols-outlined text-[20px]">home</span>
-                        <span>Back to Site</span>
-                    </a>
-                    <a href="{{ url_for('auth.logout') }}" class="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
-                        <span class="material-symbols-outlined text-[20px]">logout</span>
-                        <span>Sign Out</span>
-                    </a>
-                </div>
+    <!-- Mobile sidebar panel -->
+    <div id="mobile-sidebar" class="mobile-drawer-panel">
+        <div class="mobile-drawer-inner">
+            <div class="mobile-drawer-header">
+                <a href="{{ url_for('admin.index') }}" class="sidebar-logo">
+                    ''' + feather_logo_svg + '''
+                    <div class="sidebar-logo-text-group">
+                        <span class="sidebar-logo-text">Feather</span>
+                        <span class="sidebar-logo-subtitle">Admin</span>
+                    </div>
+                </a>
+                <button type="button" class="mobile-drawer-close" data-action="close-sidebar">
+                    {{ icon("close", size="md") }}
+                </button>
             </div>
+            <nav class="sidebar-nav">
+                <ul role="list" class="sidebar-nav-list">
+                    <li>
+                        ''' + nav_items + '''
+                    </li>
+                </ul>
+            </nav>
         </div>
     </div>
-</header>
 
-<!-- Main Content Area -->
-<div class="pt-20">
-    <!-- Tab Navigation -->
-    <nav class="bg-white border-b border-gray-200 fixed top-20 left-0 right-0 z-30">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex gap-8">
-                <a href="{{ url_for('admin.users_page') }}"
-                   class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint in ['admin.users_page', 'admin.user_detail_page', 'admin.index'] %}active{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                    Users
-                </a>''' + tenant_tab + '''
-                <a href="{{ url_for('admin.tools_page') }}"
-                   class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint == 'admin.tools_page' %}active{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                    Tools
-                </a>
-                <a href="{{ url_for('admin.analytics_page') }}"
-                   class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint == 'admin.analytics_page' %}active{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                    Analytics
-                </a>
-                <a href="{{ url_for('admin.logs_page') }}"
-                   class="admin-nav-item px-4 py-3 text-sm {% if request.endpoint == 'admin.logs_page' %}active{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                    Logs
-                </a>
-            </div>
+    <!-- Desktop sidebar -->
+    <div class="desktop-sidebar">
+        <div class="sidebar-inner">
+            <a href="{{ url_for('admin.index') }}" class="sidebar-logo">
+                ''' + feather_logo_svg + '''
+                <div class="sidebar-logo-text-group">
+                    <span class="sidebar-logo-text">Feather</span>
+                    <span class="sidebar-logo-subtitle">Admin</span>
+                </div>
+            </a>
+            <nav class="sidebar-nav">
+                <ul role="list" class="sidebar-nav-list">
+                    <li>
+                        ''' + nav_items + '''
+                    </li>
+                </ul>
+            </nav>
         </div>
-    </nav>
+    </div>
 
-    <!-- Scrollable Content Area -->
-    <div class="admin-content-scroll pt-[49px]">
-        <main class="max-w-7xl mx-auto px-4 py-6">
-            {% block admin_content %}{% endblock %}
+    <!-- Content wrapper with header -->
+    <div class="app-content-wrapper">
+        <!-- Sticky header -->
+        <div class="app-header">
+            <!-- Hamburger (mobile only) -->
+            <button type="button" class="header-hamburger" data-action="open-sidebar">
+                <span class="sr-only">Open sidebar</span>
+                {{ icon("menu", size="md") }}
+            </button>
+            <div class="header-separator" aria-hidden="true"></div>
+
+            <!-- Centered logo (mobile only) -->
+            <a href="{{ url_for('admin.index') }}" class="header-mobile-logo">
+                {{ icon("spa", size="md", class="header-mobile-logo-icon") }}
+                <span class="header-mobile-logo-text">Admin</span>
+            </a>
+
+            <!-- Spacer -->
+            <div class="flex-1"></div>
+
+            <!-- Profile dropdown (native details/summary) -->
+            <details class="header-profile-dropdown">
+                <summary class="header-profile-btn">
+                    <span class="sr-only">Open user menu</span>
+                    {% if current_user and current_user.is_authenticated %}
+                    {% if current_user.profile_image_url %}
+                    <img src="{{ current_user.profile_image_url }}"
+                         alt=""
+                         class="header-profile-avatar"
+                         referrerpolicy="no-referrer">
+                    {% else %}
+                    <div class="header-profile-avatar-fallback">
+                        {{ icon("person", size="sm") }}
+                    </div>
+                    {% endif %}
+                    <span class="header-profile-name">
+                        <span aria-hidden="true">{{ current_user.display_name or current_user.username or current_user.email.split('@')[0] }}</span>
+                        {{ icon("expand_more", size="sm") }}
+                    </span>
+                    {% else %}
+                    <div class="header-profile-avatar-fallback">
+                        {{ icon("person", size="sm") }}
+                    </div>
+                    {% endif %}
+                </summary>
+                <div class="header-dropdown-menu">
+                    <a href="/" class="header-dropdown-link">
+                        {{ icon("home", size="sm") }}
+                        Back to Site
+                    </a>
+                    <div class="header-dropdown-divider"></div>
+                    <a href="{{ url_for('auth.logout') }}" class="header-dropdown-link">
+                        {{ icon("logout", size="sm") }}
+                        Sign out
+                    </a>
+                </div>
+            </details>
+        </div>
+
+        <!-- Main content -->
+        <main class="app-content admin-content">
+            <div class="app-content-container">
+                {% block admin_content %}{% endblock %}
+            </div>
         </main>
     </div>
 </div>
 
 <!-- Confirm Modal -->
-<div id="confirm-modal" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/50" data-action="cancel"></div>
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-        <div class="p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Confirm</h3>
-            <p id="confirm-message" class="text-gray-600">Are you sure?</p>
+<div id="confirm-modal" class="confirm-modal-overlay hidden">
+    <div class="confirm-modal-backdrop" data-action="cancel"></div>
+    <div class="confirm-modal">
+        <button type="button" class="confirm-modal-close" data-action="cancel">
+            {{ icon("close", size="sm") }}
+        </button>
+        <div class="confirm-modal-icon confirm-modal-icon-question">
+            {{ icon("help", size="lg") }}
         </div>
-        <div class="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
-            <button data-action="cancel"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
-                Cancel
-            </button>
-            <button id="confirm-button"
-                    class="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800 cursor-pointer">
-                Confirm
-            </button>
+        <h3 class="confirm-modal-title">Confirm</h3>
+        <p id="confirm-message" class="confirm-modal-message">Are you sure?</p>
+        <div class="confirm-modal-actions">
+            <button data-action="cancel" class="admin-btn admin-btn-secondary">Cancel</button>
+            <button id="confirm-button" class="admin-btn admin-btn-primary">Confirm</button>
         </div>
     </div>
 </div>
 
 <!-- Toast Container -->
 <div id="toast-container"></div>
-</div><!-- /.admin-page -->
 {% endblock %}
 
 {% block scripts %}
@@ -5980,31 +6547,6 @@ def _build_admin_tools_template(include_email: bool = False) -> str:
     </div>
 
 </div>
-
-<script>
-// Handle user selection from dropdown
-document.addEventListener('click', function(e) {
-    if (e.target.closest('[data-action="select-email"]')) {
-        var btn = e.target.closest('[data-action="select-email"]');
-        var email = btn.dataset.email;
-        var input = document.getElementById('email-to-input');
-        if (input) {
-            input.value = email;
-        }
-        // Clear the dropdown
-        document.getElementById('user-dropdown').innerHTML = '';
-    }
-});
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(e) {
-    var dropdown = document.getElementById('user-dropdown');
-    var input = document.getElementById('email-to-input');
-    if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
-        dropdown.innerHTML = '';
-    }
-});
-</script>
 {% endblock %}
 '''
     else:
@@ -6124,7 +6666,7 @@ def _build_admin_analytics_template() -> str:
                 <div id="chart-container"
                      data-api-url="{{ url_for('admin.api_user_growth') }}"
                      class="admin-chart-container">
-                    <canvas id="user-growth-canvas"></canvas>
+                    <div id="user-growth-chart" style="width:100%;height:100%"></div>
                 </div>
             </div>
         </div>
@@ -6134,7 +6676,6 @@ def _build_admin_analytics_template() -> str:
 {% endblock %}
 
 {% block admin_scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 {% if config.DEBUG %}
 <script type="module" src="http://localhost:5173/static/js/admin-chart.js"></script>
 {% else %}

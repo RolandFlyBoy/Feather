@@ -191,6 +191,10 @@ const Feather = {
                 }
               }
               // Handle HTML content: { html: '<span>content</span>' }
+              // SECURITY: innerHTML is used intentionally here for island rendering.
+              // Island developers must escape any user-supplied data included in
+              // html values. Use simple text values (target.textContent) for user
+              // data whenever possible.
               if (value.html !== undefined) {
                 target.innerHTML = value.html;
               }

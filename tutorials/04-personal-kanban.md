@@ -544,7 +544,7 @@ Create `routes/pages/dashboard.py` for the home page and authentication:
 
 from flask import render_template, request, redirect, url_for
 from flask_login import current_user
-from feather import page, auth_required, inject
+from feather import page, auth_required, login_only, inject
 from services import KanbanService
 
 
@@ -557,9 +557,9 @@ def login():
 
 
 @page.get("/pending")
-@auth_required
+@login_only
 def pending():
-    """Show pending approval page for suspended users."""
+    """Show pending approval page for users awaiting admin approval."""
     if current_user.is_active:
         return redirect(url_for("page.home"))
     return render_template("pages/pending.html")
@@ -599,6 +599,8 @@ def delete_kanban(kanban_service: KanbanService, kanban_id: str):
     kanban_service.delete(kanban_id, user_id=current_user.id)
     return ""
 ```
+
+> **`@login_only` vs `@auth_required`:** The `@auth_required` decorator blocks suspended users with 403. Since the pending page is specifically for non-active users awaiting approval, we use `@login_only` which only verifies the user has an authenticated session — it does not check `active` status or role.
 
 Create `routes/pages/board.py` for individual board views:
 
@@ -893,6 +895,10 @@ Create `templates/pages/dashboard.html` (the home page):
                 {{ icon("settings", size="sm") }} Admin
             </a>
             {% endif %}
+            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+                <span class="material-symbols-outlined icon-light">bedtime</span>
+                <span class="material-symbols-outlined icon-dark">sunny</span>
+            </button>
             <div class="user-menu">
                 <img src="{{ current_user.profile_image_url or '/feather-static/favicon.svg' }}"
                      alt="{{ current_user.display_name }}"
@@ -1015,6 +1021,10 @@ Create `templates/pages/board.html`:
                 {{ icon("settings", size="sm") }} Admin
             </a>
             {% endif %}
+            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+                <span class="material-symbols-outlined icon-light">bedtime</span>
+                <span class="material-symbols-outlined icon-dark">sunny</span>
+            </button>
             <div class="user-menu">
                 <img src="{{ current_user.profile_image_url or '/feather-static/favicon.svg' }}"
                      alt="{{ current_user.display_name }}"
@@ -1380,23 +1390,37 @@ Add to `static/css/app.css`:
 
 ```css
 @layer components {
+    /* Dark Mode Toggle */
+    .dark-mode-toggle {
+        @apply p-2 rounded-lg text-gray-500 hover:bg-gray-200
+               dark:text-gray-400 dark:hover:bg-gray-700 transition-colors;
+    }
+
+    .dark-mode-toggle .icon-light {
+        @apply dark:hidden;
+    }
+
+    .dark-mode-toggle .icon-dark {
+        @apply hidden dark:inline;
+    }
+
     /* =====================
        Login Page
        ===================== */
     .login-container {
-        @apply min-h-screen bg-gray-100 flex items-center justify-center p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-6;
     }
 
     .login-card {
-        @apply bg-white rounded-xl shadow-lg p-8 text-center max-w-sm w-full;
+        @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center max-w-sm w-full;
     }
 
     .login-title {
-        @apply text-3xl font-bold text-gray-900 flex items-center justify-center gap-3 mb-2;
+        @apply text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center justify-center gap-3 mb-2;
     }
 
     .login-subtitle {
-        @apply text-gray-500 mb-6;
+        @apply text-gray-500 dark:text-gray-400 mb-6;
     }
 
     .login-button {
@@ -1409,11 +1433,11 @@ Add to `static/css/app.css`:
        Pending Approval Page
        ===================== */
     .pending-container {
-        @apply min-h-screen bg-gray-100 flex items-center justify-center p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-6;
     }
 
     .pending-card {
-        @apply bg-white rounded-xl shadow-lg p-8 text-center max-w-md w-full;
+        @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center max-w-md w-full;
     }
 
     .pending-icon {
@@ -1421,18 +1445,18 @@ Add to `static/css/app.css`:
     }
 
     .pending-title {
-        @apply text-2xl font-bold text-gray-900 mb-2;
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2;
     }
 
     .pending-message {
-        @apply text-gray-600 mb-6;
+        @apply text-gray-600 dark:text-gray-400 mb-6;
     }
 
     /* =====================
        Dashboard (Home Page)
        ===================== */
     .dashboard-container {
-        @apply min-h-screen bg-gray-100 p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 p-6;
     }
 
     .dashboard-header {
@@ -1448,7 +1472,7 @@ Add to `static/css/app.css`:
     }
 
     .dashboard-title {
-        @apply text-2xl font-bold text-gray-900 flex items-center gap-2;
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2;
     }
 
     /* Kanban Grid - 2 column layout */
@@ -1458,7 +1482,7 @@ Add to `static/css/app.css`:
 
     /* Kanban Card (on dashboard) */
     .kanban-card {
-        @apply relative bg-white rounded-lg shadow-sm border border-gray-200
+        @apply relative bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700
                hover:shadow-md transition-shadow;
     }
 
@@ -1467,15 +1491,15 @@ Add to `static/css/app.css`:
     }
 
     .kanban-card-title {
-        @apply text-lg font-semibold text-gray-900 mb-1;
+        @apply text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1;
     }
 
     .kanban-card-meta {
-        @apply text-sm text-gray-500;
+        @apply text-sm text-gray-500 dark:text-gray-400;
     }
 
     .kanban-card-delete {
-        @apply absolute top-4 right-4 text-gray-300 hover:text-red-600
+        @apply absolute top-4 right-4 text-gray-300 dark:text-gray-600 hover:text-red-600
                opacity-0 transition-all;
     }
 
@@ -1484,14 +1508,14 @@ Add to `static/css/app.css`:
     }
 
     .empty-state {
-        @apply col-span-2 text-center text-gray-500 py-12;
+        @apply col-span-2 text-center text-gray-500 dark:text-gray-400 py-12;
     }
 
     /* =====================
        Board Page
        ===================== */
     .kanban-container {
-        @apply min-h-screen bg-gray-100 p-6;
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 p-6;
     }
 
     .kanban-header {
@@ -1507,11 +1531,11 @@ Add to `static/css/app.css`:
     }
 
     .kanban-title {
-        @apply text-2xl font-bold text-gray-900 flex items-center gap-2;
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2;
     }
 
     .back-link {
-        @apply text-gray-500 hover:text-gray-700 p-2 -ml-2;
+        @apply text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-2 -ml-2;
     }
 
     .kanban-board-wrapper {
@@ -1524,12 +1548,12 @@ Add to `static/css/app.css`:
     }
 
     .empty-board {
-        @apply flex items-center justify-center w-full text-gray-500;
+        @apply flex items-center justify-center w-full text-gray-500 dark:text-gray-400;
     }
 
     /* Columns */
     .kanban-column {
-        @apply flex-shrink-0 w-72 bg-gray-200 rounded-lg p-3 flex flex-col;
+        @apply flex-shrink-0 w-72 bg-gray-200 dark:bg-gray-800 rounded-lg p-3 flex flex-col;
     }
 
     .column-header {
@@ -1537,7 +1561,7 @@ Add to `static/css/app.css`:
     }
 
     .column-title {
-        @apply font-semibold text-gray-700;
+        @apply font-semibold text-gray-700 dark:text-gray-300;
     }
 
     .column-cards {
@@ -1545,16 +1569,16 @@ Add to `static/css/app.css`:
     }
 
     .column-footer {
-        @apply mt-3 pt-3 border-t border-gray-300;
+        @apply mt-3 pt-3 border-t border-gray-300 dark:border-gray-600;
     }
 
     .empty-column {
-        @apply text-sm text-gray-400 text-center py-4;
+        @apply text-sm text-gray-400 dark:text-gray-500 text-center py-4;
     }
 
     /* Cards */
     .kanban-card {
-        @apply bg-white rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow;
+        @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow;
     }
 
     .card-content {
@@ -1566,16 +1590,16 @@ Add to `static/css/app.css`:
     }
 
     .card-title {
-        @apply text-sm text-gray-800;
+        @apply text-sm text-gray-800 dark:text-gray-200;
     }
 
     .card-attachments {
-        @apply flex items-center gap-1 text-xs text-gray-400 mt-1;
+        @apply flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 mt-1;
     }
 
     /* Drag-drop */
     .drag-handle {
-        @apply text-gray-300 hover:text-gray-500 cursor-grab;
+        @apply text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab;
     }
 
     .kanban-card.dragging {
@@ -1583,7 +1607,7 @@ Add to `static/css/app.css`:
     }
 
     .column-cards.drag-over {
-        @apply bg-gray-300 ring-1 ring-indigo-400 ring-inset;
+        @apply bg-gray-300 dark:bg-gray-700 ring-1 ring-indigo-400 ring-inset;
     }
 
     .feather-drop-placeholder {
@@ -1599,20 +1623,20 @@ Add to `static/css/app.css`:
 
     .btn-secondary {
         @apply inline-flex items-center gap-2 px-4 py-2
-               bg-white text-gray-700 border border-gray-300 rounded-lg
-               hover:bg-gray-50 transition-colors;
+               bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg
+               hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors;
     }
 
     .btn-text {
-        @apply text-sm text-gray-500 hover:text-gray-700;
+        @apply text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200;
     }
 
     .btn-icon-danger {
-        @apply text-gray-400 hover:text-red-600 transition-colors;
+        @apply text-gray-400 dark:text-gray-500 hover:text-red-600 transition-colors;
     }
 
     .btn-icon-subtle {
-        @apply text-gray-300 hover:text-red-600 transition-colors opacity-0;
+        @apply text-gray-300 dark:text-gray-600 hover:text-red-600 transition-colors opacity-0;
     }
 
     /* Show delete button when hovering card */
@@ -1626,13 +1650,13 @@ Add to `static/css/app.css`:
     }
 
     .input-card-title {
-        @apply w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg
+        @apply w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg
                focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
     }
 
     /* User Menu */
     .user-menu {
-        @apply flex items-center gap-2 ml-2 pl-2 border-l border-gray-300;
+        @apply flex items-center gap-2 ml-2 pl-2 border-l border-gray-300 dark:border-gray-600;
     }
 
     .user-avatar {
@@ -1646,15 +1670,15 @@ Add to `static/css/app.css`:
 
     .modal-content {
         @apply fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
-               bg-white rounded-lg shadow-xl z-50 w-full max-w-lg max-h-[80vh] overflow-y-auto;
+               bg-white dark:bg-gray-800 rounded-lg shadow-xl z-50 w-full max-w-lg max-h-[80vh] overflow-y-auto;
     }
 
     .modal-header {
-        @apply flex items-center justify-between p-4 border-b border-gray-200;
+        @apply flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700;
     }
 
     .modal-title {
-        @apply text-lg font-semibold text-gray-900;
+        @apply text-lg font-semibold text-gray-900 dark:text-gray-100;
     }
 
     .modal-body {
@@ -1667,25 +1691,25 @@ Add to `static/css/app.css`:
     }
 
     .card-pdf-icon {
-        @apply text-gray-300 hover:text-gray-500 transition-colors;
+        @apply text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors;
     }
 
     .card-pdf-icon.has-pdf {
-        @apply text-red-400 hover:text-red-600;
+        @apply text-red-400 dark:text-red-300 hover:text-red-600 dark:hover:text-red-400;
     }
 
     /* PDF Viewer Modal */
     .pdf-viewer-modal {
-        @apply fixed inset-4 md:inset-8 bg-white rounded-lg shadow-xl z-50
+        @apply fixed inset-4 md:inset-8 bg-white dark:bg-gray-800 rounded-lg shadow-xl z-50
                flex flex-col;
     }
 
     .pdf-viewer-header {
-        @apply flex items-center justify-between p-4 border-b border-gray-200;
+        @apply flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700;
     }
 
     .pdf-viewer-title {
-        @apply text-lg font-semibold text-gray-900 truncate;
+        @apply text-lg font-semibold text-gray-900 dark:text-gray-100 truncate;
     }
 
     .pdf-viewer-actions {
@@ -1706,16 +1730,18 @@ Add to `static/css/app.css`:
     }
 
     .file-input {
-        @apply w-full p-3 border border-gray-300 rounded-lg
+        @apply w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg
+               dark:text-gray-300
                file:mr-4 file:py-2 file:px-4
                file:rounded-lg file:border-0
                file:text-sm file:font-semibold
                file:bg-indigo-50 file:text-indigo-700
-               hover:file:bg-indigo-100;
+               dark:file:bg-indigo-900/30 dark:file:text-indigo-300
+               hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800/40;
     }
 
     .upload-hint {
-        @apply text-sm text-gray-500 mt-2;
+        @apply text-sm text-gray-500 dark:text-gray-400 mt-2;
     }
 
     .upload-actions {
@@ -1885,6 +1911,7 @@ migrations/                 # Generated by feather db migrate
 - **Dashboard home page** with 2-column grid layout
 - **Role-based access control** (admin, user, viewer)
 - **`@auth_required`** decorator for protected routes
+- **`@login_only`** decorator for pages accessible to non-active users (pending approval)
 - **`current_user`** for accessing logged-in user and role
 - **Kanban-scoped data** with `kanban_id` foreign keys
 - **Google OAuth** configuration
