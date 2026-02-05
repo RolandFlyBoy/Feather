@@ -4063,7 +4063,7 @@ def _build_requirements_content(
     - Flask, SQLAlchemy, Flask-Login, Flask-WTF, alembic
     - authlib, requests (OAuth)
     - psycopg2-binary (PostgreSQL)
-    - google-cloud-storage, reportlab (storage/PDF)
+    - google-cloud-storage, weasyprint (storage/PDF)
     - redis, rq (caching/jobs)
     - gunicorn (production server)
     - pytest, pytest-cov (testing)
@@ -4073,7 +4073,7 @@ def _build_requirements_content(
     """
     return """# Project Dependencies
 # ALL deps come from Feather framework:
-# Flask, SQLAlchemy, authlib, redis, GCS, reportlab, gunicorn, pytest, etc.
+# Flask, SQLAlchemy, authlib, redis, GCS, weasyprint, gunicorn, pytest, etc.
 """
 
 

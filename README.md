@@ -737,7 +737,7 @@ Most frameworks leave you to build your own admin interface—user management, a
 | **User Management** | List, search, paginate users with HTMX-powered UI |
 | **User Approval** | Approve pending signups, suspend bad actors |
 | **Role Assignment** | Change user roles (user → editor → admin) |
-| **Analytics Dashboard** | User growth charts with Chart.js, time range filters |
+| **Analytics Dashboard** | User growth charts with Apache ECharts, time range filters |
 | **Error Logging** | Database-backed error logs with stack traces, tenant-scoped |
 | **Tenant Management** | Create/manage tenants, assign admins (multi-tenant only) |
 
@@ -1359,26 +1359,38 @@ Async listeners run in a ThreadPoolExecutor (4 workers). Use for non-critical ta
 
 ### PDF Generation
 
-Generate PDF documents with reportlab (included in Feather):
+Generate PDF documents with WeasyPrint (included in Feather). WeasyPrint converts HTML/CSS to PDF, letting you use familiar web technologies for document layout:
 
 **Basic usage:**
 ```python
 from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Table
-from reportlab.lib.styles import getSampleStyleSheet
+from weasyprint import HTML
 
-def generate_report(data):
+def generate_report(title, data):
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: sans-serif; margin: 40px; }}
+            h1 {{ color: #1f2937; }}
+            table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
+            td, th {{ border: 1px solid #d1d5db; padding: 8px; text-align: left; }}
+            th {{ background-color: #f3f4f6; }}
+        </style>
+    </head>
+    <body>
+        <h1>{title}</h1>
+        <table>
+            <tr><th>Item</th></tr>
+            {''.join(f'<tr><td>{row}</td></tr>' for row in data)}
+        </table>
+    </body>
+    </html>
+    """
+
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    styles = getSampleStyleSheet()
-
-    elements = [
-        Paragraph("Report Title", styles['Heading1']),
-        Table(data),
-    ]
-
-    doc.build(elements)
+    HTML(string=html_content).write_pdf(buffer)
     buffer.seek(0)
     return buffer
 ```
@@ -1390,7 +1402,7 @@ from feather.storage import get_storage
 @api.get('/reports/<id>/pdf')
 @auth_required
 def download_report(id):
-    pdf_buffer = generate_report(get_data(id))
+    pdf_buffer = generate_report("Report", get_data(id))
 
     # Save to storage
     storage = get_storage()
@@ -1408,7 +1420,7 @@ from feather import job
 
 @job
 def generate_report_async(report_id, user_id):
-    pdf_buffer = generate_report(get_data(report_id))
+    pdf_buffer = generate_report("Report", get_data(report_id))
     storage = get_storage()
     filename = f'reports/{user_id}/{report_id}.pdf'
     storage.upload(pdf_buffer, filename, content_type='application/pdf')
@@ -2020,7 +2032,25 @@ LOG_FORMAT=json                   # Enable JSON logs (auto in production)
 
 ### Dependencies
 
-Feather bundles all dependencies (Flask, SQLAlchemy, Alembic, Authlib, psycopg2, Gunicorn, etc.) - scaffolded apps don't need their own `requirements.txt`.
+Feather bundles all Python dependencies—scaffolded apps don't need their own `requirements.txt`.
+
+| Category | Packages |
+|----------|----------|
+| Web Framework | Flask, Flask-SQLAlchemy, Flask-Migrate, Flask-Login, Flask-WTF, Werkzeug |
+| Database | SQLAlchemy, Alembic, psycopg2-binary |
+| Authentication | Authlib, Requests |
+| Cloud Storage | google-cloud-storage |
+| PDF Generation | WeasyPrint |
+| Caching/Jobs | Redis, RQ |
+| Email | Resend |
+| Production Server | Gunicorn |
+| Testing | pytest, pytest-cov |
+
+**Frontend libraries** (bundled via npm, no CDN):
+- HTMX, Idiomorph, Apache ECharts
+
+**External resources** (loaded from Google):
+- Google Fonts and Material Icons
 
 ```bash
 # For deployment, just install Feather
