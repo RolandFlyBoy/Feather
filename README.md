@@ -2152,9 +2152,9 @@ services:
 3. Click **Add from .env file**
 4. Upload your production `.env` (not your development one!)
 
-**Tip:** Create a separate `.env.production` file with production values:
+**Tip:** Create a `.env.production` file for your production secrets (add it to `.gitignore`). Use this file when uploading to Render's Environment section:
 ```bash
-# .env.production (example)
+# .env.production (add to .gitignore - never commit)
 GOOGLE_CLIENT_ID=your-prod-client-id
 GOOGLE_CLIENT_SECRET=your-prod-secret
 RESEND_API_KEY=re_xxxx
