@@ -340,6 +340,7 @@ def scaffold_project(temp_project_dir):
             database=database,
             include_auth=config.get("include_auth", False),
             tenant_mode=config.get("tenant_mode"),
+            auto_approve_users=config.get("auto_approve_users", False),
             include_cache=config.get("include_cache", False),
             include_jobs=config.get("include_jobs", False),
             include_storage=config.get("include_storage", False),
@@ -347,6 +348,7 @@ def scaffold_project(temp_project_dir):
             include_email=config.get("include_email", False),
             db_url=config.get("db_url"),
             admin_email=config.get("admin_email"),
+            user_fields=config.get("user_fields"),
         )
         return project_path
 

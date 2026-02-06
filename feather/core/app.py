@@ -404,13 +404,17 @@ class Feather(Flask):
 
             init_google_oauth(self)
 
-        except ImportError:
+        except ImportError as e:
             # No User model found - authentication not enabled
             # This is normal for apps that don't need auth
-            pass
+            self.logger.debug(f"Auth not initialized: {e}")
         except Exception as e:
-            # Log but don't fail - auth is optional
-            self.logger.warning(f"Failed to initialize auth: {e}")
+            # Log the full exception with traceback for debugging
+            import traceback
+            self.logger.warning(
+                f"Failed to initialize auth: {e}\n"
+                f"Traceback: {traceback.format_exc()}"
+            )
 
     def _setup_framework_assets(self):
         """Register framework templates and static files.

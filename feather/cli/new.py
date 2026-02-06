@@ -41,6 +41,7 @@ def new(name: str, template: str, no_prompt: bool):
         "db_url": None,
         "include_auth": False,
         "tenant_mode": None,  # None, "single", or "multi"
+        "auto_approve_users": False,  # Auto-approve signups (no admin approval needed)
         "include_cache": False,
         "include_jobs": False,
         "include_storage": False,
@@ -131,6 +132,11 @@ def new(name: str, template: str, no_prompt: bool):
             click.echo()
             click.echo(click.style("Features", fg="cyan") + " (press Enter for defaults):")
 
+            options["auto_approve_users"] = click.confirm(
+                "  Auto-approve new user signups?",
+                default=False,
+            )
+
             options["include_cache"] = click.confirm(
                 "  Include Redis caching?",
                 default=True,
@@ -157,10 +163,8 @@ def new(name: str, template: str, no_prompt: bool):
                     "  Include display_name?",
                     default=True,
                 ),
-                "profile_image_url": click.confirm(
-                    "  Include profile_image_url?",
-                    default=True,
-                ),
+                # profile_image_url is always included (needed for OAuth profile pics)
+                "profile_image_url": True,
             }
 
             # Admin email (required for auth)
@@ -363,6 +367,7 @@ def _create_project_files(
     database: str = "postgresql",
     include_auth: bool = False,
     tenant_mode: str = None,
+    auto_approve_users: bool = False,
     include_cache: bool = False,
     include_jobs: bool = False,
     include_storage: bool = False,
@@ -415,6 +420,7 @@ if __name__ == "__main__":
             db_url=db_url,
             include_auth=include_auth,
             tenant_mode=tenant_mode,
+            auto_approve_users=auto_approve_users,
             include_cache=include_cache,
             include_jobs=include_jobs,
             include_storage=include_storage,
@@ -431,6 +437,7 @@ if __name__ == "__main__":
             db_url=db_url,
             include_auth=include_auth,
             tenant_mode=tenant_mode,
+            auto_approve_users=auto_approve_users,
             include_cache=include_cache,
             include_jobs=include_jobs,
             include_storage=include_storage,
@@ -2659,7 +2666,7 @@ def test_home_page(client):
 
         # Account routes (pending/suspended pages)
         (project_path / "routes/pages/account.py").write_text(
-            _build_account_routes()
+            _build_account_routes(auto_approve_users)
         )
 
         # Admin service
@@ -2983,7 +2990,7 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
             _build_admin_users_template()
         )
         (project_path / "templates/pages/admin/user_detail.html").write_text(
-            _build_admin_user_detail_template()
+            _build_admin_user_detail_template(auto_approve_users)
         )
         (project_path / "templates/pages/admin/tools.html").write_text(
             _build_admin_tools_template(include_email)
@@ -2997,10 +3004,10 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
 
         # Admin templates - partials
         (project_path / "templates/partials/admin/users_table.html").write_text(
-            _build_admin_users_table_partial()
+            _build_admin_users_table_partial(auto_approve_users)
         )
         (project_path / "templates/partials/admin/user_actions.html").write_text(
-            _build_admin_user_actions_partial()
+            _build_admin_user_actions_partial(auto_approve_users)
         )
         if include_email:
             (project_path / "templates/partials/admin/email_result.html").write_text(
@@ -3025,10 +3032,11 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
                 _build_admin_tenant_actions_partial()
             )
 
-        # Account status pages (pending approval, suspended)
-        (project_path / "templates/pages/account/pending.html").write_text(
-            _build_account_pending_template()
-        )
+        # Account status pages (suspended always, pending only if not auto-approving)
+        if not auto_approve_users:
+            (project_path / "templates/pages/account/pending.html").write_text(
+                _build_account_pending_template()
+            )
         (project_path / "templates/pages/account/suspended.html").write_text(
             _build_account_suspended_template()
         )
@@ -3036,7 +3044,7 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
     # seeds.py - Database seed file (only when auth enabled)
     if include_auth:
         (project_path / "seeds.py").write_text(
-            _build_seeds_content(admin_email=admin_email, tenant_mode=tenant_mode)
+            _build_seeds_content(admin_email=admin_email, tenant_mode=tenant_mode, user_fields=user_fields)
         )
 
         # Auth tests
@@ -3096,8 +3104,11 @@ class TestLoginFlow:
         )
 
         # Admin panel tests
+        _dn = user_fields and user_fields.get("display_name", True)
+        _admin_dn = '\n            display_name="Test Admin",' if _dn else ""
+        _user_dn = '\n            display_name="Test User",' if _dn else ""
         (project_path / "tests/test_admin.py").write_text(
-            '''"""Tests for admin panel functionality."""
+            f'''"""Tests for admin panel functionality."""
 
 import pytest
 from models.user import User
@@ -3109,8 +3120,7 @@ def admin_user(app):
     """Create an admin user for testing."""
     with app.app_context():
         user = User(
-            email="admin@test.com",
-            display_name="Test Admin",
+            email="admin@test.com",{_admin_dn}
             active=True,
             role="admin",
         )
@@ -3124,8 +3134,7 @@ def regular_user(app):
     """Create a regular user for testing."""
     with app.app_context():
         user = User(
-            email="user@test.com",
-            display_name="Test User",
+            email="user@test.com",{_user_dn}
             active=True,
             role="user",
         )
@@ -3474,10 +3483,11 @@ def _build_config_content(
     db_url: str,
     include_auth: bool,
     tenant_mode: str,
-    include_cache: bool,
-    include_jobs: bool,
-    include_storage: bool,
-    storage_backend: str,
+    auto_approve_users: bool = False,
+    include_cache: bool = False,
+    include_jobs: bool = False,
+    include_storage: bool = False,
+    storage_backend: str = None,
     include_email: bool = False,
 ) -> str:
     """Build config.py content based on options.
@@ -3487,6 +3497,7 @@ def _build_config_content(
         db_url: Database URL (None if database is "none")
         include_auth: Whether authentication is enabled
         tenant_mode: Tenant mode ("single" or "multi"), None if no auth
+        auto_approve_users: Whether to auto-approve new user signups
         include_cache: Whether Redis caching is enabled
         include_jobs: Whether background jobs are enabled
         include_storage: Whether cloud storage is enabled
@@ -3532,6 +3543,13 @@ class Config:
         config += f'''
     # Multi-tenancy
     FEATHER_MULTI_TENANT = {is_multi}
+'''
+
+    # Auto-approve new user signups
+    if include_auth and auto_approve_users:
+        config += '''
+    # Auto-approve new user signups (no admin approval needed)
+    AUTO_APPROVE_USERS = True
 '''
 
     # Admin config - always enabled when auth is enabled
@@ -3638,6 +3656,7 @@ def _build_env_content(
     db_url: str,
     include_auth: bool,
     tenant_mode: str,
+    auto_approve_users: bool,
     include_cache: bool,
     include_jobs: bool,
     include_storage: bool,
@@ -3651,6 +3670,7 @@ def _build_env_content(
         db_url: Database URL (None if database is "none")
         include_auth: Whether authentication is enabled
         tenant_mode: Tenant mode ("single" or "multi"), None if no auth
+        auto_approve_users: Whether to auto-approve new user signups
         include_cache: Whether Redis caching is enabled
         include_jobs: Whether background jobs are enabled
         include_storage: Whether cloud storage is enabled
@@ -3732,13 +3752,18 @@ RESEND_FROM_EMAIL=noreply@yourdomain.com
     return env
 
 
-def _build_seeds_content(admin_email: str = None, tenant_mode: str = "single") -> str:
+def _build_seeds_content(admin_email: str = None, tenant_mode: str = "single", user_fields: dict = None) -> str:
     """Build seeds.py based on tenant mode.
 
     Args:
         admin_email: The admin's email (from CLI prompt).
         tenant_mode: "single" or "multi" tenant mode.
+        user_fields: Optional dict of field flags (e.g., {"display_name": True}).
     """
+    if user_fields is None:
+        user_fields = {"display_name": True, "profile_image_url": True}
+
+    account_name_expr = 'user.display_name or user.email.split("@")[0]' if user_fields.get("display_name", True) else 'user.email.split("@")[0]'
     email_line = f'"{admin_email}"' if admin_email else 'None  # Set your admin email here'
 
     if tenant_mode == "multi":
@@ -3798,7 +3823,7 @@ def _create_account_for_user(user):
 
     # Create account
     account = Account(
-        name=user.display_name or user.email.split("@")[0],
+        name={account_name_expr},
         avatar_url=Account.random_avatar(),
         owner_user_id=user.id,
     )
@@ -3920,7 +3945,7 @@ def _create_account_for_user(user):
 
     # Create account
     account = Account(
-        name=user.display_name or user.email.split("@")[0],
+        name={account_name_expr},
         avatar_url=Account.random_avatar(),
         owner_user_id=user.id,
     )
@@ -4658,13 +4683,16 @@ def health():
 # =============================================================================
 
 
-def _build_account_routes() -> str:
+def _build_account_routes(auto_approve_users: bool = False) -> str:
     """Build account status routes for pending approval and suspended users.
+
+    Args:
+        auto_approve_users: If True, omit the pending route (users are auto-approved)
 
     Returns:
         Python code string for routes/pages/account.py
     """
-    return '''"""Account status routes for pending/suspended users."""
+    routes = '''"""Account status routes for suspended users."""
 
 from flask import redirect, render_template, url_for
 from flask_login import current_user, logout_user
@@ -4672,7 +4700,11 @@ from flask_login import current_user, logout_user
 from feather import page
 from feather.auth import login_only
 
+'''
 
+    # Only include pending route if NOT auto-approving
+    if not auto_approve_users:
+        routes += '''
 @page.get("/account/pending")
 @login_only
 def account_pending():
@@ -4685,7 +4717,9 @@ def account_pending():
         return redirect(url_for("page.account_suspended"))
     return render_template("pages/account/pending.html")
 
+'''
 
+    routes += '''
 @page.get("/account/suspended")
 @login_only
 def account_suspended():
@@ -4703,6 +4737,7 @@ def account_logout():
     logout_user()
     return redirect(url_for("page.home"))
 '''
+    return routes
 
 
 def _build_account_pending_template() -> str:
@@ -6223,9 +6258,31 @@ def _build_admin_users_template() -> str:
 '''
 
 
-def _build_admin_users_table_partial() -> str:
-    """Build admin users table partial."""
-    return '''<div class="bg-white rounded-lg shadow overflow-hidden">
+def _build_admin_users_table_partial(auto_approve_users: bool = False) -> str:
+    """Build admin users table partial.
+
+    Args:
+        auto_approve_users: If True, show only Active/Suspended (no Pending state)
+    """
+    # Status badge logic differs based on auto_approve setting
+    if auto_approve_users:
+        # 2-state: Active/Suspended (no Pending)
+        status_badge = '''{% if user.active %}
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
+                    {% endif %}'''
+    else:
+        # 3-state: Active/Suspended/Pending
+        status_badge = '''{% if user.active %}
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    {% elif user.approved_at is defined and user.approved_at %}
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                    {% endif %}'''
+
+    template = '''<div class="bg-white rounded-lg shadow overflow-hidden">
     <table class="w-full">
         <thead class="admin-table-header">
             <tr>
@@ -6269,13 +6326,7 @@ def _build_admin_users_table_partial() -> str:
                     {% endif %}
                 </td>
                 <td class="px-4 py-3">
-                    {% if user.active %}
-                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
-                    {% elif user.approved_at is defined and user.approved_at %}
-                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
-                    {% else %}
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
-                    {% endif %}
+                    STATUS_BADGE_PLACEHOLDER
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600">{{ user.created_at.strftime('%b %d, %Y') }}</td>
             </tr>
@@ -6328,11 +6379,32 @@ def _build_admin_users_table_partial() -> str:
 </div>
 {% endif %}
 '''
+    return template.replace('STATUS_BADGE_PLACEHOLDER', status_badge)
 
 
-def _build_admin_user_detail_template() -> str:
-    """Build admin user detail template."""
-    return '''{% extends "pages/admin/base.html" %}
+def _build_admin_user_detail_template(auto_approve_users: bool = False) -> str:
+    """Build admin user detail template.
+
+    Args:
+        auto_approve_users: If True, show only Active/Suspended (no Pending state)
+    """
+    # Status badge logic differs based on auto_approve setting
+    if auto_approve_users:
+        status_badge = '''{% if user.active %}
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
+                    {% endif %}'''
+    else:
+        status_badge = '''{% if user.active %}
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    {% elif user.approved_at is defined and user.approved_at %}
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                    {% endif %}'''
+
+    template = '''{% extends "pages/admin/base.html" %}
 
 {% block admin_title %}{{ user.display_name or user.email }}{% endblock %}
 
@@ -6369,13 +6441,7 @@ def _build_admin_user_detail_template() -> str:
                 <div class="flex justify-between text-sm">
                     <span class="text-gray-600">Status</span>
                     <span id="status-pill">
-                    {% if user.active %}
-                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
-                    {% elif user.approved_at is defined and user.approved_at %}
-                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
-                    {% else %}
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
-                    {% endif %}
+                    STATUS_BADGE_PLACEHOLDER
                     </span>
                 </div>
                 <div class="flex justify-between text-sm">
@@ -6393,11 +6459,32 @@ def _build_admin_user_detail_template() -> str:
 </div>
 {% endblock %}
 '''
+    return template.replace('STATUS_BADGE_PLACEHOLDER', status_badge)
 
 
-def _build_admin_user_actions_partial() -> str:
-    """Build admin user actions partial."""
-    return '''<!-- User Actions Card -->
+def _build_admin_user_actions_partial(auto_approve_users: bool = False) -> str:
+    """Build admin user actions partial.
+
+    Args:
+        auto_approve_users: If True, show only Active/Suspended description (no Pending)
+    """
+    # Status description differs based on auto_approve setting
+    if auto_approve_users:
+        status_description = '''{% if user.active %}
+                    User can access the application
+                    {% else %}
+                    User account is suspended
+                    {% endif %}'''
+    else:
+        status_description = '''{% if user.active %}
+                    User can access the application
+                    {% elif user.approved_at is defined and user.approved_at %}
+                    User account is suspended
+                    {% else %}
+                    User is pending approval
+                    {% endif %}'''
+
+    template = '''<!-- User Actions Card -->
 <div class="bg-white rounded-lg shadow">
     <div class="p-6 border-b border-gray-200">
         <div class="flex items-center gap-3">
@@ -6417,13 +6504,7 @@ def _build_admin_user_actions_partial() -> str:
             <div>
                 <p class="font-medium text-gray-900">Account Status</p>
                 <p class="text-sm text-gray-600">
-                    {% if user.active %}
-                    User can access the application
-                    {% elif user.approved_at is defined and user.approved_at %}
-                    User account is suspended
-                    {% else %}
-                    User is pending approval
-                    {% endif %}
+                    STATUS_DESCRIPTION_PLACEHOLDER
                 </p>
             </div>
             <div class="relative flex-shrink-0">
@@ -6465,6 +6546,7 @@ def _build_admin_user_actions_partial() -> str:
     </div>
 </div>
 '''
+    return template.replace('STATUS_DESCRIPTION_PLACEHOLDER', status_description)
 
 
 def _build_admin_tools_template(include_email: bool = False) -> str:

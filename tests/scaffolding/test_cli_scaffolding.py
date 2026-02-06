@@ -550,3 +550,95 @@ class TestEmailScaffolding:
         project = scaffold_project(self.CONFIG_WITHOUT_EMAIL)
         services_init = (project / "services/__init__.py").read_text()
         assert "EmailService" not in services_init
+
+
+class TestAutoApproveUsers:
+    """Test scaffolding with auto-approve users enabled."""
+
+    CONFIG = {
+        "database": "sqlite",
+        "db_url": "sqlite:///app.db",
+        "include_auth": True,
+        "tenant_mode": "single",
+        "admin_email": "admin@test.com",
+        "auto_approve_users": True,
+    }
+
+    def test_no_auth_hooks_file(self, scaffold_project):
+        """auth_hooks.py is NOT created (auto-approve is handled by framework)."""
+        project = scaffold_project(self.CONFIG)
+        assert not (project / "auth_hooks.py").exists()
+
+    def test_config_has_auto_approve(self, scaffold_project):
+        """config.py includes AUTO_APPROVE_USERS = True when auto_approve_users=True."""
+        project = scaffold_project(self.CONFIG)
+        config = (project / "config.py").read_text()
+        assert "AUTO_APPROVE_USERS = True" in config
+
+    def test_no_pending_template(self, scaffold_project):
+        """pending.html is NOT created when auto_approve_users=True."""
+        project = scaffold_project(self.CONFIG)
+        assert not (project / "templates/pages/account/pending.html").exists()
+
+    def test_suspended_template_exists(self, scaffold_project):
+        """suspended.html is still created (admins can suspend users)."""
+        project = scaffold_project(self.CONFIG)
+        assert (project / "templates/pages/account/suspended.html").exists()
+
+    def test_account_routes_no_pending(self, scaffold_project):
+        """Account routes do NOT include /account/pending when auto_approve_users=True."""
+        project = scaffold_project(self.CONFIG)
+        routes = (project / "routes/pages/account.py").read_text()
+        assert "/account/pending" not in routes
+        assert "/account/suspended" in routes
+
+    def test_users_table_no_pending_badge(self, scaffold_project):
+        """Admin users table shows only Active/Suspended (no Pending)."""
+        project = scaffold_project(self.CONFIG)
+        table = (project / "templates/partials/admin/users_table.html").read_text()
+        assert "Pending" not in table
+        assert "Active" in table
+        assert "Suspended" in table
+
+
+class TestManualApprovalUsers:
+    """Test scaffolding with manual approval (default behavior)."""
+
+    CONFIG = {
+        "database": "sqlite",
+        "db_url": "sqlite:///app.db",
+        "include_auth": True,
+        "tenant_mode": "single",
+        "admin_email": "admin@test.com",
+        "auto_approve_users": False,
+    }
+
+    def test_no_auth_hooks_file(self, scaffold_project):
+        """auth_hooks.py is NOT created when auto_approve_users=False."""
+        project = scaffold_project(self.CONFIG)
+        assert not (project / "auth_hooks.py").exists()
+
+    def test_config_no_auto_approve(self, scaffold_project):
+        """config.py does NOT include AUTO_APPROVE_USERS when auto_approve_users=False."""
+        project = scaffold_project(self.CONFIG)
+        config = (project / "config.py").read_text()
+        assert "AUTO_APPROVE_USERS" not in config
+
+    def test_pending_template_exists(self, scaffold_project):
+        """pending.html is created when auto_approve_users=False."""
+        project = scaffold_project(self.CONFIG)
+        assert (project / "templates/pages/account/pending.html").exists()
+
+    def test_account_routes_has_pending(self, scaffold_project):
+        """Account routes include /account/pending when auto_approve_users=False."""
+        project = scaffold_project(self.CONFIG)
+        routes = (project / "routes/pages/account.py").read_text()
+        assert "/account/pending" in routes
+
+    def test_users_table_has_pending_badge(self, scaffold_project):
+        """Admin users table shows Active/Suspended/Pending."""
+        project = scaffold_project(self.CONFIG)
+        table = (project / "templates/partials/admin/users_table.html").read_text()
+        assert "Pending" in table
+        assert "Active" in table
+        assert "Suspended" in table

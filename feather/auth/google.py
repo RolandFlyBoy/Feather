@@ -76,6 +76,7 @@ offline access in init_google_oauth().
 
 import os
 import time
+from datetime import datetime, timezone
 from typing import Optional
 
 from flask import Blueprint, current_app, redirect, render_template, url_for, session
@@ -495,25 +496,37 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             counter += 1
 
         # Build user attributes
+        auto_approve = current_app.config.get("AUTO_APPROVE_USERS", False)
         user_attrs = {
             "email": email,
             "username": username,
-            "display_name": user_info.get("name"),
-            "profile_image_url": user_info.get("picture"),
-            "active": False,  # Suspended until approved by admin
+            "active": auto_approve,  # Active immediately if auto-approve, else suspended
             "role": "user",
         }
+
+        # Add optional fields only if User model has them
+        if hasattr(User, "display_name"):
+            user_attrs["display_name"] = user_info.get("name")
+        if hasattr(User, "profile_image_url"):
+            user_attrs["profile_image_url"] = user_info.get("picture")
 
         # Add tenant_id only if User model has it (multi-tenant mode)
         if tenant and hasattr(User, "tenant_id"):
             user_attrs["tenant_id"] = tenant.id
 
-        # Create user in suspended state (requires admin approval)
+        # Create user
         user = User(**user_attrs)
+        if auto_approve and hasattr(user, "approved_at"):
+            user.approved_at = datetime.now(timezone.utc)
         db.session.add(user)
         db.session.commit()
 
-        if tenant:
+        if auto_approve:
+            current_app.logger.info(
+                f"Created new user from Google: {email} (auto-approved)"
+            )
+            _set_toast("Welcome! Your account has been created.", "success")
+        elif tenant:
             current_app.logger.info(
                 f"Created new user from Google: {email} (tenant: {tenant.slug}, suspended)"
             )

@@ -129,12 +129,13 @@ You'll be prompted for app type first:
 
 During scaffolding, you'll be asked about optional features:
 
-- **Background jobs** — available for all app types, runs in a thread pool by default (no Redis required)
+- **Background jobs** — thread pool by default, optionally Redis
+- **Auto-approve users** — immediately activate new signups (authenticated apps only)
 - **Caching** — memory cache for development, optionally Redis for production
 - **File storage** — local filesystem for development, optionally GCS for production
 - **Email** — Resend for transactional emails (authenticated apps only)
-- **Admin email** — for authenticated apps, this creates your initial admin user
-- **User profile fields** — optional `display_name` and `profile_image_url` fields (authenticated apps)
+- **Display name field** — optional `display_name` field on User model (authenticated apps only)
+- **Admin email** — creates your initial admin user (authenticated apps only)
 
 #### 2. Initialize and Run
 
@@ -514,30 +515,24 @@ raise ValidationError('Email is required', field='email')
 
 ### Authentication
 
-Feather takes a security-first approach: new users are created in **suspended state** and require admin approval before they can access the app. This prevents unauthorized access and gives you explicit control over who uses your application.
+Feather uses **Google OAuth** for authentication—no passwords to store, no signup forms to build. The same flow handles both login and registration: users click "Sign in with Google", authorize the app, and Feather creates their account if it doesn't exist. This eliminates the entire signup/login/forgot-password complexity that traditional auth requires.
 
-**Why suspended by default?**
-- Prevents drive-by signups from consuming resources
-- Gives admins visibility into who's requesting access
-- Works well for internal tools, B2B apps, and invite-only products
-- Aligns with zero-trust principles
+While Google OAuth is the default, the architecture can be extended for other OAuth providers (GitHub, Microsoft, etc.) by adding additional blueprints.
 
-**To auto-approve users**, modify the OAuth callback in `routes/pages/auth.py`:
-```python
-# Change this:
-user = User(email=email, tenant_id=tenant.id, active=False)
+**User approval workflows:**
 
-# To this:
-user = User(email=email, tenant_id=tenant.id, active=True)
-```
+When users first authenticate, Feather can either auto-approve them immediately or hold them for admin review:
 
-Or for domain-based auto-approval (e.g., auto-approve `@yourcompany.com`):
-```python
-auto_approve = email.endswith('@yourcompany.com')
-user = User(email=email, tenant_id=tenant.id, active=auto_approve)
-```
+| Workflow | CLI Option | Best For |
+|----------|------------|----------|
+| Auto-approve | `Auto-approve new user signups?` → Yes | Consumer apps, open registration |
+| Manual approval | `Auto-approve new user signups?` → No (default) | Internal tools, B2B apps, invite-only |
 
-Google OAuth with Flask-Login session management.
+**Manual approval (default)** — new users are created in suspended state and see a "pending approval" page until an admin approves them via the admin panel. This prevents drive-by signups and gives you explicit control over who uses your application.
+
+**Auto-approve** — new users are automatically activated on first login. When you select this during scaffolding, Feather sets `AUTO_APPROVE_USERS = True` in your `config.py` and the framework handles the rest — no callback files or env vars needed.
+
+**Converting existing apps:** To switch from manual to auto-approve, add `AUTO_APPROVE_USERS = True` to your `config.py`.
 
 **Configuration:**
 ```bash
@@ -2006,7 +2001,6 @@ SESSION_LIFETIME_DAYS=7           # Session expiry (default: 7)
 # Multi-tenancy
 FEATHER_MULTI_TENANT=true              # Enable multi-tenant mode
 FEATHER_ALLOW_PUBLIC_EMAILS=true       # Allow Gmail, Outlook, etc. (B2B+B2C)
-FEATHER_POST_LOGIN_CALLBACK=myapp.auth:handle_login  # Custom post-OAuth logic
 
 # Storage
 STORAGE_BACKEND=local             # 'local' or 'gcs'

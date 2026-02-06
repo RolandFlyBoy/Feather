@@ -101,6 +101,12 @@ def init_auth(app: Flask, user_model=None) -> LoginManager:
     """
     login_manager.init_app(app)
 
+    # Explicitly register current_user in Jinja globals.
+    # Flask-Login's context_processor doesn't work for {% from %} macro imports.
+    # Using jinja_env.globals ensures availability in ALL template contexts.
+    from flask_login import current_user
+    app.jinja_env.globals['current_user'] = current_user
+
     # Apply session protection setting from config
     session_protection = app.config.get("SESSION_PROTECTION", "strong")
     if session_protection and str(session_protection).lower() != "none":
