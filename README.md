@@ -2248,15 +2248,27 @@ These are starter templates to get you running quickly. Every production environ
 
 #### Render
 
+Generate deployment files automatically:
+
+```bash
+feather deploy render
+feather deploy render --name myapp --region frankfurt
+```
+
+This creates a `Dockerfile`, `render.yaml`, and `.dockerignore`. The generated `render.yaml` uses Docker runtime:
+
 ```yaml
 # render.yaml
 services:
   - type: web
     name: myapp
-    env: python
-    buildCommand: pip install feather-framework && npm install && feather build
-    startCommand: gunicorn app:app
+    runtime: docker
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/health
     envVars:
+      - key: FLASK_CONFIG
+        value: production
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
@@ -2266,7 +2278,16 @@ services:
 
 databases:
   - name: myapp-db
-    plan: free  # Upgrade for production
+    plan: basic-256mb
+    databaseName: myapp
+    postgresMajorVersion: 16
+    region: oregon
+```
+
+The generated Dockerfile runs migrations, optional seeds, then starts Gunicorn:
+
+```dockerfile
+CMD ["sh", "-c", "feather db upgrade && (test -f seeds.py && python seeds.py || true) && gunicorn app:app --workers 2 --threads 4 --bind 0.0.0.0:10000"]
 ```
 
 #### Docker
