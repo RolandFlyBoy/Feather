@@ -997,11 +997,12 @@ The choice isn't about "development vs production" - all three work in productio
 - Jobs are "fire and forget" (losing some on crash is acceptable)
 - You need concurrency control for memory-intensive tasks (ML, transcription)
 
-**RQ** is for when reliability is critical. Jobs are persisted to Redis before acknowledgement. Choose this when:
+**RQ** is for when reliability is critical. Jobs are persisted to Redis before acknowledgement, and workers run as independent services alongside your web app. Choose this when:
 - Losing a job would cause real problems (payments, notifications)
 - You need job visibility (retry failed jobs, see job history)
 - You're running multiple servers (distributed workers)
 - You need scheduled/recurring tasks
+- You want self-healing background processing that survives deploys and crashes
 
 #### Configuration
 
@@ -1128,37 +1129,93 @@ def cleanup_temp_files():
     delete_old_temp_files()
 ```
 
-#### RQ Worker Setup
+#### Workers as Services
 
-When using the RQ backend for persistent job queues:
+With the RQ backend, workers are independent processes that share your app's codebase but run separately from the web server. Think of them as sidecars — they have full access to your models, services, and config, but they operate on their own lifecycle.
+
+This matters because workers are **self-healing**. If your web server crashes, jobs already in Redis keep waiting. When the worker restarts, it picks up right where it left off. If a worker crashes mid-job, RQ marks the job as failed and it can be retried — nothing is silently lost. This makes workers suitable for operations that must eventually complete: billing cycles, subscription renewals, webhook delivery, report generation.
+
+Workers also replace cron jobs. Instead of configuring external schedulers, you enqueue delayed or recurring work through your application code. The worker's built-in scheduler promotes delayed jobs automatically — a billing job enqueued with `delay=55` fires exactly when it should, even if the web server restarted in between.
+
+**Start a worker:**
 
 ```bash
-# Install RQ
 pip install rq
 
-# Start a worker (in a separate terminal or process)
+# Start processing the default queue
 feather worker
 
 # Process specific queues in priority order
 feather worker high default low
 
-# Run in burst mode (exit when queue is empty)
+# Run in burst mode (exit when queue is empty — useful for one-off batch work)
 feather worker --burst
 ```
 
-The `feather worker` command automatically:
-- Provides Flask app context (so jobs can access the database, config, etc.)
-- Uses `SimpleWorker` on macOS (avoids `fork()` crash with Obj-C runtime)
-- Enables the scheduler for delayed jobs (`enqueue(delay=60)` works out of the box)
+The `feather worker` command handles the setup that would otherwise require a custom script:
+- Creates the Flask app and pushes app context (so jobs can query the database, read config, etc.)
+- Uses `SimpleWorker` on macOS (avoids the `fork()` crash with Obj-C runtime)
+- Enables the built-in scheduler by default (required for delayed jobs)
 
 **Options:**
+
 | Flag | Description |
 |------|-------------|
 | `--burst` | Exit when queue is empty |
 | `--simple-worker` | Force SimpleWorker (no fork, default on macOS) |
 | `--no-scheduler` | Disable delayed job scheduler |
-| `--name` | Worker name (for identification) |
+| `--name` | Worker name (for identification in logs) |
 | `--log-level` | DEBUG, INFO, WARNING, ERROR (default: INFO) |
+
+#### Deploying Workers
+
+In production, workers run as separate services that share the same Docker image (or codebase) as your web server — just with a different start command.
+
+**Render** — add a Background Worker service in `render.yaml`:
+
+```yaml
+services:
+  - type: web
+    name: myapp
+    runtime: docker
+    # ... web service config ...
+
+  - type: worker
+    name: myapp-worker
+    runtime: docker
+    envVars:
+      # Same env vars as the web service
+      - key: FLASK_CONFIG
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: myapp-db
+          property: connectionString
+      - key: REDIS_URL
+        value: redis://...
+    dockerCommand: feather worker
+```
+
+**Docker Compose:**
+
+```yaml
+services:
+  web:
+    build: .
+    command: gunicorn app:app --bind 0.0.0.0:8000
+    env_file: .env
+
+  worker:
+    build: .
+    command: feather worker
+    env_file: .env  # Same secrets, same database
+```
+
+**Key points:**
+- Workers share the same image, env vars, and database as the web service
+- Scale workers independently — add more for throughput, or dedicate workers to specific queues
+- Each worker connects to Redis for job pickup, and to your database for business logic
+- Workers survive web deploys — restarting the web service doesn't interrupt running jobs
 
 For scheduled/recurring jobs, also install rq-scheduler:
 
