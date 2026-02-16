@@ -34,8 +34,9 @@ class Config:
     REMEMBER_COOKIE_DURATION = timedelta(days=int(os.environ.get("REMEMBER_COOKIE_DAYS", "365")))
 
     # Session protection: None, 'basic', or 'strong'
-    # 'strong' regenerates session on IP/user-agent change (more secure but can log out mobile users)
-    SESSION_PROTECTION = os.environ.get("SESSION_PROTECTION", "strong")
+    # 'basic' marks session non-fresh on IP/user-agent change (fresh_login_required still works)
+    # 'strong' destroys session entirely — too aggressive behind reverse proxies or for mobile users
+    SESSION_PROTECTION = os.environ.get("SESSION_PROTECTION", "basic")
 
     # Google OAuth (optional)
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")

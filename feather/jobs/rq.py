@@ -20,16 +20,21 @@ Set in environment variables or config.py::
 
 Running Workers
 ---------------
-Start a worker to process jobs::
+Start a worker with the Feather CLI::
 
-    # Install RQ
-    pip install rq
+    # Start worker (processes default queue)
+    feather worker
 
-    # Start worker (processes all queues)
-    rq worker --url redis://localhost:6379/0
+    # Process specific queues (priority order)
+    feather worker high default low
 
-    # Or specific queues
-    rq worker high default low --url redis://localhost:6379/0
+    # Run in burst mode (exit when empty)
+    feather worker --burst
+
+The ``feather worker`` command automatically:
+- Provides Flask app context (for database access, config, etc.)
+- Uses SimpleWorker on macOS (avoids fork() crash)
+- Enables the scheduler for delayed jobs
 
 Usage
 -----

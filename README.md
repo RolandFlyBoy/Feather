@@ -543,7 +543,7 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 # Session settings (optional)
 SESSION_LIFETIME_DAYS=7        # Default: 7
 REMEMBER_COOKIE_DAYS=365       # Default: 365
-SESSION_PROTECTION=strong      # Options: None, basic, strong
+SESSION_PROTECTION=basic       # Options: None, basic, strong
 ```
 
 **Setup:**
@@ -1137,9 +1137,32 @@ When using the RQ backend for persistent job queues:
 pip install rq
 
 # Start a worker (in a separate terminal or process)
-rq worker --url redis://localhost:6379/0
+feather worker
 
-# For scheduled jobs
+# Process specific queues in priority order
+feather worker high default low
+
+# Run in burst mode (exit when queue is empty)
+feather worker --burst
+```
+
+The `feather worker` command automatically:
+- Provides Flask app context (so jobs can access the database, config, etc.)
+- Uses `SimpleWorker` on macOS (avoids `fork()` crash with Obj-C runtime)
+- Enables the scheduler for delayed jobs (`enqueue(delay=60)` works out of the box)
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| `--burst` | Exit when queue is empty |
+| `--simple-worker` | Force SimpleWorker (no fork, default on macOS) |
+| `--no-scheduler` | Disable delayed job scheduler |
+| `--name` | Worker name (for identification) |
+| `--log-level` | DEBUG, INFO, WARNING, ERROR (default: INFO) |
+
+For scheduled/recurring jobs, also install rq-scheduler:
+
+```bash
 pip install rq-scheduler
 rqscheduler --url redis://localhost:6379/0
 ```
@@ -1943,11 +1966,19 @@ feather generate route users --model User   # API CRUD routes
 feather generate route dashboard --page     # Page route with template
 feather generate serializer UserSerializer id email
 
-# Job Queue Management (thread backend)
+# Worker Commands (RQ backend)
+feather worker                  # Start RQ worker (default queue)
+feather worker high default low # Process specific queues (priority order)
+feather worker --burst          # Exit when queue is empty
+feather worker --simple-worker  # Force SimpleWorker (no fork)
+feather worker --no-scheduler   # Disable delayed job scheduler
+
+# Job Queue Management (thread and RQ backends)
 feather jobs status             # Show queue status and counts
 feather jobs list               # List all jobs
 feather jobs list --status failed    # Filter by status
-feather jobs list --stuck       # Show jobs running too long
+feather jobs list --queue high  # List jobs in specific queue (RQ)
+feather jobs list --stuck       # Show jobs running too long (thread)
 feather jobs info <job_id>      # Show job details
 feather jobs failed             # List failed/timed-out jobs
 feather jobs retry <job_id>     # Re-queue a failed job
@@ -1983,7 +2014,7 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     SESSION_COOKIE_SECURE = True    # HTTPS only
-    SESSION_PROTECTION = "strong"   # Strict session protection
+    SESSION_PROTECTION = "basic"    # Marks session non-fresh on IP/UA change
 ```
 
 Environment variables (`.env`):

@@ -3388,6 +3388,63 @@ users = User.query.filter_by(tenant_id=current_user.tenant_id).all()
 ```
 '''
 
+    if has_database:
+        content += '''
+### Database Query Patterns
+
+#### Pagination: Use Window Functions (Not COUNT + SELECT)
+```python
+# BAD: Two queries per page
+total = query.count()
+items = query.offset(n).limit(m).all()
+
+# GOOD: One query with window function
+from sqlalchemy import func
+rows = (
+    query.add_columns(func.count().over().label("_total"))
+    .order_by(Model.created_at.desc())
+    .offset(offset).limit(limit)
+    .all()
+)
+items = [r[0] for r in rows] if rows else []
+total = rows[0][1] if rows else 0
+```
+
+#### Eager Loading: Prevent N+1 Queries
+```python
+# BAD: Accessing relationship in template fires query per row
+users = User.query.all()
+# template: {{ user.tenant.name }} -- N+1!
+
+# GOOD: Eager load relationships used in templates
+from sqlalchemy.orm import joinedload, selectinload
+users = User.query.options(joinedload(User.tenant)).all()
+# Use selectinload for one-to-many relationships
+posts = User.query.options(selectinload(User.posts)).all()
+```
+
+#### Composite Indexes for Filter + Sort Patterns
+```python
+# If you commonly filter by (user_id, status) and sort by created_at:
+__table_args__ = (
+    db.Index("ix_orders_user_status_created", "user_id", "status", "created_at"),
+)
+```
+
+#### Merging Tables: Use UNION ALL, Not Python Sort
+```python
+# BAD: Fetch all rows, merge in Python
+calls = Call.query.limit(200).all()
+msgs = Message.query.limit(200).all()
+combined = sorted(calls + msgs, key=lambda x: x.date, reverse=True)[:10]
+
+# GOOD: Push merge to database
+from sqlalchemy import union_all, text
+combined = union_all(calls_q, msgs_q).order_by(text("date DESC")).limit(10)
+rows = db.session.execute(combined).all()
+```
+'''
+
     content += '''
 ---
 
@@ -3634,7 +3691,7 @@ class ProductionConfig(Config):
 
     if include_auth:
         config += '''    SESSION_COOKIE_SECURE = True       # HTTPS only
-    SESSION_PROTECTION = "strong"      # Strict session protection
+    SESSION_PROTECTION = "basic"       # Marks session non-fresh on IP/UA change (doesn't destroy session)
 '''
 
     config += '''

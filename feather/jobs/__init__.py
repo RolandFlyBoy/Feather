@@ -119,15 +119,14 @@ Running Workers (Production)
 ----------------------------
 ::
 
-    # Install RQ
-    pip install rq
+    # Start a worker (Flask app context provided automatically)
+    feather worker
 
-    # Start a worker
-    rq worker --url redis://localhost:6379/0
+    # Process specific queues in priority order
+    feather worker high default low
 
-    # For scheduled jobs, also run the scheduler
-    pip install rq-scheduler
-    rqscheduler --url redis://localhost:6379/0
+    # Delayed jobs and scheduled jobs work automatically
+    # (scheduler is enabled by default)
 """
 
 import os

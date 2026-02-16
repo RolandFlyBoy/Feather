@@ -11,6 +11,7 @@ from feather.cli.deploy import deploy
 from feather.cli.dx import routes, shell, test
 from feather.cli.platform_admin import platform_admin
 from feather.cli.jobs import jobs
+from feather.cli.worker import worker
 
 
 class FeatherGroup(click.Group):
@@ -95,6 +96,14 @@ class FeatherGroup(click.Group):
             ])
 
         formatter.write_paragraph()
+        formatter.write_text(click.style("Worker Commands:", bold=True))
+        with formatter.indentation():
+            formatter.write_dl([
+                ("worker", "Start an RQ background job worker"),
+                ("worker high default low", "Process specific queues (priority order)"),
+            ])
+
+        formatter.write_paragraph()
         formatter.write_text(click.style("Admin Commands:", bold=True))
         with formatter.indentation():
             formatter.write_dl([
@@ -132,6 +141,7 @@ cli.add_command(routes)
 cli.add_command(shell)
 cli.add_command(test)
 cli.add_command(jobs)
+cli.add_command(worker)
 cli.add_command(platform_admin)
 
 
