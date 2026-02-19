@@ -163,6 +163,57 @@ def _call_post_login_callback(user, token: dict) -> Optional[str]:
         return None
 
 
+def _call_pre_register_callback() -> Optional[str]:
+    """Call the configured pre-register callback if set.
+
+    Called before creating a new user during OAuth signup. The callback
+    can block registration by returning an error message string.
+
+    The callback receives no arguments — it should use Flask's `request`
+    object to access the current request context (e.g., IP address).
+
+    Returns:
+        Error message string to block registration, or None to allow it.
+
+    Note:
+        Only called for NEW user registrations, not existing user logins.
+        Errors are logged and treated as "allow" (graceful degradation).
+    """
+    callback_path = current_app.config.get("FEATHER_PRE_REGISTER_CALLBACK")
+    if not callback_path:
+        return None
+
+    try:
+        import importlib
+
+        if ":" in callback_path:
+            module_path, func_name = callback_path.rsplit(":", 1)
+        else:
+            module_path, func_name = callback_path.rsplit(".", 1)
+
+        module = importlib.import_module(module_path)
+        callback_func = getattr(module, func_name)
+
+        result = callback_func()
+        return result if isinstance(result, str) else None
+
+    except ImportError as e:
+        current_app.logger.error(
+            f"Failed to import pre-register callback '{callback_path}': {e}"
+        )
+        return None
+    except AttributeError as e:
+        current_app.logger.error(
+            f"Pre-register callback function not found in '{callback_path}': {e}"
+        )
+        return None
+    except Exception as e:
+        current_app.logger.error(
+            f"Error in pre-register callback '{callback_path}': {e}"
+        )
+        return None
+
+
 def init_google_oauth(app) -> None:
     """Initialize Google OAuth with the Flask app.
 
@@ -513,6 +564,16 @@ def _get_or_create_user(user_info: dict, token: dict = None):
         # Add tenant_id only if User model has it (multi-tenant mode)
         if tenant and hasattr(User, "tenant_id"):
             user_attrs["tenant_id"] = tenant.id
+
+        # Check pre-register callback (country ban, etc.)
+        block_message = _call_pre_register_callback()
+        if block_message:
+            _set_toast(block_message, "error")
+            session["_auth_error_handled"] = True
+            current_app.logger.warning(
+                f"Blocked signup via pre-register callback: {email}"
+            )
+            return None
 
         # Create user
         user = User(**user_attrs)
