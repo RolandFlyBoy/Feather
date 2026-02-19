@@ -721,6 +721,36 @@ def handle_login(user, token):
 
 Use this for creating Account/Membership records, assigning tenants to public email users, or custom onboarding flows.
 
+#### Pre-Register Callback
+
+Block new user registrations before the account is created. This runs during OAuth signup, **only for new users** — existing users logging in are unaffected.
+
+```bash
+# .env
+FEATHER_PRE_REGISTER_CALLBACK=myapp.auth:check_registration
+```
+
+```python
+# myapp/auth.py
+from flask import request
+
+def check_registration():
+    """Called before creating a new user during OAuth signup.
+
+    Use Flask's request object to access the current request context
+    (e.g., IP address, headers).
+
+    Returns:
+        Error message string to block registration, or None to allow it.
+    """
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
+    if is_blocked(ip):
+        return "Registration is not available from your location."
+    return None  # Allow registration
+```
+
+If the callback returns a string, registration is blocked — the message is shown as a toast error and no user record is created. If it returns `None` (or raises an exception), registration proceeds normally. Errors in the callback are logged but do not block signups (graceful degradation).
+
 ### Admin Panel
 
 Most frameworks leave you to build your own admin interface—user management, analytics, error tracking. That's typically days of work before you ship any actual features. Feather includes a production-ready admin panel out of the box.
