@@ -106,7 +106,7 @@ Dispatch events for loose coupling::
 For more information, see the full documentation in feather_framework.md.
 """
 
-__version__ = "0.8.0"
+__version__ = "0.9.1"
 
 # =============================================================================
 # Core Application

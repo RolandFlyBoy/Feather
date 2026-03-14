@@ -1,5 +1,7 @@
 """feather new - Create a new Feather project."""
 
+import importlib.metadata
+import json
 import os
 import subprocess
 import sys
@@ -7,6 +9,36 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import click
+
+
+def _get_local_source_path():
+    """Get the local source directory if feather was installed from a local path.
+
+    Works for both `pipx install .` and `pipx install -e .` — either way,
+    PEP 610 records a file:// URL in direct_url.json pointing to the source.
+    """
+    try:
+        dist = importlib.metadata.distribution("feather-framework")
+        direct_url = dist.read_text("direct_url.json")
+        if direct_url:
+            data = json.loads(direct_url)
+            url = data.get("url", "")
+            if url.startswith("file://"):
+                path = Path(url[7:])
+                if (path / "pyproject.toml").exists():
+                    return path
+    except Exception:
+        pass
+    return None
+
+
+def _get_feather_version():
+    """Get the installed feather-framework version."""
+    try:
+        return importlib.metadata.version("feather-framework")
+    except importlib.metadata.PackageNotFoundError:
+        import feather
+        return feather.__version__
 
 
 def _extract_db_name(db_url: str) -> str | None:
@@ -3486,6 +3518,28 @@ def _install_dependencies(project_path: Path):
         click.echo("  Run 'npm install' manually to install frontend dependencies")
 
 
+def _pip_install_feather(pip_path):
+    """Install feather-framework from PyPI into a scaffolded app's venv."""
+    version = _get_feather_version()
+    package_spec = f"feather-framework=={version}"
+    try:
+        subprocess.run(
+            [str(pip_path), "install", package_spec],
+            capture_output=True,
+            check=True,
+        )
+        click.echo(f"  Installed Feather framework ({version})")
+    except subprocess.CalledProcessError:
+        # Version may not be on PyPI yet — try without pinning
+        click.echo(f"  Note: {package_spec} not found on PyPI, trying latest...")
+        subprocess.run(
+            [str(pip_path), "install", "feather-framework"],
+            capture_output=True,
+            check=True,
+        )
+        click.echo("  Installed Feather framework (latest)")
+
+
 def _setup_venv(project_path: Path):
     """Create virtual environment and install dependencies."""
     venv_path = project_path / "venv"
@@ -3514,18 +3568,23 @@ def _setup_venv(project_path: Path):
         )
         click.echo("  Installed Python dependencies")
 
-        # Install Feather in editable mode from the framework location
-        feather_path = Path(__file__).parent.parent.parent
-        subprocess.run(
-            [str(pip_path), "install", "-e", str(feather_path)],
-            capture_output=True,
-            check=True,
-        )
-        click.echo("  Linked Feather framework")
+        # Install Feather into the scaffolded app's venv
+        source_path = _get_local_source_path()
+        if source_path:
+            # Installed from local source (pipx install . or pip install -e .)
+            subprocess.run(
+                [str(pip_path), "install", str(source_path)],
+                capture_output=True,
+                check=True,
+            )
+            click.echo("  Installed Feather framework (from source)")
+        else:
+            # Installed from PyPI
+            _pip_install_feather(pip_path)
 
     except subprocess.CalledProcessError as e:
         click.echo(f"  Warning: Could not set up venv ({e})")
-        click.echo("  Run manually: python -m venv venv && venv/bin/pip install -r requirements.txt")
+        click.echo("  Run manually: python -m venv venv && venv/bin/pip install feather-framework")
     except FileNotFoundError:
         click.echo("  Skipped venv setup (Python not available)")
 
@@ -4139,23 +4198,15 @@ def _build_requirements_content(
     include_jobs: bool,
     include_storage: bool,
 ) -> str:
-    """Build requirements.txt referencing Feather framework.
+    """Build requirements.txt with feather-framework as the sole dependency.
 
-    ALL dependencies are defined in Feather's pyproject.toml:
-    - Flask, SQLAlchemy, Flask-Login, Flask-WTF, alembic
-    - authlib, requests (OAuth)
-    - psycopg2-binary (PostgreSQL)
-    - google-cloud-storage, weasyprint (storage/PDF)
-    - redis, rq (caching/jobs)
-    - gunicorn (production server)
-    - pytest, pytest-cov (testing)
-
-    This file is just deployment instructions.
-    The parameters are kept for API compatibility but no longer used.
+    All transitive deps (Flask, SQLAlchemy, authlib, redis, gunicorn, pytest, etc.)
+    are pulled in automatically via Feather's pyproject.toml.
     """
-    return """# Project Dependencies
-# ALL deps come from Feather framework:
-# Flask, SQLAlchemy, authlib, redis, GCS, weasyprint, gunicorn, pytest, etc.
+    version = _get_feather_version()
+    return f"""# Project Dependencies
+# Feather framework (includes Flask, SQLAlchemy, authlib, redis, gunicorn, pytest, etc.)
+feather-framework=={version}
 """
 
 

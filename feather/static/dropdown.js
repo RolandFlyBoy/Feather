@@ -140,7 +140,6 @@
     // Event: Click trigger
     trigger.addEventListener("click", (e) => {
       e.preventDefault();
-      e.stopPropagation();
       toggle();
     });
 
