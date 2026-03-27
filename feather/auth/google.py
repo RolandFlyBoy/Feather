@@ -482,6 +482,8 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             user.display_name = user_info.get("name")
         if hasattr(user, "profile_image_url"):
             user.profile_image_url = user_info.get("picture")
+        if hasattr(user, "google_id") and user_info.get("sub"):
+            user.google_id = user_info["sub"]
         db.session.commit()
     else:
         # ========== NEW USER LOGIC ==========
@@ -560,6 +562,8 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             user_attrs["display_name"] = user_info.get("name")
         if hasattr(User, "profile_image_url"):
             user_attrs["profile_image_url"] = user_info.get("picture")
+        if hasattr(User, "google_id") and user_info.get("sub"):
+            user_attrs["google_id"] = user_info["sub"]
 
         # Add tenant_id only if User model has it (multi-tenant mode)
         if tenant and hasattr(User, "tenant_id"):
