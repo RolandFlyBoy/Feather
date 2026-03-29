@@ -66,8 +66,12 @@ def init_security_headers(app):
         # Prevent MIME-type sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
 
-        # Prevent clickjacking
-        response.headers["X-Frame-Options"] = "DENY"
+        # Prevent clickjacking (derive from frame-ancestors)
+        fa = directives.get("frame-ancestors", "'none'")
+        if fa == "'none'":
+            response.headers["X-Frame-Options"] = "DENY"
+        elif fa == "'self'":
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
 
         # Control referrer information
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
