@@ -329,7 +329,7 @@ def job(
                 JobResult with job_id.
             """
             queue = get_queue()
-            return queue.enqueue(f, *args, queue_name=queue_name, delay=delay, **kwargs)
+            return queue.enqueue(f, *args, queue_name=queue_name, delay=delay, job_timeout=timeout, **kwargs)
 
         def get_status(job_id: str) -> Optional[JobResult]:
             """Get the status of a job by ID.
