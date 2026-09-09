@@ -132,7 +132,9 @@ class TestHealthEndpointDatabaseDown:
 
         data = response.get_json()
         assert 'error' in data['checks']['database']
-        assert 'Connection refused' in data['checks']['database']
+        # The public endpoint must not echo driver errors (they can carry the DSN)
+        assert data['checks']['database'] == "error"
+        assert "Connection refused" not in data['checks']['database']
 
 
 class TestHealthEndpointNoDatabase:
