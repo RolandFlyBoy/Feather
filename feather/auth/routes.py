@@ -70,8 +70,12 @@ def logout():
     Returns:
         Redirect to home page.
     """
-    logout_user()
     # Everything else in the session (Google access/refresh token, stored
-    # next URL, account selection) must go with the login.
+    # next URL, account selection) must go with the login. Clear it BEFORE
+    # logout_user(): that call writes the `_remember = "clear"` marker that
+    # makes Flask-Login delete the remember-me cookie in after_request, and
+    # clearing afterwards discarded the marker, so the cookie survived and
+    # the very next request signed the user straight back in.
     session.clear()
+    logout_user()
     return redirect(url_for("page.home"))
