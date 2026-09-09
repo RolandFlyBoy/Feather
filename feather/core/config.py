@@ -33,6 +33,14 @@ class Config:
     # How long "remember me" cookies last
     REMEMBER_COOKIE_DURATION = timedelta(days=int(os.environ.get("REMEMBER_COOKIE_DAYS", "365")))
 
+    # Cookie hardening. Secure is set per environment (ProductionConfig);
+    # HttpOnly and SameSite=Lax are safe everywhere. Flask-Login sets none
+    # of the REMEMBER_COOKIE_* flags by default.
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = "Lax"
+
     # Session protection: None, 'basic', or 'strong'
     # 'basic' marks session non-fresh on IP/user-agent change (fresh_login_required still works)
     # 'strong' destroys session entirely — too aggressive behind reverse proxies or for mobile users
@@ -92,6 +100,8 @@ class ProductionConfig(Config):
     """Production configuration."""
 
     DEBUG = False
+    SESSION_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = True
 
 
 class TestingConfig(Config):

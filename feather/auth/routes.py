@@ -52,7 +52,7 @@ Create your own login route in routes/pages/::
         return render_template('pages/login.html', error='Invalid credentials')
 """
 
-from flask import Blueprint, redirect, url_for
+from flask import Blueprint, redirect, session, url_for
 from flask_login import logout_user, login_required
 
 #: Blueprint for basic auth routes
@@ -71,4 +71,7 @@ def logout():
         Redirect to home page.
     """
     logout_user()
+    # Everything else in the session (Google access/refresh token, stored
+    # next URL, account selection) must go with the login.
+    session.clear()
     return redirect(url_for("page.home"))

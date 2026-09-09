@@ -102,7 +102,10 @@ def _check_database() -> str:
     except ImportError:
         return "skipped"
     except Exception as e:
-        return f"error: {str(e)}"
+        # Log the detail; the public endpoint says only that it is broken
+        # (driver errors can include the DSN, host and user).
+        current_app.logger.error(f"Health check database error: {e}")
+        return "error"
 
 
 def init_health(app):

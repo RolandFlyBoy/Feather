@@ -103,6 +103,22 @@ def _set_toast(message: str, toast_type: str = "error") -> None:
     session["_pending_toast"] = {"message": message, "type": toast_type}
 
 
+def _safe_next(value: Optional[str]) -> Optional[str]:
+    """Return `value` if it is a relative path on this site, else None.
+
+    Accepts "/dashboard?tab=1"; rejects "https://evil.example", "//evil",
+    "javascript:..." and anything with a scheme or host.
+    """
+    if not value or not isinstance(value, str):
+        return None
+    value = value.strip()
+    if not value.startswith("/") or value.startswith("//") or value.startswith("/\\"):
+        return None
+    if "\n" in value or "\r" in value:
+        return None
+    return value
+
+
 def _call_post_login_callback(user, token: dict) -> Optional[str]:
     """Call the configured post-login callback if set.
 
@@ -278,8 +294,10 @@ def login():
             show_config_hint=True,
         ), 503
 
-    # Store next URL for after login (clear stale value if no ?next param)
-    next_url = request.args.get("next")
+    # Store next URL for after login (clear stale value if no ?next param).
+    # Only a path on this site is accepted: an absolute URL here would turn
+    # the login link into an open redirect to any host.
+    next_url = _safe_next(request.args.get("next"))
     if next_url:
         session["next"] = next_url
     else:
@@ -350,14 +368,14 @@ def callback():
                 return redirect(callback_redirect)
 
             # Redirect to stored URL or home
-            next_url = session.pop("next", None) or url_for("page.home")
+            next_url = _safe_next(session.pop("next", None)) or url_for("page.home")
             return redirect(next_url)
         else:
             # User creation was blocked or failed
             # Check flags set by _get_or_create_user for appropriate handling
             silent_redirect = session.pop("_auth_silent_redirect", False)
             auth_error_handled = session.pop("_auth_error_handled", False)
-            next_url = session.pop("next", None) or url_for("page.home")
+            next_url = _safe_next(session.pop("next", None)) or url_for("page.home")
 
             if not silent_redirect and not auth_error_handled:
                 # Only show generic error if _get_or_create_user didn't handle it
