@@ -58,7 +58,7 @@ from pathlib import Path
 from typing import Optional
 
 from flask import Flask
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from flask_wtf.csrf import CSRFProtect
 from jinja2 import ChoiceLoader, FileSystemLoader
 
@@ -162,8 +162,11 @@ class Feather(Flask):
         # and static files in feather/static/ (api.js, feather.js, favicon.svg)
         self._setup_framework_assets()
 
-        # Step 1: Load .env file (if present) before any config loading
-        load_dotenv()
+        # Step 1: Load .env file (if present) before any config loading.
+        # usecwd: look for .env from the project directory, not from wherever
+        # this file lives (an editable install would otherwise search the
+        # framework checkout and silently find nothing).
+        load_dotenv(find_dotenv(usecwd=True))
 
         # Step 2: Load configuration from config.py or environment
         self._setup_config(config_class)

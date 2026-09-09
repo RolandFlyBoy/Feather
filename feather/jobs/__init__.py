@@ -151,6 +151,7 @@ def get_queue() -> JobQueue:
 
     Configuration:
         JOB_BACKEND: 'sync' (default), 'thread', or 'rq'
+        JOB_SERIALIZER: 'pickle' (default) or 'json' (rq backend; safer)
         JOB_MAX_WORKERS: Thread pool size (for thread backend)
         JOB_ENABLE_MONITORING: Enable psutil resource tracking (for thread backend)
         REDIS_URL: Redis connection URL (for rq backend)
@@ -181,6 +182,7 @@ def get_queue() -> JobQueue:
             "JOB_ENABLE_MONITORING",
             os.environ.get("JOB_ENABLE_MONITORING", "").lower() in ("true", "1", "yes"),
         )
+        serializer = current_app.config.get("JOB_SERIALIZER", os.environ.get("JOB_SERIALIZER", "pickle"))
         app = current_app._get_current_object()
     except RuntimeError:
         # No Flask app context
@@ -188,6 +190,7 @@ def get_queue() -> JobQueue:
         redis_url = os.environ.get("REDIS_URL")
         max_workers = int(os.environ.get("JOB_MAX_WORKERS", "4"))
         enable_monitoring = os.environ.get("JOB_ENABLE_MONITORING", "").lower() in ("true", "1", "yes")
+        serializer = os.environ.get("JOB_SERIALIZER", "pickle")
         app = None
 
     # Create backend
@@ -196,7 +199,7 @@ def get_queue() -> JobQueue:
 
         if not redis_url:
             redis_url = "redis://localhost:6379/0"
-        _queue_instance = RQQueue(redis_url=redis_url)
+        _queue_instance = RQQueue(redis_url=redis_url, serializer=serializer)
 
     elif backend == "thread":
         from feather.jobs.thread import ThreadPoolQueue

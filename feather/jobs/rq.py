@@ -17,6 +17,7 @@ Set in environment variables or config.py::
 
     JOB_BACKEND=rq
     REDIS_URL=redis://localhost:6379/0
+    JOB_SERIALIZER=json   # recommended; default 'pickle' for compatibility
 
 Running Workers
 ---------------
@@ -66,6 +67,24 @@ from typing import Any, Callable, Optional
 from feather.jobs.base import JobQueue, JobResult, JobStatus
 
 
+def resolve_serializer(name: str):
+    """Map JOB_SERIALIZER ('pickle' | 'json') to an RQ serializer.
+
+    RQ's default is pickle, which means anyone who can write to the Redis
+    queue can execute arbitrary code in the worker when it unpickles the
+    job. JSON limits job arguments to plain data, which is all a job id
+    based design needs. The queue and the worker MUST agree; `feather
+    worker` reads the same setting.
+    """
+    if name is None or str(name).lower() in ("pickle", "default", ""):
+        from rq.serializers import DefaultSerializer
+        return DefaultSerializer
+    if str(name).lower() == "json":
+        from rq.serializers import JSONSerializer
+        return JSONSerializer
+    raise ValueError(f"Unknown JOB_SERIALIZER {name!r}; use 'pickle' or 'json'")
+
+
 def _rq_status_to_job_status(rq_status: str) -> JobStatus:
     """Convert RQ job status to JobStatus."""
     status_map = {
@@ -109,6 +128,7 @@ class RQQueue(JobQueue):
         redis_url: str = "redis://localhost:6379/0",
         default_queue: str = "default",
         default_timeout: int = 300,
+        serializer: str = "pickle",
     ):
         try:
             from redis import Redis
@@ -122,6 +142,7 @@ class RQQueue(JobQueue):
         self._redis = Redis.from_url(redis_url)
         self._default_queue = default_queue
         self._default_timeout = default_timeout
+        self._serializer = resolve_serializer(serializer)
         self._queues: dict[str, Queue] = {}
 
         # Pre-create default queue
@@ -129,6 +150,7 @@ class RQQueue(JobQueue):
             name=default_queue,
             connection=self._redis,
             default_timeout=default_timeout,
+            serializer=self._serializer,
         )
 
     def _get_queue(self, name: str):
@@ -140,6 +162,7 @@ class RQQueue(JobQueue):
                 name=name,
                 connection=self._redis,
                 default_timeout=self._default_timeout,
+                serializer=self._serializer,
             )
         return self._queues[name]
 
@@ -213,7 +236,7 @@ class RQQueue(JobQueue):
         from rq.job import Job
 
         try:
-            job = Job.fetch(job_id, connection=self._redis)
+            job = Job.fetch(job_id, connection=self._redis, serializer=self._serializer)
         except Exception:
             return None
 
@@ -245,7 +268,7 @@ class RQQueue(JobQueue):
         from rq.job import Job
 
         try:
-            job = Job.fetch(job_id, connection=self._redis)
+            job = Job.fetch(job_id, connection=self._redis, serializer=self._serializer)
             if job.get_status() in ("queued", "scheduled", "deferred"):
                 job.cancel()
                 return True
@@ -299,7 +322,7 @@ class RQQueue(JobQueue):
         from rq.job import Job
 
         try:
-            job = Job.fetch(job_id, connection=self._redis)
+            job = Job.fetch(job_id, connection=self._redis, serializer=self._serializer)
             if job.get_status() == "failed":
                 job.requeue()
                 return JobResult(

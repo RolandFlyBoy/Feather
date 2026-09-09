@@ -71,6 +71,10 @@ def worker(queues, burst, force_simple, no_scheduler, name, log_level):
     # Get Redis URL from app config
     with app.app_context():
         redis_url = app.config.get("REDIS_URL", os.environ.get("REDIS_URL"))
+        from feather.jobs.rq import resolve_serializer
+        serializer = resolve_serializer(
+            app.config.get("JOB_SERIALIZER", os.environ.get("JOB_SERIALIZER", "pickle"))
+        )
         if not redis_url:
             redis_url = "redis://localhost:6379/0"
             click.echo(click.style(
@@ -97,7 +101,7 @@ def worker(queues, burst, force_simple, no_scheduler, name, log_level):
     # Set up queues
     queue_names = queues or ("default",)
     conn = Redis.from_url(redis_url)
-    rq_queues = [Queue(q, connection=conn) for q in queue_names]
+    rq_queues = [Queue(q, connection=conn, serializer=serializer) for q in queue_names]
 
     # Scheduler enabled by default (required for delayed jobs)
     enable_scheduler = not no_scheduler
@@ -108,6 +112,7 @@ def worker(queues, burst, force_simple, no_scheduler, name, log_level):
     click.echo(f"  Queues:      {', '.join(queue_names)}")
     click.echo(f"  Redis:       {redis_url}")
     click.echo(f"  Scheduler:   {'enabled' if enable_scheduler else 'disabled'}")
+    click.echo(f"  Serializer:  {serializer.__name__}")
     if name:
         click.echo(f"  Name:        {name}")
     click.echo()
@@ -119,6 +124,7 @@ def worker(queues, burst, force_simple, no_scheduler, name, log_level):
             connection=conn,
             name=name,
             log_job_description=True,
+            serializer=serializer,
         )
 
         import logging
