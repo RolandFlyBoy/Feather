@@ -197,7 +197,8 @@ class GCSStorage(StorageBackend):
         except Exception as e:
             raise StorageError(f"Failed to delete from GCS: {e}")
 
-    def get_url(self, path: str, expires_in: int = 3600) -> str:
+    def get_url(self, path: str, expires_in: int = 900,
+                download_name: Optional[str] = None, content_type: Optional[str] = None) -> str:
         """Get URL for accessing a file.
 
         For public files, returns the public URL.
@@ -205,7 +206,10 @@ class GCSStorage(StorageBackend):
 
         Args:
             path: Path in the bucket.
-            expires_in: Seconds until signed URL expires (default 1 hour).
+            expires_in: Seconds until signed URL expires (default 15 minutes).
+            download_name: If given, the response carries an inline
+                Content-Disposition with this filename.
+            content_type: Optional Content-Type override for the response.
 
         Returns:
             URL to access the file.
@@ -224,8 +228,16 @@ class GCSStorage(StorageBackend):
                 return blob.public_url
 
             # Generate signed URL for private files
+            extra = {}
+            if download_name:
+                safe = "".join(ch for ch in download_name if ch.isalnum() or ch in " ._-").strip() or "download"
+                extra["response_disposition"] = f'inline; filename="{safe}"'
+            if content_type:
+                extra["response_type"] = content_type
             return blob.generate_signed_url(
+                version="v4",
                 expiration=timedelta(seconds=expires_in),
+                **extra,
                 method="GET",
             )
 

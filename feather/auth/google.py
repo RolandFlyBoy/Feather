@@ -103,6 +103,14 @@ def _set_toast(message: str, toast_type: str = "error") -> None:
     session["_pending_toast"] = {"message": message, "type": toast_type}
 
 
+def mask_email(email: Optional[str]) -> str:
+    """'a***@example.com' for logs: enough to correlate, not enough to harvest."""
+    if not email or "@" not in email:
+        return "<no email>"
+    local, _, domain = email.partition("@")
+    return f"{local[:1]}***@{domain}"
+
+
 def _safe_next(value: Optional[str]) -> Optional[str]:
     """Return `value` if it is a relative path on this site, else None.
 
@@ -444,6 +452,13 @@ def _get_or_create_user(user_info: dict, token: dict = None):
     if not email:
         current_app.logger.error("No email in Google profile")
         return None
+    # Google says whether it has verified the address. An unverified one
+    # must not be trusted for tenant assignment or matching existing users.
+    if user_info.get("email_verified") is False:
+        current_app.logger.warning(f"Refusing unverified Google email: {mask_email(email)}")
+        _set_toast("Your Google account's email address is not verified.", "error")
+        session["_auth_error_handled"] = True
+        return None
 
     from feather.db import db
     from feather.auth.domains import (
@@ -471,7 +486,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
         try:
             domain = extract_domain(email)
         except ValueError:
-            current_app.logger.error(f"Invalid email format: {email}")
+            current_app.logger.error(f"Invalid email format: {mask_email(email)}")
             _set_toast("Invalid email format.", "error")
             session["_auth_error_handled"] = True
             return None
