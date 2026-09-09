@@ -198,6 +198,7 @@ class ThreadPoolQueue(JobQueue):
         concurrency: Optional[int] = None,
         retry: Optional[int] = None,
         timeout: Optional[int] = None,
+        job_timeout: Optional[int] = None,
         **kwargs,
     ) -> JobResult:
         """Add a job to the thread pool.
@@ -222,6 +223,10 @@ class ThreadPoolQueue(JobQueue):
         metadata = self._get_task_metadata(func)
         task_concurrency = concurrency if concurrency is not None else metadata["concurrency"]
         task_retry = retry if retry is not None else metadata["retry"]
+        # `job_timeout` is what the @job decorator passes (RQ's name for it);
+        # accept it here too so it never leaks into the function's kwargs.
+        if timeout is None:
+            timeout = job_timeout
         task_timeout = timeout if timeout is not None else metadata["timeout"]
 
         # Create initial result
