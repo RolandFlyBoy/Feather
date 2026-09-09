@@ -77,8 +77,12 @@ def init_security_headers(app):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Restrict browser features
-        response.headers["Permissions-Policy"] = (
-            "camera=(), microphone=(), geolocation=(), payment=()"
+        # Apps that use the camera/microphone (video interviews) or the
+        # Payment Request API set FEATHER_PERMISSIONS_POLICY themselves;
+        # the default denies all four to every origin, including self.
+        response.headers["Permissions-Policy"] = app.config.get(
+            "FEATHER_PERMISSIONS_POLICY",
+            "camera=(), microphone=(), geolocation=(), payment=()",
         )
 
         return response
