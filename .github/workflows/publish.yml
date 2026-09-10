@@ -19,8 +19,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Tag must match the package version
@@ -41,6 +41,9 @@ jobs:
           pip install build twine
           python -m build
           twine check dist/*
+      # upload/download-artifact are a matched pair and this path cannot be
+      # exercised without publishing a real release, so they stay on v4
+      # together until there is a reason to move both.
       - uses: actions/upload-artifact@v4
         with:
           name: dist
