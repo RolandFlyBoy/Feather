@@ -1,0 +1,40 @@
+"""Application configuration."""
+
+__FEATHER_CONFIG_IMPORTS__
+
+
+class Config:
+    """Base configuration."""
+
+    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
+
+    # CSRF tokens live as long as the session (the 1-hour default expires forms
+    # that are left open, e.g. a long text entry, with a generic CSRF error)
+    WTF_CSRF_TIME_LIMIT = None
+__FEATHER_CONFIG_DATABASE____FEATHER_CONFIG_AUTH_SESSION____FEATHER_CONFIG_AUTH_TENANT____FEATHER_CONFIG_AUTH_AUTOAPPROVE____FEATHER_CONFIG_AUTH_ADMIN____FEATHER_CONFIG_CACHE____FEATHER_CONFIG_JOBS____FEATHER_CONFIG_STORAGE____FEATHER_CONFIG_EMAIL__
+
+class DevelopmentConfig(Config):
+    """Development configuration."""
+
+    DEBUG = True
+__FEATHER_CONFIG_DEV_AUTH__
+
+class ProductionConfig(Config):
+    """Production configuration."""
+
+    DEBUG = False
+    SECRET_KEY = os.environ.get("SECRET_KEY")  # Required — no fallback
+
+    # Host allow-list. Behind a reverse proxy Flask trusts the forwarded Host
+    # header, so without this a poisoned Host can rewrite absolute URLs.
+    # Comma-separated, e.g. "example.com,www.example.com".
+    TRUSTED_HOSTS = os.environ.get("TRUSTED_HOSTS")
+__FEATHER_CONFIG_PROD_AUTH____FEATHER_CONFIG_PROD_JOBS__
+
+# Map environment names to config classes
+config = {
+    "development": DevelopmentConfig,
+    "production": ProductionConfig,
+    "default": DevelopmentConfig,
+}
+__FEATHER_CONFIG_JOBS_GUARD__

@@ -7,7 +7,7 @@ import time
 import pytest
 
 from feather.cache.memory import MemoryCache
-import feather.cache
+from feather.core.registry import reset_backends
 
 
 pytestmark = pytest.mark.integration
@@ -15,10 +15,15 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture(autouse=True)
 def reset_cache_singleton():
-    """Reset cache singleton before each test."""
-    feather.cache._cache_instance = None
+    """Drop any cached backend before and after each test.
+
+    The cache lives in app.extensions["feather"] from 0.9.8; these tests
+    run without an app context, so the process-level store is the one to
+    clear.
+    """
+    reset_backends(None, "cache")
     yield
-    feather.cache._cache_instance = None
+    reset_backends(None, "cache")
 
 
 # =============================================================================

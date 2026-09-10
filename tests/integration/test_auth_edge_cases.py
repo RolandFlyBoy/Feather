@@ -176,11 +176,16 @@ class TestInactiveUsers:
         assert login_response.status_code == 200
         assert login_response.get_json()['logged_in'] is True
 
-        # Inactive users get 403 with clear "suspended" message
+        # Inactive users get 403 with clear "suspended" message.
+        # 0.9.8: `feather.auth_required` is now the tenancy-aware decorator,
+        # so the code is the specific ACCOUNT_SUSPENDED (a subclass of
+        # AuthorizationError, still 403) rather than the generic
+        # AUTHORIZATION_ERROR the old core decorator returned. That code is
+        # what drives the suspended/pending redirects on page routes.
         response = client.get('/api/protected')
         assert response.status_code == 403
         data = response.get_json()
-        assert data['error']['code'] == 'AUTHORIZATION_ERROR'
+        assert data['error']['code'] == 'ACCOUNT_SUSPENDED'
         assert 'suspended' in data['error']['message'].lower()
 
     def test_inactive_user_session_exists_but_blocked(self, auth_edge_app):
@@ -215,7 +220,9 @@ class TestInactiveUsers:
         data = response.get_json()
 
         assert response.status_code == 403
-        assert data['error']['code'] == 'AUTHORIZATION_ERROR'
+        # 0.9.8: ACCOUNT_SUSPENDED, a subclass of AuthorizationError - see
+        # test_inactive_user_gets_403_not_401 above.
+        assert data['error']['code'] == 'ACCOUNT_SUSPENDED'
         # Message should clearly indicate suspension, not ask for login
         assert 'suspended' in data['error']['message'].lower()
 

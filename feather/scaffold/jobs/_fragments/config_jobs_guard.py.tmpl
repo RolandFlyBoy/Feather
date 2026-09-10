@@ -1,0 +1,4 @@
+
+# Startup guard - runs when this module is imported in production
+if os.environ.get("FLASK_ENV") == "production":
+    ProductionConfig.check_job_backend()

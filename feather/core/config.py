@@ -3,7 +3,7 @@
 import importlib
 import os
 from datetime import timedelta
-from typing import Optional, Type
+from typing import Callable, Optional, Type
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -39,6 +39,87 @@ CONFIG_SHORTCUTS = {
     "testing": "TestingConfig",
     "test": "TestingConfig",
 }
+
+
+#: Strings that mean "true" in a .env file or the environment.
+TRUE_VALUES = ("true", "1", "yes", "on", "y", "t")
+
+
+def as_bool(value) -> bool:
+    """Coerce an env/config value to a bool the way Feather always has.
+
+    ``"true"``, ``"1"``, ``"yes"``, ``"on"``, ``"y"``, ``"t"`` (any case)
+    are true; everything else, including the empty string and None, is
+    false.
+    """
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in TRUE_VALUES
+
+
+def get_setting(key: str, default=None, cast: Optional[Callable] = None):
+    """Read one setting from the app config, falling back to the environment.
+
+    This is the single path backends use to read their configuration, so
+    ``feather.jobs`` and ``feather.cache`` no longer duplicate the same
+    ``os.environ.get(..., default)`` chains that :data:`Config` already
+    encodes.
+
+    Lookup order:
+
+    1. ``current_app.config[key]``, when there is an app context and the
+       value is not ``None``. A ``None`` counts as unset because a
+       project's config.py routinely writes
+       ``JOB_SERIALIZER = os.environ.get("JOB_SERIALIZER")``, leaving the
+       key present but empty - falling back to the framework default there
+       used to put the queue and the worker on different serializers.
+    2. ``os.environ[key]``, for a script or CLI command with no app, and for
+       an app whose config class predates the key.
+    3. ``default``.
+
+    Args:
+        key: Config/environment key, e.g. ``"JOB_BACKEND"``.
+        default: Value when neither source has one.
+        cast: Applied to any value that is still a string, e.g. ``int`` or
+            :func:`as_bool`. Environment values are always strings; a
+            config.py that assigns ``JOB_MAX_WORKERS = "8"`` gets the same
+            treatment instead of handing a string to a thread pool. A value
+            the cast cannot parse falls back to ``default``.
+
+    Returns:
+        The resolved value.
+
+    Example::
+
+        backend = get_setting("JOB_BACKEND", "sync")
+        workers = get_setting("JOB_MAX_WORKERS", 4, cast=int)
+        monitor = get_setting("JOB_ENABLE_MONITORING", False, cast=as_bool)
+    """
+    from feather.core.registry import current_app_or_none
+
+    app = current_app_or_none()
+    if app is not None:
+        value = app.config.get(key)
+        if value is not None:
+            return _cast(value, cast, default)
+
+    raw = os.environ.get(key)
+    if raw is not None and raw != "":
+        return _cast(raw, cast, default)
+
+    return default
+
+
+def _cast(value, cast: Optional[Callable], default):
+    """Apply `cast` to a string value; leave already-typed values alone."""
+    if cast is None or not isinstance(value, str):
+        return value
+    try:
+        return cast(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _env_config_values() -> dict:

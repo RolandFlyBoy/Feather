@@ -54,6 +54,10 @@ class SyncQueue(JobQueue):
         print(result.result)  # {'processed': 3}
     """
 
+    #: Sync runs one job at a time, in the calling thread, so any
+    #: @job(concurrency=N) limit is trivially satisfied.
+    supports_concurrency = True
+
     def __init__(self, capture_exceptions: bool = True):
         self._capture_exceptions = capture_exceptions
         self._jobs: dict[str, JobResult] = {}

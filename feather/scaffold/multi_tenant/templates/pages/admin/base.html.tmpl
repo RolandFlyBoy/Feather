@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% from "components/icon.html" import icon %}
+
+{% block title %}{% block admin_title %}Admin{% endblock %} - Admin{% endblock %}
+
+{% block content %}
+<div class="app-shell">
+    <!-- Mobile sidebar backdrop -->
+    <div id="mobile-sidebar-backdrop" class="mobile-drawer-backdrop hidden"></div>
+
+    <!-- Mobile sidebar panel -->
+    <div id="mobile-sidebar" class="mobile-drawer-panel">
+        <div class="mobile-drawer-inner">
+            <div class="mobile-drawer-header">
+                <a href="{{ url_for('admin.index') }}" class="sidebar-logo">
+                    __FEATHER_ADMIN_LOGO_SVG__
+                    <div class="sidebar-logo-text-group">
+                        <span class="sidebar-logo-text">Feather</span>
+                        <span class="sidebar-logo-subtitle">Admin</span>
+                    </div>
+                </a>
+                <button type="button" class="mobile-drawer-close" data-action="close-sidebar">
+                    {{ icon("close", size="md") }}
+                </button>
+            </div>
+            <nav class="sidebar-nav">
+                <ul role="list" class="sidebar-nav-list">
+                    <li>
+                        <ul role="list" class="sidebar-nav-section">
+                                        <li>
+                                            <a href="{{ url_for('admin.users_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint in ['admin.users_page', 'admin.user_detail_page', 'admin.index'] %}active{% endif %}">
+                                                {{ icon("people", size="md") }}
+                                                Users
+                                            </a>
+                                        </li>
+                                        {% if current_user.is_platform_admin is defined and current_user.is_platform_admin %}
+                                        <li>
+                                            <a href="{{ url_for('admin.tenants_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint in ['admin.tenants_page', 'admin.tenant_detail_page'] %}active{% endif %}">
+                                                {{ icon("business", size="md") }}
+                                                Tenants
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        <li>
+                                            <a href="{{ url_for('admin.tools_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.tools_page' %}active{% endif %}">
+                                                {{ icon("build", size="md") }}
+                                                Tools
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ url_for('admin.analytics_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.analytics_page' %}active{% endif %}">
+                                                {{ icon("analytics", size="md") }}
+                                                Analytics
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ url_for('admin.logs_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.logs_page' %}active{% endif %}">
+                                                {{ icon("receipt_long", size="md") }}
+                                                Logs
+                                            </a>
+                                        </li>
+                                    </ul>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Desktop sidebar -->
+    <div class="desktop-sidebar">
+        <div class="sidebar-inner">
+            <a href="{{ url_for('admin.index') }}" class="sidebar-logo">
+                __FEATHER_ADMIN_LOGO_SVG__
+                <div class="sidebar-logo-text-group">
+                    <span class="sidebar-logo-text">Feather</span>
+                    <span class="sidebar-logo-subtitle">Admin</span>
+                </div>
+            </a>
+            <nav class="sidebar-nav">
+                <ul role="list" class="sidebar-nav-list">
+                    <li>
+                        <ul role="list" class="sidebar-nav-section">
+                                        <li>
+                                            <a href="{{ url_for('admin.users_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint in ['admin.users_page', 'admin.user_detail_page', 'admin.index'] %}active{% endif %}">
+                                                {{ icon("people", size="md") }}
+                                                Users
+                                            </a>
+                                        </li>
+                                        {% if current_user.is_platform_admin is defined and current_user.is_platform_admin %}
+                                        <li>
+                                            <a href="{{ url_for('admin.tenants_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint in ['admin.tenants_page', 'admin.tenant_detail_page'] %}active{% endif %}">
+                                                {{ icon("business", size="md") }}
+                                                Tenants
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        <li>
+                                            <a href="{{ url_for('admin.tools_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.tools_page' %}active{% endif %}">
+                                                {{ icon("build", size="md") }}
+                                                Tools
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ url_for('admin.analytics_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.analytics_page' %}active{% endif %}">
+                                                {{ icon("analytics", size="md") }}
+                                                Analytics
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ url_for('admin.logs_page') }}"
+                                               class="sidebar-nav-item {% if request.endpoint == 'admin.logs_page' %}active{% endif %}">
+                                                {{ icon("receipt_long", size="md") }}
+                                                Logs
+                                            </a>
+                                        </li>
+                                    </ul>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Content wrapper with header -->
+    <div class="app-content-wrapper">
+        <!-- Sticky header -->
+        <div class="app-header">
+            <!-- Hamburger (mobile only) -->
+            <button type="button" class="header-hamburger" data-action="open-sidebar">
+                <span class="sr-only">Open sidebar</span>
+                {{ icon("menu", size="md") }}
+            </button>
+            <div class="header-separator" aria-hidden="true"></div>
+
+            <!-- Centered logo (mobile only) -->
+            <a href="{{ url_for('admin.index') }}" class="header-mobile-logo">
+                {{ icon("spa", size="md", class="header-mobile-logo-icon") }}
+                <span class="header-mobile-logo-text">Admin</span>
+            </a>
+
+            <!-- Spacer -->
+            <div class="flex-1"></div>
+
+            <!-- Profile dropdown (native details/summary) -->
+            <details class="header-profile-dropdown">
+                <summary class="header-profile-btn">
+                    <span class="sr-only">Open user menu</span>
+                    {% if current_user and current_user.is_authenticated %}
+                    {% if current_user.profile_image_url %}
+                    <img src="{{ current_user.profile_image_url }}"
+                         alt=""
+                         class="header-profile-avatar"
+                         referrerpolicy="no-referrer">
+                    {% else %}
+                    <div class="header-profile-avatar-fallback">
+                        {{ icon("person", size="sm") }}
+                    </div>
+                    {% endif %}
+                    <span class="header-profile-name">
+                        <span aria-hidden="true">{{ current_user.display_name or current_user.username or current_user.email.split('@')[0] }}</span>
+                        {{ icon("expand_more", size="sm") }}
+                    </span>
+                    {% else %}
+                    <div class="header-profile-avatar-fallback">
+                        {{ icon("person", size="sm") }}
+                    </div>
+                    {% endif %}
+                </summary>
+                <div class="header-dropdown-menu">
+                    <a href="/" class="header-dropdown-link">
+                        {{ icon("home", size="sm") }}
+                        Back to Site
+                    </a>
+                    <div class="header-dropdown-divider"></div>
+                    <a href="{{ url_for('auth.logout') }}" class="header-dropdown-link">
+                        {{ icon("logout", size="sm") }}
+                        Sign out
+                    </a>
+                </div>
+            </details>
+        </div>
+
+        <!-- Main content -->
+        <main class="app-content admin-content">
+            <div class="app-content-container">
+                {% block admin_content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Confirm modal is rendered by base.html (confirm_modal component) -->
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if pending_toast %}
+<div id="pending-toast-data" data-message="{{ pending_toast.message }}" data-type="{{ pending_toast.type }}"></div>
+{% endif %}
+{% if config.DEBUG %}
+<script type="module" src="http://localhost:5173/static/js/admin.js"></script>
+{% else %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endif %}
+{% block admin_scripts %}{% endblock %}
+{% endblock %}

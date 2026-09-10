@@ -1,0 +1,59 @@
+<!-- Tenant Status Card -->
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6 border-b border-gray-200">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
+                <span class="material-symbols-outlined text-white text-[28px]">settings</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Tenant Status</h3>
+                <p class="text-sm text-gray-600">Manage tenant access</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="p-6 space-y-4">
+        <!-- Status Toggle -->
+        <label class="flex items-center justify-between cursor-pointer">
+            <div>
+                <p class="font-medium text-gray-900">Active Status</p>
+                <p class="text-sm text-gray-600">
+                    {% if tenant.status == 'active' %}
+                    Tenant users can access the application
+                    {% elif tenant.status == 'pending' %}
+                    Tenant is pending approval
+                    {% else %}
+                    Tenant is suspended
+                    {% endif %}
+                </p>
+            </div>
+            <div class="relative flex-shrink-0">
+                <input type="checkbox"
+                       class="sr-only peer"
+                       {% if tenant.status == 'active' %}checked{% endif %}
+                       hx-post="{{ url_for('admin.toggle_tenant_status', tenant_id=tenant.id) }}"
+                       hx-target="#tenant-actions"
+                       hx-swap="innerHTML"
+                       hx-trigger="change">
+                <div class="w-11 h-6 bg-gray-300 rounded-full peer-checked:bg-black transition-colors"></div>
+                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
+            </div>
+        </label>
+
+        <!-- Info Section -->
+        <div class="pt-4 border-t border-gray-200">
+            <p class="text-sm text-gray-600">
+                {% if tenant.status == 'active' %}
+                <span class="material-symbols-outlined text-green-600 text-sm align-middle mr-1">check_circle</span>
+                Users from <strong>{{ tenant.domain }}</strong> can sign up and access the app.
+                {% elif tenant.status == 'pending' %}
+                <span class="material-symbols-outlined text-yellow-600 text-sm align-middle mr-1">schedule</span>
+                Activate to allow users from <strong>{{ tenant.domain }}</strong> to join.
+                {% else %}
+                <span class="material-symbols-outlined text-red-600 text-sm align-middle mr-1">block</span>
+                Users from this tenant cannot access the application.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>

@@ -236,8 +236,10 @@ def setup_template_helpers(app: "Flask") -> None:
         return _resolve_asset(app, name)
 
 
-# Cache for manifest
-_manifest_cache = None
+#: Registry key for the parsed Vite manifest. Per app: two apps in one
+#: process have different static folders, and a module-level cache served
+#: the first app's hashed filenames to the second.
+_MANIFEST_KEY = "vite_manifest"
 
 
 def _resolve_asset(app: "Flask", name: str) -> str:
@@ -250,26 +252,30 @@ def _resolve_asset(app: "Flask", name: str) -> str:
     Returns:
         URL path to the asset.
     """
-    global _manifest_cache
+    from feather.core.registry import feather_state
+
+    state = feather_state(app)
 
     # In debug mode, reload manifest each time
-    if app.debug or _manifest_cache is None:
-        _manifest_cache = _load_manifest(app)
+    if app.debug or state.get(_MANIFEST_KEY) is None:
+        state[_MANIFEST_KEY] = _load_manifest(app)
+
+    manifest = state.get(_MANIFEST_KEY)
 
     # If no manifest (dev mode or not built), return source path
-    if _manifest_cache is None:
+    if manifest is None:
         return _fallback_asset_path(name)
 
     # Look up in manifest
     source_path = _name_to_source_path(name)
-    entry = _manifest_cache.get(source_path)
+    entry = manifest.get(source_path)
 
     if entry:
         return f"/static/dist/{entry['file']}"
 
     # Try alternate paths
     for alt_path in _alternate_source_paths(name):
-        entry = _manifest_cache.get(alt_path)
+        entry = manifest.get(alt_path)
         if entry:
             return f"/static/dist/{entry['file']}"
 

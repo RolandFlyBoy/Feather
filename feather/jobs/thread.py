@@ -78,6 +78,9 @@ class ThreadPoolQueue(JobQueue):
         # Returns immediately, job runs in background
     """
 
+    #: The semaphore per registered task makes @job(concurrency=N) real here.
+    supports_concurrency = True
+
     def __init__(
         self,
         max_workers: int = 4,

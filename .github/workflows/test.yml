@@ -37,6 +37,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install
+        # From 0.9.8 the heavy dependencies are extras; [dev] pulls in [all]
+        # (weasyprint, google-cloud-storage, psycopg2, redis, rq, resend,
+        # gunicorn, pytest) because the suite imports them.
         run: pip install -e ".[dev]"
       - name: Test (unit, integration, contracts)
         run: python -m pytest -q -m "not e2e and not scaffolding" -p no:cacheprovider

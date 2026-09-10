@@ -1,0 +1,13 @@
+- **Health is `/health`**, not `/api/health`. It checks the database, so a
+  container that cannot reach Postgres reports unhealthy instead of serving
+  500s. Every generated healthcheck points at it.
+- **Migrations never run in the container `CMD`** - two web containers
+  starting at once would race. The deploy script applies them exactly once,
+  against the new image, before swapping containers.
+- **`.feather-templates`** is a symlink to the installed Feather package's
+  templates so Tailwind can scan framework components. `feather dev` and
+  `feather build` refresh it; the image COPYs the real directory in. Never
+  put an absolute path in `static/css/app.css`.
+- **Commit `package-lock.json`** so the image build uses `npm ci`.
+- `feather docker init` regenerates any of these files (`--force` to
+  overwrite).

@@ -1,0 +1,5 @@
+
+### 7. Never Bypass Tenant Isolation
+- Always filter queries by `tenant_id`
+- Use `get_current_tenant_id()` or `require_same_tenant()`
+- Never trust user input for tenant identification

@@ -77,7 +77,8 @@ The @job decorator adds an enqueue() method to your functions::
 
 Concurrency Control
 -------------------
-Limit concurrent executions to prevent resource exhaustion::
+Limit concurrent executions to prevent resource exhaustion (thread backend;
+RQ warns once and ignores it, since it has no per-task limit)::
 
     @job(concurrency=2)  # Max 2 at once
     def transcribe_audio(file_path):
@@ -129,22 +130,64 @@ Running Workers (Production)
     # (scheduler is enabled by default)
 """
 
-import os
+import warnings
 from functools import wraps
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
+from feather.core.config import as_bool, get_setting
+from feather.core.registry import get_backend, set_backend
 from feather.jobs.base import JobQueue, JobResult, JobStatus
 from feather.jobs.scheduler import schedule, scheduled, get_scheduled_jobs, setup_scheduler
 
-# Singleton queue instance
-_queue_instance: Optional[JobQueue] = None
+#: Registry key for the per-app queue.
+_QUEUE_KEY = "queue"
+
+
+def _build_queue(app) -> JobQueue:
+    """Create the queue backend this app's configuration asks for.
+
+    Configuration comes from :func:`feather.core.config.get_setting`: the
+    app config first, the environment when the app has no value (or when
+    there is no app at all). Defaults are unchanged from 0.9.7.
+    """
+    backend = get_setting("JOB_BACKEND", "sync")
+    redis_url = get_setting("REDIS_URL", None)
+    max_workers = get_setting("JOB_MAX_WORKERS", 4, cast=int)
+    enable_monitoring = get_setting("JOB_ENABLE_MONITORING", False, cast=as_bool)
+    # `or "pickle"`, not a plain default: a config.py that reads
+    # JOB_SERIALIZER straight from the environment leaves the key present
+    # but None, and falling back to pickle there would put the queue and
+    # `feather worker` on different serializers.
+    serializer = get_setting("JOB_SERIALIZER", None) or "pickle"
+
+    if backend == "rq":
+        from feather.jobs.rq import RQQueue
+
+        return RQQueue(redis_url=redis_url or "redis://localhost:6379/0", serializer=serializer)
+
+    if backend == "thread":
+        from feather.jobs.thread import ThreadPoolQueue
+
+        queue = ThreadPoolQueue(
+            max_workers=max_workers,
+            enable_monitoring=enable_monitoring,
+        )
+        if app is not None:
+            queue.set_app(app)
+        return queue
+
+    from feather.jobs.sync import SyncQueue
+
+    return SyncQueue()
 
 
 def get_queue() -> JobQueue:
-    """Get the configured job queue backend.
+    """Get the configured job queue backend for the current app.
 
-    Creates a singleton queue instance based on configuration.
-    Uses JOB_BACKEND environment variable or config.
+    The queue is created once per Flask app and stored in
+    ``app.extensions["feather"]``, so two apps in one process never share a
+    queue. Outside an app context (a script, ``feather worker``, a
+    module-level ``@job``) it resolves to the process-level default queue.
 
     Returns:
         JobQueue instance.
@@ -153,7 +196,7 @@ def get_queue() -> JobQueue:
         JOB_BACKEND: 'sync' (default), 'thread', or 'rq'
         JOB_SERIALIZER: 'pickle' (default) or 'json' (rq backend; safer)
         JOB_MAX_WORKERS: Thread pool size (for thread backend)
-        JOB_ENABLE_MONITORING: Enable psutil resource tracking (for thread backend)
+        JOB_ENABLE_MONITORING: Enable psutil resource tracking (thread backend)
         REDIS_URL: Redis connection URL (for rq backend)
 
     Example::
@@ -164,89 +207,68 @@ def get_queue() -> JobQueue:
         result = queue.enqueue(process_data, data)
         print(result.job_id)
     """
-    global _queue_instance
-
-    if _queue_instance is not None:
-        return _queue_instance
-
-    # Get configuration
-    try:
-        from flask import current_app
-
-        backend = current_app.config.get("JOB_BACKEND", os.environ.get("JOB_BACKEND", "sync"))
-        redis_url = current_app.config.get("REDIS_URL", os.environ.get("REDIS_URL"))
-        max_workers = current_app.config.get(
-            "JOB_MAX_WORKERS", int(os.environ.get("JOB_MAX_WORKERS", "4"))
-        )
-        enable_monitoring = current_app.config.get(
-            "JOB_ENABLE_MONITORING",
-            os.environ.get("JOB_ENABLE_MONITORING", "").lower() in ("true", "1", "yes"),
-        )
-        # `or`, not dict.get's default: a config.py that writes
-        # JOB_SERIALIZER = os.environ.get("JOB_SERIALIZER") leaves the key
-        # present but None, and falling back to pickle there would put the
-        # queue and `feather worker` on different serializers.
-        serializer = (
-            current_app.config.get("JOB_SERIALIZER")
-            or os.environ.get("JOB_SERIALIZER")
-            or "pickle"
-        )
-        app = current_app._get_current_object()
-    except RuntimeError:
-        # No Flask app context
-        backend = os.environ.get("JOB_BACKEND", "sync")
-        redis_url = os.environ.get("REDIS_URL")
-        max_workers = int(os.environ.get("JOB_MAX_WORKERS", "4"))
-        enable_monitoring = os.environ.get("JOB_ENABLE_MONITORING", "").lower() in ("true", "1", "yes")
-        serializer = os.environ.get("JOB_SERIALIZER", "pickle")
-        app = None
-
-    # Create backend
-    if backend == "rq":
-        from feather.jobs.rq import RQQueue
-
-        if not redis_url:
-            redis_url = "redis://localhost:6379/0"
-        _queue_instance = RQQueue(redis_url=redis_url, serializer=serializer)
-
-    elif backend == "thread":
-        from feather.jobs.thread import ThreadPoolQueue
-
-        _queue_instance = ThreadPoolQueue(
-            max_workers=max_workers,
-            enable_monitoring=enable_monitoring,
-        )
-        if app is not None:
-            _queue_instance.set_app(app)
-
-    else:
-        from feather.jobs.sync import SyncQueue
-
-        _queue_instance = SyncQueue()
-
-    return _queue_instance
+    return get_backend(_QUEUE_KEY, _build_queue)
 
 
 def init_jobs(app) -> JobQueue:
-    """Initialize job queue with Flask app.
+    """Initialize the job queue for a Flask app.
 
-    Optionally called to set up queue with app configuration.
-    The queue is also lazily initialized on first use.
+    Optional: the queue is created lazily on first use. Calling this stores
+    the queue on ``app.extensions["feather"]["queue"]`` up front, which is
+    useful when the app is configured after import.
 
     Args:
         app: Flask application instance.
 
     Returns:
-        JobQueue instance.
+        JobQueue instance for this app.
     """
-    global _queue_instance
-
-    # Reset instance to pick up new config
-    _queue_instance = None
-
-    # Get queue within app context
     with app.app_context():
-        return get_queue()
+        queue = _build_queue(app)
+    return set_backend(_QUEUE_KEY, queue, app=app)
+
+
+def _backend_options(queue: JobQueue, decorated: Callable) -> dict[str, Any]:
+    """Translate @job options into kwargs this backend understands.
+
+    ``retry`` goes to every backend: the thread backend retries in process,
+    the RQ backend turns it into ``rq.Retry``. ``concurrency`` only reaches
+    backends that advertise ``supports_concurrency``; RQ has no per-task
+    concurrency limit (it is a worker-count setting), so rather than
+    silently dropping the option - which is what 0.9.7 did - the job warns
+    once and runs unthrottled.
+
+    Args:
+        queue: The backend the job is about to be enqueued on.
+        decorated: The wrapper the @job decorator produced, carrying the
+            declared ``retry``/``concurrency`` and the once-only warning flag.
+
+    Returns:
+        Extra kwargs for ``queue.enqueue()``.
+    """
+    options: dict[str, Any] = {}
+
+    retry = getattr(decorated, "retry", 0)
+    if retry:
+        options["retry"] = retry
+
+    concurrency = getattr(decorated, "concurrency", None)
+    if concurrency is not None:
+        if getattr(queue, "supports_concurrency", False):
+            options["concurrency"] = concurrency
+        elif not getattr(decorated, "_concurrency_warning_emitted", False):
+            decorated._concurrency_warning_emitted = True
+            warnings.warn(
+                f"@job(concurrency={concurrency}) on "
+                f"{getattr(decorated, '__name__', 'job')} is not supported by the "
+                f"{type(queue).__name__} backend and is ignored; it has no "
+                "per-task concurrency limit. Limit the number of workers "
+                "instead, or use JOB_BACKEND=thread.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+
+    return options
 
 
 def job(
@@ -264,12 +286,17 @@ def job(
     Args:
         func: Function to decorate.
         queue_name: Default queue name for this job.
-        concurrency: Max concurrent executions (thread backend only).
-            None means unlimited. Use for resource-intensive tasks.
-        retry: Number of retries on failure (thread backend only).
-            Uses exponential backoff between retries.
-        timeout: Max execution time in seconds (thread backend only).
-            Job is marked as TIMEOUT if it exceeds this limit.
+        concurrency: Max concurrent executions. None means unlimited.
+            Honoured by the thread backend (a semaphore per task). RQ has no
+            per-task concurrency limit, so on that backend the option is
+            ignored and the first enqueue warns (RuntimeWarning) instead of
+            failing - cap the number of workers there instead.
+        retry: Number of retries on failure. The thread backend retries in
+            process with exponential backoff; the RQ backend passes it to
+            ``rq.Retry`` so the worker re-queues the job. Before 0.9.8 this
+            was silently dropped on RQ.
+        timeout: Max execution time in seconds. The thread backend marks the
+            job TIMEOUT; RQ passes it as ``job_timeout``.
 
     Returns:
         Decorated function with enqueue capability.
@@ -340,7 +367,16 @@ def job(
                 JobResult with job_id.
             """
             queue = get_queue()
-            return queue.enqueue(f, *args, queue_name=queue_name, delay=delay, job_timeout=timeout, **kwargs)
+            options = _backend_options(queue, wrapper)
+            return queue.enqueue(
+                f,
+                *args,
+                queue_name=queue_name,
+                delay=delay,
+                job_timeout=timeout,
+                **options,
+                **kwargs,
+            )
 
         def get_status(job_id: str) -> Optional[JobResult]:
             """Get the status of a job by ID.
@@ -407,3 +443,26 @@ __all__ = [
     "get_scheduled_jobs",
     "setup_scheduler",
 ]
+
+
+def __getattr__(name):
+    """Deprecation shim for the 0.9.7 module-level queue singleton.
+
+    ``feather.jobs._queue_instance`` was the process-wide queue. It is now
+    per app (``app.extensions["feather"]["queue"]``); reading the old name
+    returns the current app's queue and warns. Assigning to it no longer
+    has any effect - use
+    ``feather.core.registry.set_backend("queue", queue)`` (or
+    ``reset_backends(None, "queue")``) instead.
+    """
+    if name == "_queue_instance":
+        warnings.warn(
+            "feather.jobs._queue_instance was replaced by the per-app registry in "
+            "0.9.8. Use feather.jobs.get_queue(), or "
+            "feather.core.registry.set_backend('queue', queue) to override it. "
+            "Assigning to _queue_instance no longer has any effect.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return get_queue()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

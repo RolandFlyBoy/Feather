@@ -219,7 +219,8 @@ def start(
 
     if shutil.which("gunicorn") is None:
         raise click.ClickException(
-            "Gunicorn not found. Install it with: pip install gunicorn"
+            "Gunicorn not found. Install it with: "
+            "pip install 'feather-framework[prod]' (or: pip install gunicorn)"
         )
 
     # Replace this process. In a container that makes gunicorn PID 1, so

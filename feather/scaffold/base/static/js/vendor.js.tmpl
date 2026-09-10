@@ -1,0 +1,18 @@
+// Vendor libraries - bundled to avoid external CDN dependencies
+import htmx from 'htmx.org';
+import * as echarts from 'echarts';
+
+// Expose to global scope FIRST (before extensions load)
+window.htmx = htmx;
+window.echarts = echarts;
+
+// Load htmx extensions AFTER htmx is global (they expect window.htmx)
+await import('idiomorph/dist/idiomorph-ext.min.js');
+
+// htmx processed the document as soon as it was imported, which was before the
+// extensions above registered themselves. Elements that were already on the page
+// with an hx-ext attribute never got wired up, and htmx.process() will not
+// re-initialise extensions - re-running node processing does.
+document.querySelectorAll("[hx-ext], [sse-connect]").forEach((el) => {
+  htmx.trigger(el, "htmx:afterProcessNode");
+});

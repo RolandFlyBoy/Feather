@@ -1,0 +1,9 @@
+- **Health is `/health`**, not `/api/health`. Every generated healthcheck
+  points at it.
+- **`.feather-templates`** is a symlink to the installed Feather package's
+  templates so Tailwind can scan framework components. `feather dev` and
+  `feather build` refresh it; the image COPYs the real directory in. Never
+  put an absolute path in `static/css/app.css`.
+- **Commit `package-lock.json`** so the image build uses `npm ci`.
+- `feather docker init` regenerates any of these files (`--force` to
+  overwrite).

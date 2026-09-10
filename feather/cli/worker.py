@@ -63,14 +63,14 @@ def worker(queues, burst, simple, force_simple, no_scheduler, name, log_level):
             "Run this from your project root (where app.py is)."
         )
 
-    # Import RQ (fail early with helpful message)
+    # Import RQ (fail early with the exact install command)
+    from feather._optional import MissingDependencyError, require
+
     try:
-        from redis import Redis
-        from rq import Queue
-    except ImportError:
-        raise click.ClickException(
-            "RQ not installed. Install it with: pip install rq"
-        )
+        Redis = require("redis", feature="feather worker").Redis
+        Queue = require("rq", feature="feather worker").Queue
+    except MissingDependencyError as exc:
+        raise click.ClickException(str(exc))
 
     # Load the Flask app
     app = _get_app()
@@ -104,11 +104,12 @@ def worker(queues, burst, simple, force_simple, no_scheduler, name, log_level):
     explicit = simple if simple is not None else (True if force_simple else None)
     use_simple = explicit if explicit is not None else (sys.platform == "darwin")
 
+    rq_module = require("rq", feature="feather worker")
     if use_simple:
-        from rq import SimpleWorker as WorkerClass
+        WorkerClass = rq_module.SimpleWorker
         worker_type = "SimpleWorker"
     else:
-        from rq import Worker as WorkerClass
+        WorkerClass = rq_module.Worker
         worker_type = "Worker"
 
     if explicit is None and use_simple:

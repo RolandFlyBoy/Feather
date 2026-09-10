@@ -1,0 +1,5 @@
+
+### Tenant Scoping
+```python
+users = User.query.filter_by(tenant_id=current_user.tenant_id).all()
+```

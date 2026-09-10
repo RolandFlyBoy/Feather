@@ -1,0 +1,7 @@
+    SESSION_COOKIE_SECURE = True       # HTTPS only
+    REMEMBER_COOKIE_SECURE = True      # HTTPS only
+    SESSION_PROTECTION = "basic"       # Marks session non-fresh on IP/UA change (doesn't destroy session)
+
+    # Absolute OAuth redirect URI. Without it the callback is built from the
+    # request Host, which is attacker-controllable behind a proxy.
+    OAUTH_CALLBACK_URL = os.environ.get("OAUTH_CALLBACK_URL")

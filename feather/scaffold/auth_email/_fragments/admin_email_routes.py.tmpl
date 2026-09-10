@@ -1,0 +1,87 @@
+
+
+# =============================================================================
+# Email Routes (Resend)
+# =============================================================================
+
+
+@page.route("/tools/send-email", methods=["POST"])
+@admin_required
+def send_email():
+    """Send email to a user.
+
+    The admin tool is a way to contact users, not an open relay: the recipient
+    has to be a user this admin can see (their own tenant, in multi-tenant
+    apps), otherwise the form is rejected.
+    """
+    to = request.form.get("to", "").strip()
+    subject = request.form.get("subject", "").strip()
+    body = request.form.get("body", "").strip()
+
+    if not to or not subject or not body:
+        return render_template(
+            "partials/admin/email_result.html",
+            success=False,
+            message="All fields are required.",
+        )
+
+    service = AdminService()
+    recipient = service.find_user_by_email(to)
+    if recipient is None:
+        return render_template(
+            "partials/admin/email_result.html",
+            success=False,
+            message="__FEATHER_RECIPIENT_ERROR__",
+        )
+
+    from services.email_service import EmailService
+    email_service = EmailService()
+    result = email_service.send(recipient.email, subject, body)
+
+    return render_template(
+        "partials/admin/email_result.html",
+        success=result.get("success", False),
+        message=result.get("message") or result.get("error", "Unknown error"),
+    )
+
+
+@page.route("/tools/search-users")
+@admin_required
+def search_users_dropdown():
+    """Search users for dropdown (HTMX endpoint)."""
+    query = request.args.get("to", "").strip()
+    if len(query) < 2:
+        return ""
+
+    service = AdminService()
+    result = service.search_users(query, limit=5, offset=0)
+    users = result["users"]
+
+    if not users:
+        return '<div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg"><div class="p-3 text-sm text-gray-500">No users found</div></div>'
+
+    html = '<div class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">'
+    for user in users:
+        display_name = html_escape(getattr(user, "display_name", None) or user.email)
+        email = html_escape(user.email)
+        profile_url = getattr(user, "profile_image_url", None)
+        avatar_url = html_escape(profile_url if profile_url and profile_url.strip() else AdminService.fallback_avatar(user))
+        fallback_url = html_escape(AdminService.fallback_avatar(user))
+        html += f"""
+        <button type="button"
+                data-action="select-email"
+                data-email="{email}"
+                class="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
+            <img src="{avatar_url}"
+                 data-fallback="{fallback_url}"
+                 referrerpolicy="no-referrer"
+                 crossorigin="anonymous"
+                 class="w-6 h-6 rounded-full admin-avatar-img">
+            <div>
+                <span class="font-medium">{display_name}</span>
+                <span class="text-gray-500"> - {email}</span>
+            </div>
+        </button>
+        """
+    html += '</div>'
+    return html

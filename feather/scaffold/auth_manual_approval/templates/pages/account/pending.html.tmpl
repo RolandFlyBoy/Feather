@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Account Pending - My App{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4">
+    <div class="max-w-md w-full text-center">
+        <!-- Icon -->
+        <div class="mx-auto w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mb-6">
+            <span class="material-symbols-outlined text-3xl text-yellow-600">hourglass_top</span>
+        </div>
+
+        <!-- Heading -->
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Account Pending Approval</h1>
+        <p class="text-gray-600 dark:text-gray-400 mb-8">
+            Your account has been created and is awaiting approval from an administrator.
+            You'll receive access once your account has been reviewed.
+        </p>
+
+        <!-- Info Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6 text-left">
+            <h2 class="font-medium text-gray-900 dark:text-gray-100 mb-3">What happens next?</h2>
+            <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-green-500 text-lg flex-shrink-0">check_circle</span>
+                    <span>An administrator will review your account</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-green-500 text-lg flex-shrink-0">check_circle</span>
+                    <span>Once approved, you'll have full access to the application</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-blue-500 text-lg flex-shrink-0">info</span>
+                    <span>This usually takes 1-2 business days</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- User Info -->
+        <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-6 text-sm text-gray-600 dark:text-gray-400">
+            <p>Logged in as: <strong>{{ current_user.email }}</strong></p>
+        </div>
+
+        <!-- Actions -->
+        <div class="space-y-3">
+            <form action="{{ url_for('page.account_logout') }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
+                    Sign Out
+                </button>
+            </form>
+            <p class="text-xs text-gray-500">
+                Questions? Contact your administrator for help.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

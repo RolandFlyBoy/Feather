@@ -1,0 +1,94 @@
+
+
+# =============================================================================
+# Tenant Management Routes (Platform Admin Only)
+# =============================================================================
+
+
+from feather.auth import platform_admin_required
+
+
+@page.route("/tenants")
+@platform_admin_required
+def tenants_page():
+    """Tenants list with status filtering."""
+    status_filter = request.args.get("status", "").strip()
+    page_num = request.args.get("page", 1, type=int)
+    per_page = 50
+    offset = (page_num - 1) * per_page
+
+    service = AdminService()
+    result = service.get_all_tenants(
+        limit=per_page,
+        offset=offset,
+        status=status_filter if status_filter else None,
+    )
+    stats = service.get_tenant_stats()
+
+    return render_template(
+        "pages/admin/tenants.html",
+        tenants=result["tenants"],
+        pagination=result["pagination"],
+        stats=stats,
+        status_filter=status_filter,
+    )
+
+
+@page.route("/tenants/<tenant_id>")
+@platform_admin_required
+def tenant_detail_page(tenant_id: str):
+    """Tenant detail page with users list."""
+    service = AdminService()
+    tenant = service.get_tenant_detail(tenant_id)
+    if not tenant:
+        abort(404, "Tenant not found")
+
+    users_result = service.get_tenant_users(tenant_id, limit=50, offset=0)
+
+    return render_template(
+        "pages/admin/tenant_detail.html",
+        tenant=tenant,
+        users=users_result["users"],
+        users_pagination=users_result["pagination"],
+    )
+
+
+@page.route("/tenants", methods=["POST"])
+@platform_admin_required
+def create_tenant():
+    """Create a new tenant with an auto-approved admin user."""
+    name = request.form.get("name", "").strip()
+    domain = request.form.get("domain", "").strip()
+    admin_email = request.form.get("admin_email", "").strip()
+
+    if not name or not domain or not admin_email:
+        return redirect_with_toast(url_for("admin.tenants_page"), "All fields are required.", "error")
+
+    service = AdminService()
+    tenant, admin_user = service.create_tenant(name, domain, admin_email)
+    if tenant:
+        return redirect_with_toast(
+            url_for("admin.tenants_page"),
+            f"Created tenant '{name}' with admin {admin_email}.",
+            "success"
+        )
+    else:
+        return redirect_with_toast(
+            url_for("admin.tenants_page"),
+            "Failed to create tenant. Check for duplicate slug, domain, or email.",
+            "error"
+        )
+
+
+@page.route("/tenants/<tenant_id>/toggle-status", methods=["POST"])
+@platform_admin_required
+def toggle_tenant_status(tenant_id: str):
+    """Toggle tenant active/suspended status. Returns partial for HTMX."""
+    service = AdminService()
+    tenant = service.toggle_tenant_status(tenant_id)
+    if not tenant:
+        abort(404, "Tenant not found")
+
+    status = "activated" if tenant.status == "active" else "suspended"
+    html = render_template("partials/admin/tenant_actions.html", tenant=tenant)
+    return with_toast(html, f"Tenant '{tenant.name}' has been {status}.")

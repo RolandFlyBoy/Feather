@@ -225,14 +225,10 @@ def setup_scheduler(redis_url: str = "redis://localhost:6379/0") -> Any:
     Note:
         You still need to run `rqscheduler` as a separate process.
     """
-    try:
-        from redis import Redis
-        from rq_scheduler import Scheduler
-    except ImportError:
-        raise ImportError(
-            "Scheduler requires 'rq-scheduler' package. "
-            "Install it with: pip install rq-scheduler"
-        )
+    from feather._optional import require
+
+    Redis = require("redis", feature="The job scheduler").Redis
+    Scheduler = require("rq_scheduler", feature="The job scheduler").Scheduler
 
     redis_conn = Redis.from_url(redis_url)
     scheduler = Scheduler(connection=redis_conn)

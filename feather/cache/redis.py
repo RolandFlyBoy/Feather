@@ -41,6 +41,7 @@ Note:
 import json
 from typing import Any, Optional
 
+from feather._optional import require
 from feather.cache.base import CacheBackend
 
 
@@ -68,13 +69,7 @@ class RedisCache(CacheBackend):
         default_ttl: int = 300,
         prefix: str = "feather:",
     ):
-        try:
-            import redis
-        except ImportError:
-            raise ImportError(
-                "Redis cache requires the 'redis' package. "
-                "Install it with: pip install redis"
-            )
+        redis = require("redis", feature="The Redis cache backend")
 
         self._client = redis.from_url(url, decode_responses=True)
         self._default_ttl = default_ttl

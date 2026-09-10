@@ -92,10 +92,16 @@ The mental model: start with Components for everything static, reach for HTMX wh
 
 **From PyPI (recommended):**
 ```bash
-pip install feather-framework
+pip install feather-framework          # the CLI, for scaffolding a project
 ```
-Releases are published from GitHub Actions on version tags; pin the version in
-your app's requirements (`feather-framework==0.9.5`) for reproducible builds.
+
+That is all you need to run `feather new`. The generated project's
+`requirements.txt` then names the [extras](#dependencies) your answers
+enabled, pinned to the version that generated it, so builds are reproducible:
+
+```
+feather-framework[postgres,redis,prod,test]==0.9.8
+```
 
 **Or with pipx (isolated environment):**
 ```bash
@@ -2386,30 +2392,40 @@ environment; `config.py` wins.
 
 ### Dependencies
 
-Feather bundles all Python dependencies—scaffolded apps don't need their own `requirements.txt`.
+The core install is what every Feather app uses: Flask, Flask-SQLAlchemy,
+Flask-Migrate, Flask-Login, Flask-WTF, Werkzeug, SQLAlchemy, Alembic, Authlib,
+Requests, Jinja2 and urllib3.
 
-| Category | Packages |
-|----------|----------|
-| Web Framework | Flask, Flask-SQLAlchemy, Flask-Migrate, Flask-Login, Flask-WTF, Werkzeug |
-| Database | SQLAlchemy, Alembic, psycopg2-binary |
-| Authentication | Authlib, Requests |
-| Cloud Storage | google-cloud-storage |
-| PDF Generation | WeasyPrint |
-| Caching/Jobs | Redis, RQ |
-| Email | Resend |
-| Production Server | Gunicorn |
-| Testing | pytest, pytest-cov |
+Everything else is an extra, so an app that renders no PDFs does not install a
+PDF renderer:
+
+| Extra | Brings | Enable it when |
+|-------|--------|----------------|
+| `postgres` | psycopg2-binary | `DATABASE_URL` is a `postgresql://` URL |
+| `redis` | redis, rq | `CACHE_BACKEND=redis` or `JOB_BACKEND=rq` |
+| `email` | resend | Sending transactional email |
+| `gcs` | google-cloud-storage | `STORAGE_BACKEND=gcs` |
+| `pdf` | WeasyPrint | Generating PDFs |
+| `prod` | gunicorn | Running `feather start` or the Docker web process |
+| `test` | pytest, pytest-cov | Running the app's own tests |
+| `all` | all of the above | Reproducing the pre-0.9.8 install |
+
+```bash
+pip install "feather-framework[postgres,redis,prod,test]"
+```
+
+`feather new` writes a `requirements.txt` naming the extras your answers
+enabled, so this is usually handled for you. `feather --version` and
+`feather security-check` report which extras are installed.
+
+Importing a feature whose extra is missing raises an error naming the exact
+install command, rather than an import traceback.
 
 **Frontend libraries** (bundled via npm, no CDN):
 - HTMX, Idiomorph, Apache ECharts
 
 **External resources** (loaded from Google):
 - Google Fonts and Material Icons
-
-```bash
-# For deployment, just install Feather
-pip install feather-framework
-```
 
 ### DEBUG Mode Behavior
 

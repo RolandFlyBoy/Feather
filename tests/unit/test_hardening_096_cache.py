@@ -2,16 +2,16 @@
 
 import pytest
 
-import feather.cache
+from feather.core.registry import reset_backends
 
 pytestmark = pytest.mark.unit
 
 
 @pytest.fixture(autouse=True)
 def reset_cache_singleton():
-    feather.cache._cache_instance = None
+    reset_backends(None, "cache")
     yield
-    feather.cache._cache_instance = None
+    reset_backends(None, "cache")
 
 
 class _User:

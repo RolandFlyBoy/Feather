@@ -490,6 +490,28 @@ def check_dependencies() -> list:
     return checks
 
 
+def check_extras() -> Check:
+    """Report which optional extras are installed.
+
+    Informational: a missing extra is only a problem if the app configures
+    the feature that needs it, and the other checks catch that (a redis://
+    CACHE_URL with no redis extra, for instance).
+    """
+    from feather._optional import installed_extras
+
+    report = installed_extras()
+    present = sorted(name for name, info in report.items() if info["installed"])
+    absent = sorted(name for name, info in report.items() if not info["installed"])
+
+    message = f"installed: {', '.join(present) or 'none'}"
+    if absent:
+        message += f" | not installed: {', '.join(absent)}"
+    return Check(
+        "extras", PASS, message,
+        "Install what the app uses, e.g. pip install 'feather-framework[redis,postgres]'",
+    )
+
+
 def check_env_in_gitignore(project_dir: Path) -> Check:
     gitignore = project_dir / ".gitignore"
     remedy = "Add a line '.env' to .gitignore so secrets never reach the repository"
@@ -544,6 +566,7 @@ def run_checks(project_dir: Path, env_file: Optional[str], force_production: boo
         check_trusted_hosts(settings, production),
         check_security_headers(settings, production),
         check_env_in_gitignore(project_dir),
+        check_extras(),
     ]
     checks.extend(check_dependencies())
 
@@ -554,8 +577,11 @@ def run_checks(project_dir: Path, env_file: Optional[str], force_production: boo
         "skip": sum(1 for c in checks if c.status == SKIP),
     }
 
+    from feather._optional import installed_extras
+
     return {
         "ok": summary["fail"] == 0,
+        "extras": installed_extras(),
         "mode": settings.mode,
         "environment": env,
         "production_rules": production,

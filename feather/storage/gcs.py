@@ -27,8 +27,25 @@ from datetime import timedelta
 from pathlib import Path
 from typing import BinaryIO, Optional, Union
 
+from feather._optional import MissingDependencyError, require
 from feather.storage.base import StorageBackend
 from feather.exceptions import StorageError
+
+
+class MissingGCSDependency(MissingDependencyError, StorageError):
+    """google-cloud-storage is not installed.
+
+    Subclasses both ``MissingDependencyError`` (an ``ImportError``) and
+    ``StorageError``, so code written against 0.9.7 - which caught
+    ``StorageError`` here - keeps working while the message now names the
+    extra to install.
+    """
+
+    def __init__(self, message: str):
+        MissingDependencyError.__init__(self, message)
+        self.message = message
+        self.status_code = 500
+        self.error_code = "STORAGE_ERROR"
 
 
 class GCSStorage(StorageBackend):
@@ -79,12 +96,11 @@ class GCSStorage(StorageBackend):
             public: Whether uploaded files should be public by default.
         """
         try:
-            from google.cloud import storage
-        except ImportError:
-            raise StorageError(
-                "google-cloud-storage is required for GCS storage. "
-                "Install it with: pip install google-cloud-storage"
+            storage = require(
+                "google.cloud.storage", feature="The GCS storage backend"
             )
+        except MissingDependencyError as exc:
+            raise MissingGCSDependency(str(exc)) from exc
 
         self.bucket_name = bucket_name
         self.public = public

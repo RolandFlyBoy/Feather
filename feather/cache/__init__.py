@@ -93,21 +93,45 @@ Cache Invalidation
     get_user_stats.invalidate(123)
 """
 
-import os
-from typing import Optional
+import warnings
 
 from feather.cache.base import CacheBackend
 from feather.cache.decorators import cached, cache_response, invalidate_cache
+from feather.core.config import get_setting
+from feather.core.registry import get_backend, set_backend
 
-# Singleton cache instance
-_cache_instance: Optional[CacheBackend] = None
+#: Registry key for the per-app cache.
+_CACHE_KEY = "cache"
+
+
+def _build_cache(app) -> CacheBackend:
+    """Create the cache backend this app's configuration asks for.
+
+    Configuration comes from :func:`feather.core.config.get_setting`: the
+    app config first, the environment when the app has no value (or when
+    there is no app at all). Defaults are unchanged from 0.9.7.
+    """
+    backend = get_setting("CACHE_BACKEND", "memory")
+    cache_url = get_setting("CACHE_URL", None)
+    default_ttl = get_setting("CACHE_DEFAULT_TTL", 300, cast=int)
+
+    if backend == "redis":
+        from feather.cache.redis import RedisCache
+
+        return RedisCache(url=cache_url or "redis://localhost:6379/0", default_ttl=default_ttl)
+
+    from feather.cache.memory import MemoryCache
+
+    return MemoryCache(default_ttl=default_ttl)
 
 
 def get_cache() -> CacheBackend:
-    """Get the configured cache backend.
+    """Get the configured cache backend for the current app.
 
-    Creates a singleton cache instance based on configuration.
-    Uses CACHE_BACKEND environment variable or config.
+    The cache is created once per Flask app and stored in
+    ``app.extensions["feather"]``, so two apps in one process never share
+    cache entries. Outside an app context it resolves to the process-level
+    default cache.
 
     Returns:
         CacheBackend instance.
@@ -125,62 +149,24 @@ def get_cache() -> CacheBackend:
         cache.set('user:123', user_data, ttl=60)
         user = cache.get('user:123')
     """
-    global _cache_instance
-
-    if _cache_instance is not None:
-        return _cache_instance
-
-    # Get configuration
-    try:
-        from flask import current_app
-
-        backend = current_app.config.get("CACHE_BACKEND", os.environ.get("CACHE_BACKEND", "memory"))
-        cache_url = current_app.config.get("CACHE_URL", os.environ.get("CACHE_URL"))
-        default_ttl = current_app.config.get(
-            "CACHE_DEFAULT_TTL",
-            int(os.environ.get("CACHE_DEFAULT_TTL", "300"))
-        )
-    except RuntimeError:
-        # No Flask app context
-        backend = os.environ.get("CACHE_BACKEND", "memory")
-        cache_url = os.environ.get("CACHE_URL")
-        default_ttl = int(os.environ.get("CACHE_DEFAULT_TTL", "300"))
-
-    # Create backend
-    if backend == "redis":
-        from feather.cache.redis import RedisCache
-
-        if not cache_url:
-            cache_url = "redis://localhost:6379/0"
-        _cache_instance = RedisCache(url=cache_url, default_ttl=default_ttl)
-    else:
-        from feather.cache.memory import MemoryCache
-
-        _cache_instance = MemoryCache(default_ttl=default_ttl)
-
-    return _cache_instance
+    return get_backend(_CACHE_KEY, _build_cache)
 
 
 def init_cache(app) -> CacheBackend:
-    """Initialize cache with Flask app.
+    """Initialize the cache for a Flask app.
 
-    Optionally called to set up cache with app configuration.
-    The cache is also lazily initialized on first use.
+    Optional: the cache is created lazily on first use. Calling this stores
+    the cache on ``app.extensions["feather"]["cache"]`` up front.
 
     Args:
         app: Flask application instance.
 
     Returns:
-        CacheBackend instance.
+        CacheBackend instance for this app.
     """
-    global _cache_instance
-
-    # Reset instance to pick up new config
-    _cache_instance = None
-
-    # Get cache within app context
     with app.app_context():
-        return get_cache()
+        cache = _build_cache(app)
+    return set_backend(_CACHE_KEY, cache, app=app)
 
 
 __all__ = [
@@ -194,3 +180,26 @@ __all__ = [
     "cache_response",
     "invalidate_cache",
 ]
+
+
+def __getattr__(name):
+    """Deprecation shim for the 0.9.7 module-level cache singleton.
+
+    ``feather.cache._cache_instance`` was the process-wide cache. It is now
+    per app (``app.extensions["feather"]["cache"]``); reading the old name
+    returns the current app's cache and warns. Assigning to it no longer
+    has any effect - use
+    ``feather.core.registry.set_backend("cache", cache)`` (or
+    ``reset_backends(None, "cache")``) instead.
+    """
+    if name == "_cache_instance":
+        warnings.warn(
+            "feather.cache._cache_instance was replaced by the per-app registry in "
+            "0.9.8. Use feather.cache.get_cache(), or "
+            "feather.core.registry.set_backend('cache', cache) to override it. "
+            "Assigning to _cache_instance no longer has any effect.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return get_cache()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

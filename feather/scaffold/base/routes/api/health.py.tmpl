@@ -1,0 +1,15 @@
+"""Example API routes."""
+
+from feather import api
+from feather.core.health import health_check
+
+
+@api.get("/health")
+def health():
+    """Health check.
+
+    Delegates to Feather's own /health so this endpoint really does verify
+    the database: it returns 503 when the database is unreachable. Prefer
+    /health directly; this alias exists for clients already calling it.
+    """
+    return health_check()

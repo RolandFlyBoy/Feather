@@ -206,11 +206,31 @@ def _warn_if_outdated() -> None:
         pass
 
 
+def _extras_line() -> str:
+    """One line naming the optional extras that are installed.
+
+    The heavy dependencies (weasyprint, google-cloud-storage, psycopg2,
+    redis/rq, resend, gunicorn, pytest) became extras in 0.9.8, so which
+    ones are present is the first thing to check when a backend refuses to
+    start.
+    """
+    from feather._optional import installed_extras
+
+    report = installed_extras()
+    present = sorted(name for name, info in report.items() if info["installed"])
+    absent = sorted(name for name, info in report.items() if not info["installed"])
+    line = f"extras installed: {', '.join(present) or 'none'}"
+    if absent:
+        line += f"  |  not installed: {', '.join(absent)}"
+    return line
+
+
 def _print_version(ctx, param, value):
     """--version callback that also reports newer releases."""
     if not value or ctx.resilient_parsing:
         return
     click.echo(f"feather-framework, version {__version__}")
+    click.echo(_extras_line())
     _warn_if_outdated()
     ctx.exit()
 

@@ -1,0 +1,96 @@
+{% extends "pages/admin/base.html" %}
+
+{% block admin_title %}Logs{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+
+    <h2 class="text-2xl font-bold">Error Logs</h2>
+
+    <!-- Error Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Client Errors (4xx)</p>
+                    <p class="text-2xl font-bold text-yellow-600">{{ stats.errors_4xx }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-yellow-600 text-[28px]">warning</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Server Errors (5xx)</p>
+                    <p class="text-2xl font-bold text-red-600">{{ stats.errors_5xx }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-red-600 text-[28px]">error</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Total Errors (7d)</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-gray-900 text-[28px]">bug_report</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Log Table -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h4 class="font-semibold text-gray-900">Recent Errors</h4>
+                <div class="flex items-center gap-3">
+                    <!-- Search -->
+                    <input type="text"
+                           id="logs-search"
+                           name="search"
+                           value="{{ search }}"
+                           placeholder="Search errors..."
+                           hx-get="{{ url_for('admin.logs_page') }}"
+                           hx-trigger="input changed delay:500ms"
+                           hx-target="#logs-table-container"
+                           hx-select="#logs-table-container"
+                           hx-include="#logs-filter"
+                           class="w-64 px-3 py-1.5 text-sm border border-gray-300 rounded-lg">
+
+                    <!-- Filter -->
+                    <div class="grid grid-cols-1">
+                        <select id="logs-filter"
+                                name="filter"
+                                hx-get="{{ url_for('admin.logs_page') }}"
+                                hx-trigger="change"
+                                hx-target="#logs-table-container"
+                                hx-select="#logs-table-container"
+                                hx-include="#logs-search"
+                                class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer">
+                            <option value="">All Errors</option>
+                            <option value="client" {% if filter == 'client' %}selected{% endif %}>Client Errors</option>
+                            <option value="server" {% if filter == 'server' %}selected{% endif %}>Server Errors</option>
+                        </select>
+                        <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500">
+                            <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" fill-rule="evenodd" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <div id="logs-table-container">
+                {% include "partials/admin/logs_table.html" %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

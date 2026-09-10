@@ -1,0 +1,13 @@
+@page.get("/account/pending")
+@login_only
+def account_pending():
+    """Show pending approval page for users awaiting admin approval."""
+    # If user is active, redirect to home
+    if current_user.active:
+        return redirect(url_for("page.home"))
+    # If user was approved before (suspended), show suspended page instead
+    if getattr(current_user, "approved_at", None):
+        return redirect(url_for("page.account_suspended"))
+    return render_template("pages/account/pending.html")
+
+

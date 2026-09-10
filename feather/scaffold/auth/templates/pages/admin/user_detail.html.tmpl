@@ -1,0 +1,54 @@
+{% extends "pages/admin/base.html" %}
+
+{% block admin_title %}{{ user.display_name or user.email }}{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    <!-- Back button -->
+    <a href="{{ url_for('admin.users_page') }}" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
+        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+        Back to Users
+    </a>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- User Profile Card (Left Column) -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 text-center">
+                {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
+                <img src="{{ avatar_url }}"
+                     alt="{{ user.display_name or user.email }}"
+                     class="w-24 h-24 rounded-full mx-auto mb-4"
+                     referrerpolicy="no-referrer"
+                     crossorigin="anonymous">
+                <h2 class="text-xl font-semibold text-gray-900">{{ user.display_name or user.email }}</h2>
+                {% if user.username is defined and user.username %}
+                <p class="text-gray-600">@{{ user.username }}</p>
+                {% endif %}
+                <p class="text-sm text-gray-500 mt-1">{{ user.email }}</p>
+            </div>
+
+            <div class="border-t border-gray-200 p-6 space-y-4">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-600">Joined</span>
+                    <span class="font-medium">{{ user.created_at.strftime('%b %d, %Y') }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-600">Status</span>
+                    <span id="status-pill">
+                    __FEATHER_STATUS_BADGE__
+                    </span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-600">Role</span>
+                    <span class="font-medium">{{ (user.role or 'user')|title }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Column (Right, spans 2 columns) -->
+        <div class="lg:col-span-2 space-y-6" id="user-actions">
+            {% include "partials/admin/user_actions.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}

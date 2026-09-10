@@ -1,0 +1,71 @@
+<table class="w-full">
+    <thead class="admin-table-header">
+        <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Type</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Message</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Path</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Time</th>
+        </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-200">
+        {% for log in logs %}
+        <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3">
+                {% set event_type = log.event_type if log.event_type is defined else 'Error' %}
+                {% if event_type in ['NotFoundError', 'ValidationError', 'AuthenticationError', 'AuthorizationError'] %}
+                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">{{ event_type }}</span>
+                {% else %}
+                <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">{{ event_type }}</span>
+                {% endif %}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600 max-w-md truncate">{{ log.message }}</td>
+            <td class="px-4 py-3 text-sm text-gray-600 font-mono">{{ log.path or '-' }}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">{{ log.created_at.strftime('%b %d, %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if not logs %}
+<div class="p-8 text-center text-gray-500">
+    <span class="material-symbols-outlined text-4xl mb-2">check_circle</span>
+    <p class="text-sm">No errors found</p>
+</div>
+{% endif %}
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+    <div class="text-sm text-gray-600">
+        Showing {{ pagination.start }}-{{ pagination.end }} of {{ pagination.total }}
+    </div>
+    <div class="flex gap-2">
+        {% if pagination.has_prev %}
+        <a href="?page={{ pagination.page - 1 }}{% if search %}&search={{ search }}{% endif %}{% if filter %}&filter={{ filter }}{% endif %}"
+           hx-get="{{ url_for('admin.logs_page', page=pagination.page - 1, search=search, filter=filter) }}"
+           hx-target="#logs-table-container"
+           hx-select="#logs-table-container"
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+            Previous
+        </a>
+        {% else %}
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
+            Previous
+        </button>
+        {% endif %}
+        {% if pagination.has_next %}
+        <a href="?page={{ pagination.page + 1 }}{% if search %}&search={{ search }}{% endif %}{% if filter %}&filter={{ filter }}{% endif %}"
+           hx-get="{{ url_for('admin.logs_page', page=pagination.page + 1, search=search, filter=filter) }}"
+           hx-target="#logs-table-container"
+           hx-select="#logs-table-container"
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+            Next
+        </a>
+        {% else %}
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
+            Next
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

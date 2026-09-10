@@ -1,0 +1,7 @@
+| `Dockerfile` | Multi-stage build: `base`, `frontend` (Vite/Tailwind)__FEATHER_AGENTS_WORKER_TARGET__, `web` |
+| `docker-compose.yml` | Production services. Reads `./.env`; only Caddy is exposed |
+| `docker-compose.dev.yml` | Local Postgres and Valkey, so `feather dev` keeps Vite HMR on the host |
+| `deploy/Caddyfile` | TLS, gzip, and the `X-Real-IP` / `X-Forwarded-Proto` header contract Feather's ProxyFix needs |
+| `deploy/deploy.sh` | Build, migrate once, swap containers, wait on the container health status |
+| `deploy/backup.sh` | Nightly `pg_dump`, for cron |
+| `.env.example` | Every key this app reads, and which ones compose supplies |

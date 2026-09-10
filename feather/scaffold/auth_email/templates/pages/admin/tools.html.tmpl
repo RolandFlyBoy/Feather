@@ -1,0 +1,74 @@
+{% extends "pages/admin/base.html" %}
+
+{% block admin_title %}Tools{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+
+    <h2 class="text-2xl font-bold">Tools</h2>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Email Card -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-[28px]">mail</span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold">Send Email</h3>
+                    <p class="text-sm text-gray-600">Send an email to a user</p>
+                </div>
+            </div>
+        </div>
+        <div class="p-6">
+            <form hx-post="{{ url_for('admin.send_email') }}"
+                  hx-target="#email-result"
+                  hx-swap="innerHTML"
+                  class="space-y-4">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Recipient</label>
+                    <input type="text"
+                           id="email-to-input"
+                           name="to"
+                           placeholder="Search users or enter email..."
+                           hx-get="{{ url_for('admin.search_users_dropdown') }}"
+                           hx-trigger="input changed delay:300ms"
+                           hx-target="#user-dropdown"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black">
+                    <div id="user-dropdown" class="relative"></div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                    <input type="text"
+                           name="subject"
+                           required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                    <textarea name="body"
+                              rows="6"
+                              required
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"></textarea>
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit"
+                            class="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 cursor-pointer">
+                        Send Email
+                    </button>
+                </div>
+            </form>
+            <div id="email-result" class="mt-4"></div>
+        </div>
+    </div>
+
+    </div>
+
+</div>
+{% endblock %}

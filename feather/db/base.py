@@ -64,6 +64,8 @@ See Also
 - :mod:`feather.exceptions`: Error handling (NotFoundError, etc.)
 """
 
+from typing import Any
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from sqlalchemy.orm import DeclarativeBase
@@ -236,7 +238,7 @@ class Model(db.Model):
             raise NotFoundError(cls.__name__, id)
         return instance
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """Convert this model instance to a dictionary.
 
         Returns a dict with all column values. Override this method in

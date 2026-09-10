@@ -1,0 +1,7 @@
+{% if user.active %}
+                    User can access the application
+                    {% elif user.approved_at is defined and user.approved_at %}
+                    User account is suspended
+                    {% else %}
+                    User is pending approval
+                    {% endif %}

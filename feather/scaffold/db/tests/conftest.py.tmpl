@@ -1,0 +1,109 @@
+"""Pytest configuration for Feather apps."""
+
+import pytest
+
+from app import app as flask_app
+from feather.db import db
+
+
+# =============================================================================
+# CSRF-Aware Test Client
+# =============================================================================
+
+class CsrfTestClient:
+    """Test client wrapper that automatically handles CSRF tokens.
+
+    Use this for POST/PUT/DELETE requests that require CSRF protection.
+
+    Usage:
+        def test_something(csrf_client):
+            response = csrf_client.post('/api/items', json={'name': 'test'})
+    """
+
+    def __init__(self, flask_client):
+        self._client = flask_client
+        self._csrf_token = None
+
+    def _get_csrf_token(self):
+        if self._csrf_token is None:
+            response = self._client.get('/_test_csrf_token')
+            self._csrf_token = response.get_json()['token']
+        return self._csrf_token
+
+    def _add_csrf_header(self, kwargs):
+        headers = dict(kwargs.get('headers', {}))
+        headers['X-CSRFToken'] = self._get_csrf_token()
+        kwargs['headers'] = headers
+        return kwargs
+
+    def get(self, *args, **kwargs):
+        return self._client.get(*args, **kwargs)
+
+    def post(self, *args, **kwargs):
+        return self._client.post(*args, **self._add_csrf_header(kwargs))
+
+    def put(self, *args, **kwargs):
+        return self._client.put(*args, **self._add_csrf_header(kwargs))
+
+    def delete(self, *args, **kwargs):
+        return self._client.delete(*args, **self._add_csrf_header(kwargs))
+
+    def patch(self, *args, **kwargs):
+        return self._client.patch(*args, **self._add_csrf_header(kwargs))
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+
+def _register_csrf_endpoint(app):
+    """Register CSRF token endpoint for testing.
+
+    Must be called BEFORE any requests are made to the app.
+    """
+    # Only register once per app
+    if '/_test_csrf_token' in [rule.rule for rule in app.url_map.iter_rules()]:
+        return
+
+    from flask import jsonify
+    from flask_wtf.csrf import generate_csrf
+
+    @app.route('/_test_csrf_token')
+    def _get_csrf_token():
+        return jsonify({'token': generate_csrf()})
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+@pytest.fixture
+def app():
+    """Create application for testing."""
+    flask_app.config["TESTING"] = True
+    flask_app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+
+    # Register CSRF endpoint BEFORE any requests
+    _register_csrf_endpoint(flask_app)
+
+    with flask_app.app_context():
+        db.create_all()
+
+    yield flask_app
+
+    # Cleanup
+    with flask_app.app_context():
+        db.session.remove()
+        db.drop_all()
+        db.engine.dispose()
+
+
+@pytest.fixture
+def client(app):
+    """Create raw test client (no CSRF handling)."""
+    return app.test_client()
+
+
+@pytest.fixture
+def csrf_client(app):
+    """Create CSRF-aware test client for POST/PUT/DELETE."""
+    return CsrfTestClient(app.test_client())

@@ -56,6 +56,11 @@ from feather.exceptions import (
 )
 
 
+#: Sentinel telling "the model has no approved_at column" apart from
+#: "approved_at is NULL" (see require_active_user).
+_NO_APPROVAL_FIELD = object()
+
+
 def require_active_user(user) -> None:
     """Raise if ``user`` (an authenticated user) is pending or suspended.
 
@@ -66,19 +71,28 @@ def require_active_user(user) -> None:
 
     Args:
         user: The current user object. ``is_active`` may be a property or a
-            method; a model without it is treated as active.
+            method; a model without it is treated as active. A model with no
+            ``approved_at`` attribute has no approval workflow, so an
+            inactive user counts as suspended.
     """
     is_active = getattr(user, "is_active", True)
     if callable(is_active):
         is_active = is_active()
     if not is_active:
-        # Check if user was ever approved to distinguish pending vs suspended
-        # approved_at is set when admin first activates the account
-        approved_at = getattr(user, "approved_at", None)
+        # Check if user was ever approved to distinguish pending vs suspended.
+        # approved_at is set when an admin first activates the account.
+        #
+        # A model with no approved_at attribute at all has no approval
+        # workflow, so an inactive user there was switched off by an admin:
+        # that is "suspended", not "pending". Before 0.9.8 the missing
+        # attribute read as None and every such user was told their account
+        # was awaiting approval that would never come.
+        approved_at = getattr(user, "approved_at", _NO_APPROVAL_FIELD)
+        if approved_at is _NO_APPROVAL_FIELD:
+            raise AccountSuspendedError("Your account has been suspended")
         if approved_at is None:
             raise AccountPendingError("Your account is pending approval")
-        else:
-            raise AccountSuspendedError("Your account has been suspended")
+        raise AccountSuspendedError("Your account has been suspended")
 
 
 def get_current_tenant_id() -> str:

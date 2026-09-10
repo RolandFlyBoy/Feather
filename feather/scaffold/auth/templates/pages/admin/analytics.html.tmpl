@@ -1,0 +1,95 @@
+{% extends "pages/admin/base.html" %}
+
+{% block admin_title %}Analytics{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold">Analytics</h2>
+
+        <div class="grid grid-cols-1">
+            <select id="time-range-select"
+                    class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer">
+                <option value="7">Last 7 Days</option>
+                <option value="30" selected>Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+            </select>
+            <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500">
+                <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" fill-rule="evenodd" clip-rule="evenodd" />
+            </svg>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Total Users</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.total_users }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-[28px]">group</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">Active Users</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.active_users }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-green-600 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-[28px]">check_circle</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600">New This Month</p>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.new_this_month }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-[28px]">person_add</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- User Growth Chart -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white text-[28px]">trending_up</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold">User Growth</h3>
+                        <p class="text-sm text-gray-600">New registrations</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6">
+                <div id="chart-container"
+                     data-api-url="{{ url_for('admin.api_user_growth') }}"
+                     class="admin-chart-container">
+                    <div id="user-growth-chart" style="width:100%;height:100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block admin_scripts %}
+{% if config.DEBUG %}
+<script type="module" src="http://localhost:5173/static/js/admin-chart.js"></script>
+{% else %}
+<script src="{{ url_for('static', filename='js/admin-chart.js') }}"></script>
+{% endif %}
+{% endblock %}

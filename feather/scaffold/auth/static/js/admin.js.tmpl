@@ -1,0 +1,152 @@
+/**
+ * Admin Panel Scripts
+ * ====================
+ * JavaScript for the admin panel functionality.
+ */
+
+(function() {
+  "use strict";
+
+  // Mobile sidebar drawer
+  function initMobileSidebar() {
+    var backdrop = document.getElementById("mobile-sidebar-backdrop");
+    var panel = document.getElementById("mobile-sidebar");
+    if (!backdrop || !panel) return;
+
+    function openSidebar() {
+      backdrop.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      requestAnimationFrame(function() {
+        backdrop.classList.add("open");
+        panel.classList.add("open");
+      });
+    }
+
+    function closeSidebar() {
+      backdrop.classList.remove("open");
+      panel.classList.remove("open");
+      document.body.style.overflow = "";
+      setTimeout(function() { backdrop.classList.add("hidden"); }, 300);
+    }
+
+    document.addEventListener("click", function(e) {
+      if (e.target.closest("[data-action='open-sidebar']")) openSidebar();
+      if (e.target.closest("[data-action='close-sidebar']")) closeSidebar();
+    });
+
+    backdrop.addEventListener("click", function(e) {
+      if (e.target === backdrop) closeSidebar();
+    });
+
+    window._closeMobileSidebar = closeSidebar;
+  }
+
+  // The hx-confirm modal is handled once, in app.js (base.html renders the
+  // modal after the scripts, so it is resolved at event time). Registering a
+  // second htmx:confirm listener here would show the modal twice and issue the
+  // request twice, so admin pages just reuse window.closeConfirmModal.
+  function closeConfirmModal() {
+    if (typeof window.closeConfirmModal === "function" && window.closeConfirmModal !== closeConfirmModal) {
+      window.closeConfirmModal();
+      return;
+    }
+    const modal = document.getElementById("confirm-modal");
+    if (modal) modal.classList.add("hidden");
+  }
+
+  // Handle escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeConfirmModal();
+      if (window._closeMobileSidebar) window._closeMobileSidebar();
+      // Close profile dropdown
+      var details = document.querySelector(".header-profile-dropdown[open]");
+      if (details) details.removeAttribute("open");
+    }
+  });
+
+  // Show pending toast on page load (if set by server)
+  function initPendingToast() {
+    const pendingToast = document.getElementById("pending-toast-data");
+    if (pendingToast && window.showToast) {
+      const message = pendingToast.dataset.message;
+      const type = pendingToast.dataset.type || "success";
+      if (message) {
+        window.showToast(message, type);
+      }
+    }
+  }
+
+  // Handle email selection in admin tools
+  function initEmailSelector() {
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action='select-email']");
+      if (btn) {
+        const email = btn.dataset.email;
+        const input = document.querySelector("[name='to']");
+        const dropdown = document.getElementById("user-dropdown");
+        if (input) input.value = email;
+        if (dropdown) dropdown.innerHTML = "";
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      const dropdown = document.getElementById("user-dropdown");
+      const input = document.getElementById("email-to-input");
+      if (dropdown && input && !dropdown.contains(e.target) && e.target !== input) {
+        dropdown.innerHTML = "";
+      }
+    });
+  }
+
+  // Handle clickable rows (navigation)
+  function initClickableRows() {
+    document.addEventListener("click", (e) => {
+      const row = e.target.closest("[data-href]");
+      if (row && !e.target.closest("a, button")) {
+        window.location = row.dataset.href;
+      }
+    });
+  }
+
+  // Handle tenant modal
+  function initTenantModal() {
+    const modal = document.getElementById("create-tenant-modal");
+    if (!modal) return;
+
+    document.addEventListener("click", (e) => {
+      const el = e.target.closest("[data-action]");
+      if (!el) return;
+      const action = el.dataset.action;
+      if (action === "show-create-tenant") {
+        modal.classList.remove("hidden");
+      } else if (action === "hide-create-tenant") {
+        modal.classList.add("hidden");
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !modal.classList.contains("hidden")) {
+        modal.classList.add("hidden");
+      }
+    });
+  }
+
+  // Initialize on DOM ready
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      initMobileSidebar();
+      initPendingToast();
+      initEmailSelector();
+      initClickableRows();
+      initTenantModal();
+    });
+  } else {
+    initMobileSidebar();
+    initPendingToast();
+    initEmailSelector();
+    initClickableRows();
+    initTenantModal();
+  }
+})();

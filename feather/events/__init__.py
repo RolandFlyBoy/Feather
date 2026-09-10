@@ -54,6 +54,9 @@ Exports
 - **dispatch**: Function to dispatch an event to all listeners
 - **listen**: Decorator to register a function as an event listener
 - **EventDispatcher**: The dispatcher class (for advanced use)
+- **get_dispatcher**: The dispatcher in force right now (process-level by
+  default; an app opts into its own by setting
+  ``app.extensions["feather"]["dispatcher"]``)
 
 See Also
 --------
@@ -61,7 +64,7 @@ See Also
 - :mod:`feather.events.dispatcher`: Dispatcher implementation
 """
 
-from feather.events.dispatcher import dispatch, listen, EventDispatcher
+from feather.events.dispatcher import dispatch, get_dispatcher, listen, EventDispatcher
 from feather.events.events import Event
 
-__all__ = ["dispatch", "listen", "Event", "EventDispatcher"]
+__all__ = ["dispatch", "get_dispatcher", "listen", "Event", "EventDispatcher"]

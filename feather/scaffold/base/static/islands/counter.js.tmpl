@@ -1,0 +1,45 @@
+/**
+ * Counter island - Example interactive component
+ *
+ * Demonstrates:
+ * - Reactive state
+ * - localStorage persistence (refresh the page - count is remembered!)
+ * - Action handlers
+ * - DOM updates via render()
+ */
+island("counter", {
+  // Enable localStorage persistence - state survives page refresh
+  persist: true,
+
+  state: {
+    count: 0,
+  },
+
+  init() {
+    // Only set from data attribute if no persisted value
+    // (persisted state is automatically loaded before init)
+    if (this.state.count === 0 && this.data.initial) {
+      this.state.count = parseInt(this.data.initial);
+    }
+  },
+
+  actions: {
+    increment() {
+      this.state.count++;
+    },
+    decrement() {
+      this.state.count--;
+    },
+    reset() {
+      this.state.count = 0;
+      // Optionally clear localStorage too
+      // this.clearPersisted();
+    },
+  },
+
+  render(state) {
+    return {
+      ".count": state.count,
+    };
+  },
+});

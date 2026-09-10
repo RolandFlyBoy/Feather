@@ -1,0 +1,9 @@
+
+    # Session cookie settings (required for OAuth through Vite proxy)
+    SESSION_COOKIE_SAMESITE = "Lax"   # Allow redirects from Google OAuth
+    SESSION_COOKIE_HTTPONLY = True     # Prevent JS access (security)
+
+    # "Remember me" cookie - Flask-Login sets none of these flags by default,
+    # so they have to be spelled out alongside the session cookie flags
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = "Lax"

@@ -1,0 +1,8 @@
+
+    # Database
+    DATABASE_URL = os.environ.get("DATABASE_URL", "__FEATHER_DB_URL__")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Connection pool settings (keep minimal for development)
+    SQLALCHEMY_POOL_SIZE = 2
+    SQLALCHEMY_MAX_OVERFLOW = 2

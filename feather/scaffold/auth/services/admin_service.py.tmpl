@@ -1,0 +1,279 @@
+"""Admin panel services."""
+
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
+import re
+import uuid
+
+from sqlalchemy import func, or_
+
+from feather.db import db
+from feather.services import Service
+from models import User, Log
+
+
+class AdminService(Service):
+    """Service for admin panel operations."""
+
+    # =========================================================================
+    # Static Helpers
+    # =========================================================================
+
+    @staticmethod
+    def fallback_avatar(user) -> str:
+        """Generate fallback avatar URL for user."""
+        name = getattr(user, "display_name", None) or getattr(user, "email", "User")
+        return f"https://ui-avatars.com/api/?name={name}&background=random&color=fff&size=128"
+
+    @staticmethod
+    def _empty_pagination() -> dict[str, Any]:
+        """Return an empty pagination dict."""
+        return {
+            "page": 1,
+            "pages": 1,
+            "per_page": 50,
+            "total": 0,
+            "start": 0,
+            "end": 0,
+            "has_prev": False,
+            "has_next": False,
+        }
+
+    # =========================================================================
+    # User Management
+    # =========================================================================
+
+    def get_all_users(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Get paginated list of all users."""
+        query = User.query
+
+        # Exclude platform admins from results
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total = query.count()
+        users = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+
+        page = (offset // limit) + 1 if limit > 0 else 1
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+
+        return {
+            "users": users,
+            "total": total,
+            "has_more": offset + limit < total,
+            "pagination": {
+                "page": page,
+                "pages": pages,
+                "per_page": limit,
+                "total": total,
+                "start": offset + 1 if total > 0 else 0,
+                "end": min(offset + limit, total),
+                "has_prev": page > 1,
+                "has_next": page < pages,
+            }
+        }
+
+    def search_users(self, query: str, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """Search users by email, display_name, or username."""
+        search_filter = User.email.ilike(f"%{query}%")
+
+        if hasattr(User, "display_name"):
+            search_filter = or_(search_filter, User.display_name.ilike(f"%{query}%"))
+        if hasattr(User, "username"):
+            search_filter = or_(search_filter, User.username.ilike(f"%{query}%"))
+
+        base_query = User.query.filter(search_filter)
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            base_query = base_query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total = base_query.count()
+        users = base_query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
+
+        page = (offset // limit) + 1 if limit > 0 else 1
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+
+        return {
+            "users": users,
+            "total": total,
+            "has_more": offset + limit < total,
+            "pagination": {
+                "page": page,
+                "pages": pages,
+                "per_page": limit,
+                "total": total,
+                "start": offset + 1 if total > 0 else 0,
+                "end": min(offset + limit, total),
+                "has_prev": page > 1,
+                "has_next": page < pages,
+            }
+        }
+
+    def get_user_detail(self, user_id: str) -> Optional[Any]:
+        """Get user by ID for detail page."""
+        return User.query.get(user_id)
+
+    def toggle_user_status(self, user_id: str) -> Optional[Any]:
+        """Toggle user active status."""
+        user = User.query.get(user_id)
+        if not user:
+            return None
+
+        user.active = not user.active
+        if user.active and hasattr(user, "approved_at") and not user.approved_at:
+            user.approved_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return user
+
+    def update_user_role(self, user_id: str, role: str) -> Optional[Any]:
+        """Update user role."""
+        valid_roles = ["user", "editor", "moderator", "admin"]
+        if role not in valid_roles:
+            return None
+
+        user = User.query.get(user_id)
+        if not user:
+            return None
+
+        user.role = role
+        db.session.commit()
+        return user
+
+    # =========================================================================
+    # Analytics
+    # =========================================================================
+
+    def get_user_stats(self) -> dict[str, int]:
+        """Get user statistics for analytics dashboard."""
+        query = User.query
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        total_users = query.count()
+        active_users = query.filter(User.active == True).count()
+
+        first_of_month = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        new_this_month = query.filter(User.created_at >= first_of_month).count()
+
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "new_this_month": new_this_month,
+        }
+
+    def get_user_growth(self, days: int = 30) -> list[dict[str, Any]]:
+        """Get daily user registration counts for analytics chart."""
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+
+        query = db.session.query(
+            func.date(User.created_at).label("date"),
+            func.count(User.id).label("count")
+        ).filter(User.created_at >= start_date)
+
+        # Exclude platform admins
+        if hasattr(User, "is_platform_admin"):
+            query = query.filter(or_(User.is_platform_admin == False, User.is_platform_admin == None))
+
+        results = query.group_by(func.date(User.created_at)).order_by(func.date(User.created_at)).all()
+
+        # Convert to dict
+        date_counts = {str(r.date): r.count for r in results}
+
+        # Fill in missing dates with 0
+        filled_data = []
+        current = start_date.date()
+        end = datetime.now(timezone.utc).date()
+
+        while current <= end:
+            date_str = str(current)
+            filled_data.append({"date": date_str, "count": date_counts.get(date_str, 0)})
+            current += timedelta(days=1)
+
+        return filled_data
+
+    def find_user_by_email(self, email: str) -> Optional[Any]:
+        """Find a user by exact email address (case-insensitive)."""
+        if not email:
+            return None
+        return User.query.filter(func.lower(User.email) == email.strip().lower()).first()
+
+    # =========================================================================
+    # Logs
+    # =========================================================================
+
+    def get_logs(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        status_code: Optional[str] = None,
+        search: Optional[str] = None,
+        page: int = 1,
+    ) -> dict[str, Any]:
+        """Get paginated logs with optional filtering."""
+        if page > 1:
+            offset = (page - 1) * limit
+
+        query = Log.query
+
+        # Filter by event type category
+        if status_code:
+            if hasattr(Log, "event_type"):
+                if status_code in ("4", "client"):
+                    query = query.filter(
+                        Log.event_type.in_(["NotFoundError", "ValidationError", "AuthenticationError", "AuthorizationError"])
+                    )
+                elif status_code in ("5", "server"):
+                    query = query.filter(Log.event_type.in_(["InternalError", "ServerError"]))
+
+        # Search path/message
+        if search:
+            search_filters = []
+            if hasattr(Log, "path"):
+                search_filters.append(Log.path.ilike(f"%{search}%"))
+            if hasattr(Log, "message"):
+                search_filters.append(Log.message.ilike(f"%{search}%"))
+            if search_filters:
+                query = query.filter(or_(*search_filters))
+
+        total = query.count()
+        items = query.order_by(Log.created_at.desc()).offset(offset).limit(limit).all()
+
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+
+        return {
+            "items": items,
+            "total": total,
+            "pagination": {
+                "page": page,
+                "pages": pages,
+                "per_page": limit,
+                "total": total,
+                "start": offset + 1 if total > 0 else 0,
+                "end": min(offset + limit, total),
+                "has_prev": page > 1,
+                "has_next": page < pages,
+            }
+        }
+
+    def get_log_stats(self, days: int = 7) -> dict[str, int]:
+        """Get log statistics for the last N days."""
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        base_query = Log.query.filter(Log.created_at >= start_date)
+
+        if hasattr(Log, "event_type"):
+            errors_4xx = base_query.filter(
+                Log.event_type.in_(["NotFoundError", "ValidationError", "AuthenticationError", "AuthorizationError"])
+            ).count()
+            errors_5xx = base_query.filter(Log.event_type.in_(["InternalError", "ServerError"])).count()
+        else:
+            errors_4xx = 0
+            errors_5xx = base_query.count()
+
+        return {
+            "errors_4xx": errors_4xx,
+            "errors_5xx": errors_5xx,
+            "total": errors_4xx + errors_5xx,
+        }

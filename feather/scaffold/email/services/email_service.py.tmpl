@@ -1,0 +1,47 @@
+"""Email service using Resend."""
+
+import resend
+from flask import current_app
+
+
+class EmailService:
+    """Service for sending emails via Resend."""
+
+    def __init__(self):
+        api_key = current_app.config.get("RESEND_API_KEY")
+        if api_key:
+            resend.api_key = api_key
+
+    def send(self, to: str, subject: str, body: str, html: bool = False) -> dict:
+        """Send an email to a single recipient.
+
+        Args:
+            to: Recipient email address
+            subject: Email subject
+            body: Email body (plain text or HTML)
+            html: If True, body is treated as HTML
+
+        Returns:
+            dict with 'success' and 'message' or 'error' keys
+        """
+        api_key = current_app.config.get("RESEND_API_KEY")
+        if not api_key:
+            return {"success": False, "error": "RESEND_API_KEY not configured"}
+
+        from_email = current_app.config.get("RESEND_FROM_EMAIL", "noreply@example.com")
+
+        try:
+            params = {
+                "from": from_email,
+                "to": [to],
+                "subject": subject,
+            }
+            if html:
+                params["html"] = body
+            else:
+                params["text"] = body
+
+            result = resend.Emails.send(params)
+            return {"success": True, "message": f"Email sent to {to}", "id": result.get("id")}
+        except Exception as e:
+            return {"success": False, "error": str(e)}

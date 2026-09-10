@@ -1,0 +1,81 @@
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full">
+        <thead class="admin-table-header">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Tenant</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Domain</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Users</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Created</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for tenant in tenants %}
+            <tr class="hover:bg-gray-50 cursor-pointer"
+                data-href="{{ url_for('admin.tenant_detail_page', tenant_id=tenant.id) }}">
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-gray-600">business</span>
+                        </div>
+                        <div>
+                            <p class="font-medium">{{ tenant.name }}</p>
+                            <p class="text-sm text-gray-600">{{ tenant.slug }}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ tenant.domain }}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ tenant.user_count if tenant.user_count is defined else '-' }}</td>
+                <td class="px-4 py-3">
+                    {% if tenant.status == 'active' %}
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    {% elif tenant.status == 'pending' %}
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ tenant.created_at.strftime('%b %d, %Y') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not tenants %}
+    <div class="p-8 text-center text-gray-500">
+        <span class="material-symbols-outlined text-4xl mb-2">business</span>
+        <p class="text-sm">No tenants found</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="flex items-center justify-between mt-4">
+    <div class="text-sm text-gray-600">
+        Showing {{ pagination.start }}-{{ pagination.end }} of {{ pagination.total }}
+    </div>
+    <div class="flex gap-2">
+        {% if pagination.has_prev %}
+        <a href="?page={{ pagination.page - 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+            Previous
+        </a>
+        {% else %}
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
+            Previous
+        </button>
+        {% endif %}
+        {% if pagination.has_next %}
+        <a href="?page={{ pagination.page + 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}"
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+            Next
+        </a>
+        {% else %}
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
+            Next
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

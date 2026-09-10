@@ -1,0 +1,11 @@
+"""Home page route."""
+
+from flask import render_template
+
+from feather import page
+
+
+@page.get("/")
+def home():
+    """Home page."""
+    return render_template("pages/home.html")

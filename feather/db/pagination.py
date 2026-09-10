@@ -53,9 +53,17 @@ Include pagination metadata in your API response::
     # }
 """
 
-from dataclasses import dataclass
-from typing import TypeVar, Generic, List, Optional
+from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, TypeVar
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from sqlalchemy.orm import Query
+    from sqlalchemy.sql import Select
+
+#: The model type a page holds. ``paginate(Post.query)`` gives back a
+#: ``PaginatedResult[Post]``, so ``result.items[0].title`` type-checks.
 T = TypeVar("T")
 
 
@@ -171,7 +179,7 @@ class PaginatedResult(Generic[T]):
             return 0
         return min(self.page * self.per_page, self.total)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert pagination metadata to a dictionary.
 
         Returns a camelCase dictionary suitable for JSON API responses.
@@ -200,7 +208,12 @@ class PaginatedResult(Generic[T]):
         }
 
 
-def paginate(query, page: int = 1, per_page: int = 20, max_per_page: int = 100) -> PaginatedResult:
+def paginate(
+    query: Query[T] | Select | Any,
+    page: int = 1,
+    per_page: int = 20,
+    max_per_page: int = 100,
+) -> PaginatedResult[T]:
     """Paginate a SQLAlchemy query.
 
     Takes any SQLAlchemy query and returns a PaginatedResult with the

@@ -1,0 +1,5 @@
+
+### 6. Always Protect Routes
+- Use `@auth_required` on all routes that need authentication
+- Use `@admin_required` for admin-only routes
+- Check `current_user.is_active` for suspended user handling

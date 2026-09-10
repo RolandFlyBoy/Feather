@@ -1,0 +1,89 @@
+"""User model with authentication."""
+
+import uuid
+from datetime import datetime, timezone
+
+from flask_login import UserMixin
+
+from feather.db import db, Model
+
+
+class User(UserMixin, Model):
+    """User model with authentication and role-based access.
+
+    Authentication is handled by Google OAuth - no password storage needed.
+
+    Inherits from:
+        - UserMixin: Flask-Login integration (is_authenticated, get_id, etc.)
+        - Model: SQLAlchemy base model
+
+    Attributes:
+        id: UUID primary key
+        email: Unique email address (from Google OAuth)
+        username: Unique username
+__FEATHER_USER_FIELD_DOCS__        active: Whether the user account is active (not suspended)
+        approved_at: When user was first approved (None = pending, set = was approved)
+        role: User role (user, editor, moderator, admin)
+        subscription_owner_account_id: The account that owns this user's subscription
+        created_at: Timestamp of creation
+        updated_at: Timestamp of last update
+    """
+
+    __tablename__ = "users"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+__FEATHER_USER_FIELD_DEFS__
+
+    # Authorization
+    active = db.Column(db.Boolean, default=False, nullable=False)  # Suspended until approved
+    approved_at = db.Column(db.DateTime, nullable=True)  # Set when first approved (None=pending, set=was approved)
+    role = db.Column(db.String(50), default="user", nullable=False)  # user, editor, moderator, admin
+
+    # Account relationship - the account that owns this user's subscription
+    # use_alter=True defers FK creation to handle circular dependency with Account model
+    subscription_owner_account_id = db.Column(db.String(36), db.ForeignKey("accounts.id", use_alter=True), nullable=True)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, onupdate=lambda: datetime.now(timezone.utc))
+
+    @property
+    def is_active(self):
+        """Check if user account is active (not suspended).
+
+        Flask-Login requires this to be a @property, not a method.
+        When is_active returns False, the user has a valid session but
+        is blocked with 403 "Account suspended" on protected routes.
+        """
+        return bool(self.active)
+
+    @property
+    def is_admin(self):
+        """Check if user is an admin (derived from role)."""
+        return self.role == "admin"
+
+    @property
+    def is_authenticated(self):
+        """Check if user is authenticated.
+
+        Flask-Login requires this. We override explicitly because SQLAlchemy 2.0's
+        DeclarativeBase metaclass can shadow the UserMixin.is_authenticated property.
+        Returns True for any user loaded from the database.
+        """
+        return True
+
+    @property
+    def is_anonymous(self):
+        """Check if this is an anonymous user.
+
+        Flask-Login requires this. We override explicitly because SQLAlchemy 2.0's
+        DeclarativeBase metaclass can shadow the UserMixin.is_anonymous property.
+        Returns False for real users loaded from the database.
+        """
+        return False
+
+    def __repr__(self):
+        return f"<User {self.username}>"

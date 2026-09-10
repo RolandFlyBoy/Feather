@@ -1,0 +1,108 @@
+# Components
+
+Jinja2 macro components for your UI. Designed to work with [Tailwind Plus](https://tailwindcss.com/plus).
+
+## Icons
+
+Feather includes [Google Material Icons](https://fonts.google.com/icons) out of the box.
+
+```jinja2
+{% from "components/icon.html" import icon %}
+
+{{ icon("home") }}
+{{ icon("settings", size="lg") }}
+{{ icon("favorite", class="text-red-500") }}
+```
+
+**Sizes:** `sm` (18px), `md` (24px), `lg` (36px), `xl` (48px)
+
+Browse icons at: https://fonts.google.com/icons
+
+### Icon with Button
+
+```jinja2
+{% from "components/button.html" import button %}
+{% from "components/icon.html" import icon %}
+{{ button("Save", icon=icon("save", size="sm")) }}
+```
+
+## Tailwind Plus Components
+
+### Quick Start
+
+1. Copy HTML from Tailwind Plus
+2. Wrap in a Jinja2 macro
+3. Import and use in templates
+
+### Example: Button Component
+
+**Step 1: Copy from Tailwind Plus**
+
+```html
+<button class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+  Button text
+</button>
+```
+
+**Step 2: Create macro in `button.html`**
+
+```jinja2
+{% macro button(text, variant="primary", class="") %}
+{% set base = "rounded-md px-3 py-2 text-sm font-semibold shadow-sm" %}
+{% set variants = {
+    "primary": "bg-indigo-600 text-white hover:bg-indigo-500",
+    "secondary": "bg-white text-gray-900 ring-1 ring-gray-300 hover:bg-gray-50"
+} %}
+<button class="{{ base }} {{ variants[variant] }} {{ class }}">{{ text }}</button>
+{% endmacro %}
+```
+
+**Step 3: Use in templates**
+
+```jinja2
+{% from "components/button.html" import button %}
+
+{{ button("Save") }}
+{{ button("Cancel", variant="secondary") }}
+```
+
+## Tips
+
+- Use `class=""` parameter for additional Tailwind classes
+- Add explicit parameters for HTML attributes you need (e.g., `disabled=false`, `placeholder=""`)
+- Use `caller()` for components with children (cards, modals)
+
+## Component Pattern
+
+```jinja2
+{# component_name.html #}
+{% macro component_name(required_param, optional="default", class="") %}
+<element class="{{ class }}">
+    Content here
+</element>
+{% endmacro %}
+```
+
+## Components with Children
+
+For components that wrap content (cards, modals), use `caller()`:
+
+```jinja2
+{# card.html #}
+{% macro card(title="", class="") %}
+<div class="bg-white shadow rounded-lg {{ class }}">
+    {% if title %}<h3 class="font-bold p-4">{{ title }}</h3>{% endif %}
+    <div class="p-4">{{ caller() }}</div>
+</div>
+{% endmacro %}
+```
+
+Usage:
+
+```jinja2
+{% from "components/card.html" import card %}
+
+{% call card(title="My Card") %}
+    <p>This is the card content.</p>
+{% endcall %}
+```

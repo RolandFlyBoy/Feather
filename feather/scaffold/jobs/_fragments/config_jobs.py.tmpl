@@ -1,0 +1,11 @@
+
+    # Background Jobs (thread pool for background execution)
+    # Note: the thread backend needs FLASK_DEBUG=0 - the Flask reloader restarts
+    # the process on every file change and kills running jobs. Use JOB_BACKEND=sync
+    # if you want the reloader while developing.
+    JOB_BACKEND = os.environ.get("JOB_BACKEND", "thread")
+    JOB_MAX_WORKERS = int(os.environ.get("JOB_MAX_WORKERS", "2"))
+
+    # RQ payload serializer: json refuses to unpickle arbitrary objects off the
+    # queue. Only change to "pickle" if a job argument cannot be JSON-encoded.
+    JOB_SERIALIZER = os.environ.get("JOB_SERIALIZER", "json")

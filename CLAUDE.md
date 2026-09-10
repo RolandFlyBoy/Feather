@@ -167,10 +167,23 @@ myapp/
 ## Development Commands
 
 ```bash
-pip install -e .              # Install framework
+pip install -e ".[dev]"       # Install framework with test and lint tools
 feather test --framework      # Run framework tests
 feather new testapp           # Test scaffolding
 ```
+
+Commands a generated app gets, worth knowing when changing the scaffold:
+
+```bash
+feather check                 # conventions, machine-checked; exit 1 on error
+feather components            # every component macro and its real signature
+feather security-check        # secrets, cookies, debug, dependency versions
+feather env check             # env keys config.py reads vs what is set
+feather docker init           # write the Docker deployment layout
+```
+
+`feather check` exists so the "Critical Rules" above are enforced rather than
+merely stated. When you add a rule to this document, add a check for it.
 
 ## Releasing
 
@@ -191,40 +204,44 @@ there is no API token anywhere. Set up once on PyPI on 2026-09-10.
 
 ## Lessons from apps in production (2026-09)
 
-Things found while running OpenCVNGN on Feather, worth folding into the
-framework or its scaffold. Not yet done unless ticked.
+Things found while running OpenCVNGN and BRNR on Feather. Ticked items are
+folded into the framework or the scaffold.
 
-- [ ] **htmx extensions load after htmx has processed the page.** The
-      scaffold's `vendor.js` imports htmx (which initialises the document as
-      soon as it runs) and then `await import()`s the SSE extension, so any
-      `hx-ext="sse"` element present at page load never opens its
-      EventSource. `htmx.process()` will not re-init those nodes. OpenCVNGN's
-      fix: after the extensions load,
-      `document.querySelectorAll('[sse-connect]').forEach(el => htmx.trigger(el, 'htmx:afterProcessNode'))`.
-      Put that in the scaffold's vendor.js.
-- [ ] **Flask-Limiter 4 only enforces a decorated limit through the wrapper it
-      returns.** `limiter.limit(...)(app.view_functions[ep])` without assigning
-      the result back is a silent no-op. The scaffold's rate-limit helper
-      should re-register: `app.view_functions[ep] = limiter.limit(rule)(view)`.
-- [ ] **Static assets count against Flask-Limiter's default limit.** A page
-      load fetches ten or more scripts and fonts from Flask; busy users hit
-      429s on `/feather-static/*.js`. Exempt `static` and `feather_static`
-      endpoints via `limiter.request_filter`.
-- [ ] **Flask-WTF CSRF tokens expire after an hour** on top of the session
-      lifetime; a form left open (a pasted job description, a long
-      interview) fails with a generic error. Consider `WTF_CSRF_TIME_LIMIT =
-      None` as the scaffold default: the session bounds the token.
-- [ ] **Tests that hold one app context across requests from several test
+- [x] **htmx extensions load after htmx has processed the page.** The
+      scaffold's `vendor.js` imported htmx (which initialises the document as
+      soon as it runs) and then `await import()`ed the extension, so any
+      element present at page load never initialised. Fixed in 0.9.6: after
+      the extensions load, vendor.js re-triggers `htmx:afterProcessNode` on
+      `[hx-ext]` and `[sse-connect]` elements.
+- [x] **Flask-WTF CSRF tokens expire after an hour** on top of the session
+      lifetime, so a form left open fails with a generic error.
+      `WTF_CSRF_TIME_LIMIT = None` is the framework default since 0.9.6; the
+      session bounds the token.
+- [x] **Tests that hold one app context across requests from several test
       clients** all resolve to the first loaded user, because Flask-Login
-      caches the user on `g` for the app context. Document: seed inside a
-      context, make requests outside it.
-- [ ] **The custom confirm modal must be looked up at event time.** The
-      scaffold's confirm handler ran before the modal markup (which base.html
-      renders after the scripts) existed, so every `hx-confirm` fell through
-      to the native dialog. Resolve the modal inside the `htmx:confirm`
-      handler.
+      caches the user on `g` for the app context. The README's testing
+      section documents this (0.9.7); seed inside a context, make requests
+      outside it.
+- [x] **The custom confirm modal must be looked up at event time.** The
+      handler ran before the modal markup existed, so every `hx-confirm` fell
+      through to the native dialog. Fixed in 0.9.6: the modal is resolved
+      inside the `htmx:confirm` handler, and the admin layout no longer
+      renders a second copy.
+- [x] **The Tailwind `@source` must not be an absolute path.** The scaffold
+      wrote the scaffolding machine's Feather install path into `app.css`, so
+      in any image built elsewhere Tailwind emitted no CSS for framework
+      components and they shipped unstyled. Fixed in 0.9.7 via the
+      `.feather-templates` link.
 - [x] Thread job backend and `job_timeout` (0.9.5).
 - [x] Logout and the remember cookie (0.9.5).
+- [ ] **Adopt Flask-Limiter in the scaffold.** The framework's `@rate_limit`
+      is per-process, so it does nothing useful across gunicorn workers. Two
+      traps when adding it: `limiter.limit(...)(app.view_functions[ep])` is a
+      silent no-op unless the result is assigned back
+      (`app.view_functions[ep] = limiter.limit(rule)(view)`); and static
+      assets count against the default limit, so a page load of ten scripts
+      and fonts earns a 429 unless `static` and `feather_static` are exempted
+      through `limiter.request_filter`.
 
 ## Testing
 

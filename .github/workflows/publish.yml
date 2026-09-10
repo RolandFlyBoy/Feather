@@ -32,7 +32,9 @@ jobs:
           test "$pkg" = "$init" && test "$pkg" = "$tag"
       - name: Test
         run: |
-          pip install -e ".[dev]" 2>/dev/null || pip install -e . pytest
+          # [dev] pulls in [all]: the suite imports rq, redis, weasyprint
+          # and google.cloud, which are extras from 0.9.8 on.
+          pip install -e ".[dev]" 2>/dev/null || pip install -e ".[all]"
           python -m pytest -q
       - name: Build
         run: |

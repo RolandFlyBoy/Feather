@@ -1,0 +1,98 @@
+/**
+ * App Initialization
+ * ===================
+ * Common utilities and initialization for the application.
+ *
+ * Usage:
+ *   Include in base.html:
+ *   <script src="http://localhost:5173/static/js/app.js"></script>
+ */
+
+(function() {
+  "use strict";
+
+  // Custom confirm modal handler for hx-confirm.
+  //
+  // The modal markup is rendered by base.html *after* this script, so the
+  // element is looked up when the event fires - never at load time, which
+  // would find nothing and let every hx-confirm fall through to the native
+  // browser dialog. Click handling is delegated to the document for the
+  // same reason. Admin pages reuse this handler (admin.js does not
+  // register its own).
+  (function() {
+    let issueRequest = null;
+
+    function closeConfirmModal() {
+      const modal = document.getElementById("confirm-modal");
+      if (modal) modal.classList.add("hidden");
+      issueRequest = null;
+    }
+
+    document.body.addEventListener("htmx:confirm", (e) => {
+      // Only intercept if there is an hx-confirm attribute with a message
+      if (!e.detail.question) return;
+
+      const modal = document.getElementById("confirm-modal");
+      const message = document.getElementById("confirm-message");
+      if (!modal || !message) return;  // no modal on this page - native dialog
+
+      e.preventDefault();
+      message.textContent = e.detail.question;
+      issueRequest = e.detail.issueRequest;
+      modal.classList.remove("hidden");
+    });
+
+    document.addEventListener("click", (e) => {
+      const modal = document.getElementById("confirm-modal");
+      if (!modal || modal.classList.contains("hidden")) return;
+      if (!modal.contains(e.target)) return;
+
+      const trigger = e.target.closest("[data-action], #confirm-button");
+      if (!trigger) return;
+
+      const action = trigger.id === "confirm-button" ? "confirm" : trigger.dataset.action;
+      if (action === "confirm") {
+        const request = issueRequest;
+        closeConfirmModal();
+        if (request) request(true);
+      } else if (action === "cancel") {
+        closeConfirmModal();
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeConfirmModal();
+    });
+
+    // Exposed so other scripts (e.g. admin.js) can dismiss the modal
+    window.closeConfirmModal = closeConfirmModal;
+  })();
+
+  /**
+   * Initialize all components on page load and after HTMX swaps.
+   * Add your initialization code here.
+   */
+  function initComponents(container = document) {
+    // Dropdowns are auto-initialized by dropdown.js
+    // Add any app-specific initialization here
+
+    // Example: Initialize tooltips
+    // initTooltips(container);
+  }
+
+  // Initialize on DOM ready
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => initComponents());
+  } else {
+    initComponents();
+  }
+
+  // Re-initialize after HTMX swaps
+  document.addEventListener("htmx:afterSwap", (e) => {
+    initComponents(e.detail.target);
+  });
+
+  // Expose for manual initialization
+  window.initComponents = initComponents;
+})();

@@ -1,0 +1,146 @@
+"""Database seeds - Run with: python seeds.py"""
+
+from datetime import datetime, timezone
+
+from sqlalchemy import func
+
+from app import app
+from feather.db import db
+from models import User, Tenant, Account, AccountUser
+
+# Platform admin email (set during project creation)
+ADMIN_EMAIL = __FEATHER_ADMIN_EMAIL_LINE__
+
+
+def _create_tenant_from_email(email):
+    """Create a tenant from an email domain.
+
+    E.g., admin@acme.com -> Tenant(name="Acme", slug="acme", domain="acme.com")
+    Returns existing tenant if one already exists for the domain.
+    """
+    domain = email.split("@")[1]
+    name = domain.split(".")[0].title()  # acme.com -> Acme
+    slug = name.lower()
+
+    # Check if tenant already exists
+    tenant = Tenant.query.filter_by(domain=domain).first()
+    if tenant:
+        return tenant
+
+    # Create new tenant
+    tenant = Tenant(
+        name=name,
+        slug=slug,
+        domain=domain,
+        status="active",
+    )
+    db.session.add(tenant)
+    db.session.flush()  # Get tenant.id
+    return tenant
+
+
+def _create_account_for_user(user):
+    """Create an Account and AccountUser for a user.
+
+    This sets up the multi-profile system:
+    - Creates an Account owned by the user
+    - Creates an AccountUser linking user to account as admin
+    - Sets user.subscription_owner_account_id
+    """
+    # Check if user already has an account
+    if user.subscription_owner_account_id:
+        return
+
+    # Create account
+    account = Account(
+        name=__FEATHER_ACCOUNT_NAME_EXPR__,
+        avatar_url=Account.random_avatar(),
+        owner_user_id=user.id,
+    )
+    db.session.add(account)
+    db.session.flush()  # Get account.id
+
+    # Create account membership
+    account_user = AccountUser(
+        user_id=user.id,
+        account_id=account.id,
+        role="admin",
+    )
+    db.session.add(account_user)
+
+    # Set subscription owner
+    user.subscription_owner_account_id = account.id
+
+
+def seed():
+    """Create initial platform admin user with tenant and account.
+
+    The platform admin:
+    - Is assigned to a tenant created from their email domain
+    - Has is_platform_admin=True so they can manage all tenants
+    - Can use tenant-scoped features (which require a tenant_id)
+
+    The admin can log in with Google OAuth.
+    """
+    if not ADMIN_EMAIL:
+        print("Set ADMIN_EMAIL at the top of this file first")
+        return
+
+    email = ADMIN_EMAIL
+
+    # Create or get tenant from admin's email domain
+    tenant = _create_tenant_from_email(email)
+
+    # Create or update admin user (case-insensitive email lookup)
+    existing = User.query.filter(func.lower(User.email) == email.lower()).first()
+    if existing:
+        # Update existing user to be platform admin
+        changed = False
+        if existing.role != "admin":
+            existing.role = "admin"
+            changed = True
+        if not existing.is_platform_admin:
+            existing.is_platform_admin = True
+            changed = True
+        if not existing.active:
+            existing.active = True
+            existing.approved_at = datetime.now(timezone.utc)
+            changed = True
+        # Ensure they have a tenant
+        if not existing.tenant_id:
+            existing.tenant_id = tenant.id
+            changed = True
+        # Ensure they have an account
+        if not existing.subscription_owner_account_id:
+            _create_account_for_user(existing)
+            changed = True
+        if changed:
+            db.session.commit()
+            print(f"Granted platform admin access to: {email} (tenant: {tenant.name})")
+        else:
+            print(f"Platform admin already exists: {email}")
+        return
+
+    # Create new platform admin with tenant
+    admin = User(
+        email=email,
+        username=email.split("@")[0],
+        tenant_id=tenant.id,  # Platform admin belongs to a tenant for tenant-scoped features
+        role="admin",
+        is_platform_admin=True,  # But can still manage all tenants
+        active=True,  # Initial admin is pre-approved
+        approved_at=datetime.now(timezone.utc)
+    )
+    db.session.add(admin)
+    db.session.flush()  # Get admin.id for account creation
+
+    # Create account for admin
+    _create_account_for_user(admin)
+
+    db.session.commit()
+    print(f"Created platform admin: {email} (tenant: {tenant.name})")
+
+
+if __name__ == "__main__":
+    with app.app_context():
+        seed()

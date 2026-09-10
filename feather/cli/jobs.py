@@ -97,13 +97,14 @@ def list_jobs(status, stuck, stuck_minutes, queue_name):
 
 def _list_rq_jobs(queue, queue_name, status_filter):
     """List jobs from RQ registries."""
-    from rq.job import Job
-    from rq.registry import (
-        FailedJobRegistry,
-        FinishedJobRegistry,
-        ScheduledJobRegistry,
-        StartedJobRegistry,
-    )
+    from feather._optional import require
+
+    Job = require("rq.job", feature="feather jobs").Job
+    registry = require("rq.registry", feature="feather jobs")
+    FailedJobRegistry = registry.FailedJobRegistry
+    FinishedJobRegistry = registry.FinishedJobRegistry
+    ScheduledJobRegistry = registry.ScheduledJobRegistry
+    StartedJobRegistry = registry.StartedJobRegistry
 
     rq_queue = queue._get_queue(queue_name)
 
@@ -284,12 +285,13 @@ def queue_status():
 
     # RQ backend: show registry counts
     if hasattr(queue, '_redis'):
-        from rq.registry import (
-            FailedJobRegistry,
-            FinishedJobRegistry,
-            ScheduledJobRegistry,
-            StartedJobRegistry,
-        )
+        from feather._optional import require
+
+        registry = require("rq.registry", feature="feather jobs")
+        FailedJobRegistry = registry.FailedJobRegistry
+        FinishedJobRegistry = registry.FinishedJobRegistry
+        ScheduledJobRegistry = registry.ScheduledJobRegistry
+        StartedJobRegistry = registry.StartedJobRegistry
 
         rq_queue = queue._get_queue("default")
 

@@ -1,0 +1,108 @@
+{% extends "pages/admin/base.html" %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    <!-- Back link and header -->
+    <div>
+        <a href="{{ url_for('admin.tenants_page') }}"
+           class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+            <span class="material-symbols-outlined text-sm mr-1">arrow_back</span>
+            Back to Tenants
+        </a>
+        <h2 class="text-2xl font-semibold text-gray-900">{{ tenant.name }}</h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Column: Tenant Info -->
+        <div class="lg:col-span-2">
+            <!-- Tenant Profile Card -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-gray-600 text-3xl">business</span>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-900">{{ tenant.name }}</h3>
+                            <p class="text-gray-600">{{ tenant.slug }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <dl class="grid grid-cols-2 gap-4">
+                        <div>
+                            <dt class="text-sm text-gray-600">Domain</dt>
+                            <dd class="font-medium">{{ tenant.domain }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Status</dt>
+                            <dd>
+                                {% if tenant.status == 'active' %}
+                                <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                                {% elif tenant.status == 'pending' %}
+                                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                                {% else %}
+                                <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Created</dt>
+                            <dd class="font-medium">{{ tenant.created_at.strftime('%B %d, %Y') }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm text-gray-600">Users</dt>
+                            <dd class="font-medium">{{ users|length }}</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Actions -->
+        <div id="tenant-actions">
+            {% include "partials/admin/tenant_actions.html" %}
+        </div>
+    </div>
+
+    <!-- Users in Tenant (Full Width) -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <h4 class="font-semibold text-gray-900">Users in {{ tenant.name }}</h4>
+        </div>
+        <div class="divide-y divide-gray-200">
+            {% for user in users %}
+            <a href="{{ url_for('admin.user_detail_page', user_id=user.id) }}"
+               class="flex items-center gap-3 p-4 hover:bg-gray-50">
+                {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
+                <img src="{{ avatar_url }}"
+                     alt="{{ user.display_name or user.email }}"
+                     class="w-10 h-10 rounded-full"
+                     referrerpolicy="no-referrer">
+                <div class="flex-1">
+                    <p class="font-medium">{{ user.display_name or user.email }}</p>
+                    <p class="text-sm text-gray-600">{{ user.email }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if user.role == 'admin' %}
+                    <span class="px-2 py-1 text-xs bg-black text-white rounded">Admin</span>
+                    {% endif %}
+                    {% if user.active %}
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+
+            {% if not users %}
+            <div class="p-8 text-center text-gray-500">
+                <span class="material-symbols-outlined text-4xl mb-2">group</span>
+                <p class="text-sm">No users in this tenant</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

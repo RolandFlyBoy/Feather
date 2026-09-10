@@ -179,8 +179,36 @@ class EventDispatcher:
         _executor.submit(run_listener)
 
 
-#: Global dispatcher instance used by dispatch() and @listen()
+#: Process-level dispatcher used by dispatch() and @listen().
+#:
+#: Unlike the queue and the cache, the dispatcher is deliberately shared by
+#: default: ``@listen`` runs at import time, usually before any app exists,
+#: so per-app dispatchers would silently drop every listener a project
+#: declares in listeners.py. An app that genuinely needs its own listener
+#: set opts in::
+#:
+#:     from feather.events import EventDispatcher
+#:     app.extensions.setdefault("feather", {})["dispatcher"] = EventDispatcher()
+#:
+#: and everything dispatched inside that app context goes to it instead.
 _dispatcher = EventDispatcher()
+
+#: Registry key for an app's opt-in dispatcher.
+_DISPATCHER_KEY = "dispatcher"
+
+
+def get_dispatcher() -> EventDispatcher:
+    """The dispatcher events go to right now.
+
+    The current app's dispatcher when it declared one (see
+    :data:`_dispatcher`), otherwise the process-level dispatcher.
+
+    Returns:
+        The EventDispatcher that :func:`dispatch` and :func:`listen` use.
+    """
+    from feather.core.registry import feather_state
+
+    return feather_state().get(_DISPATCHER_KEY) or _dispatcher
 
 
 def dispatch(event: Event) -> None:
@@ -212,7 +240,7 @@ def dispatch(event: Event) -> None:
         - If listeners fail, exceptions are logged but don't affect your code
         - Multiple listeners for the same event all get called
     """
-    _dispatcher.dispatch(event)
+    get_dispatcher().dispatch(event)
 
 
 def listen(event_class: Type[Event], async_: bool = False) -> Callable:
@@ -265,7 +293,7 @@ def listen(event_class: Type[Event], async_: bool = False) -> Callable:
     """
 
     def decorator(func: Callable) -> Callable:
-        _dispatcher.listen(event_class, func, async_=async_)
+        get_dispatcher().listen(event_class, func, async_=async_)
         return func
 
     return decorator

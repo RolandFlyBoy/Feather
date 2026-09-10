@@ -1,0 +1,90 @@
+"""Account models for multi-profile support."""
+
+import random
+import uuid
+from datetime import datetime, timezone
+
+from feather.db import db, Model
+
+
+class Account(Model):
+    """Account model - represents an organization/workspace.
+
+    Users can belong to multiple accounts via AccountUser.
+    Each account has an owner user who created it.
+
+    Attributes:
+        id: UUID primary key
+        name: Display name for the account
+        avatar_url: URL to account avatar/logo
+        owner_user_id: The user who owns/created this account
+        created_at: Timestamp of creation
+        updated_at: Timestamp of last update
+    """
+
+    __tablename__ = "accounts"
+
+    # Default avatar options for new accounts
+    AVATAR_OPTIONS = [
+        "https://api.dicebear.com/7.x/shapes/svg?seed=1",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=2",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=3",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=4",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=5",
+    ]
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = db.Column(db.String(100), nullable=False)
+    avatar_url = db.Column(db.String(500))
+    # use_alter=True defers FK creation to handle circular dependency with User model
+    owner_user_id = db.Column(db.String(36), db.ForeignKey("users.id", use_alter=True), nullable=False)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    owner = db.relationship("User", foreign_keys=[owner_user_id], backref="owned_accounts")
+    members = db.relationship("AccountUser", back_populates="account", cascade="all, delete-orphan")
+
+    @classmethod
+    def random_avatar(cls):
+        """Get a random avatar URL for new accounts."""
+        return random.choice(cls.AVATAR_OPTIONS)
+
+    def __repr__(self):
+        return f"<Account {self.name}>"
+
+
+class AccountUser(Model):
+    """Join table linking users to accounts with roles.
+
+    Attributes:
+        id: UUID primary key
+        user_id: Foreign key to user
+        account_id: Foreign key to account
+        role: User's role within this account (admin, member)
+        created_at: Timestamp of when user joined account
+    """
+
+    __tablename__ = "account_users"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False)
+    account_id = db.Column(db.String(36), db.ForeignKey("accounts.id"), nullable=False)
+    role = db.Column(db.String(50), default="member", nullable=False)  # admin, member
+
+    # Timestamp
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = db.relationship("User", backref="account_memberships")
+    account = db.relationship("Account", back_populates="members")
+
+    # Unique constraint - user can only be in an account once
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "account_id", name="uq_user_account"),
+    )
+
+    def __repr__(self):
+        return f"<AccountUser {self.user_id} in {self.account_id}>"

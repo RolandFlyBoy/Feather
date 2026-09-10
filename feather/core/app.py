@@ -158,6 +158,13 @@ class Feather(Flask):
         """
         super().__init__(import_name, **kwargs)
 
+        # Feather's own per-app state (queue, cache, rate limiter, Vite
+        # manifest). Created here so `app.extensions["feather"]` always
+        # exists - an app that wants its own event dispatcher, say, can
+        # assign into it without a setdefault dance. See
+        # feather/core/registry.py.
+        self.extensions.setdefault("feather", {})
+
         # Register framework templates and static files
         # This allows Flask to find templates in feather/templates/ (components, errors)
         # and static files in feather/static/ (api.js, feather.js, favicon.svg)

@@ -1,0 +1,96 @@
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <table class="w-full">
+        <thead class="admin-table-header">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">User</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Joined</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for user in users %}
+            <tr class="hover:bg-gray-50 cursor-pointer"
+                data-href="{{ url_for('admin.user_detail_page', user_id=user.id) }}">
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
+                        <img src="{{ avatar_url }}"
+                             alt="{{ user.display_name or user.email }}"
+                             class="w-10 h-10 rounded-full"
+                             referrerpolicy="no-referrer"
+                             crossorigin="anonymous">
+                        <div>
+                            <p class="font-medium">{{ user.display_name or user.email }}</p>
+                            {% if user.username is defined and user.username %}
+                            <p class="text-sm text-gray-600">@{{ user.username }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ user.email }}</td>
+                <td class="px-4 py-3">
+                    {% if user.role == 'admin' %}
+                    <span class="px-2 py-1 text-xs bg-black text-white rounded">Admin</span>
+                    {% elif user.role == 'editor' %}
+                    <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">Editor</span>
+                    {% elif user.role == 'moderator' %}
+                    <span class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">Moderator</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">{{ (user.role or 'user')|title }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    __FEATHER_STATUS_BADGE__
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-600">{{ user.created_at.strftime('%b %d, %Y') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not users %}
+    <div class="p-8 text-center text-gray-500">
+        <span class="material-symbols-outlined text-4xl mb-2">search_off</span>
+        <p class="text-sm">No users found</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="flex items-center justify-between mt-4">
+    <div class="text-sm text-gray-600">
+        Showing {{ pagination.start }}-{{ pagination.end }} of {{ pagination.total }}
+    </div>
+    <div class="flex gap-2">
+        {% if pagination.has_prev %}
+        <a href="?page={{ pagination.page - 1 }}"
+           hx-get="{{ url_for('admin.users_page', page=pagination.page - 1) }}"
+           hx-target="#users-table-container"
+           hx-select="#users-table-container"
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+            Previous
+        </a>
+        {% else %}
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
+            Previous
+        </button>
+        {% endif %}
+        {% if pagination.has_next %}
+        <a href="?page={{ pagination.page + 1 }}"
+           hx-get="{{ url_for('admin.users_page', page=pagination.page + 1) }}"
+           hx-target="#users-table-container"
+           hx-select="#users-table-container"
+           class="px-4 py-2 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+            Next
+        </a>
+        {% else %}
+        <button disabled class="px-4 py-2 text-sm bg-white border border-gray-300 rounded opacity-50 cursor-not-allowed">
+            Next
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

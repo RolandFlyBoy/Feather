@@ -510,8 +510,12 @@ class _RateLimiter:
             self._calls_since_cleanup = 0
 
 
-# Global rate limiter instance
-_rate_limiter = _RateLimiter()
+#: Registry key for the per-app rate limiter.
+_RATE_LIMITER_KEY = "rate_limiter"
+
+
+def _build_rate_limiter(app) -> "_RateLimiter":
+    return _RateLimiter()
 
 
 def rate_limit(
@@ -612,7 +616,7 @@ def rate_limit(
             rate_key = f"{f.__name__}:{':'.join(parts)}"
 
             # Check rate limit
-            allowed, remaining = _rate_limiter.is_allowed(rate_key, limit, period)
+            allowed, remaining = get_rate_limiter().is_allowed(rate_key, limit, period)
 
             if not allowed:
                 error_message = message or f"Rate limit exceeded. Try again in {period} seconds."
@@ -626,12 +630,15 @@ def rate_limit(
 
 
 def get_rate_limiter() -> _RateLimiter:
-    """Get the global rate limiter instance.
+    """Get the rate limiter for the current app.
 
-    Useful for testing or custom rate limit logic.
+    One limiter per Flask app, stored in ``app.extensions["feather"]``, so
+    two apps in one process do not share counters (before 0.9.8 they did,
+    and a burst against one app throttled the other). Outside an app
+    context it resolves to the process-level default limiter.
 
     Returns:
-        The global _RateLimiter instance.
+        The _RateLimiter for this app.
 
     Example::
 
@@ -641,4 +648,22 @@ def get_rate_limiter() -> _RateLimiter:
         def teardown_function():
             get_rate_limiter()._requests.clear()
     """
-    return _rate_limiter
+    from feather.core.registry import get_backend
+
+    return get_backend(_RATE_LIMITER_KEY, _build_rate_limiter)
+
+
+def __getattr__(name):
+    """Deprecation shim for the 0.9.7 module-level rate limiter."""
+    if name == "_rate_limiter":
+        import warnings
+
+        warnings.warn(
+            "feather.auth.decorators._rate_limiter was replaced by the per-app "
+            "registry in 0.9.8. Use get_rate_limiter(); assigning to "
+            "_rate_limiter no longer has any effect.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return get_rate_limiter()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

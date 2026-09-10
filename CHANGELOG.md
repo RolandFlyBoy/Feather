@@ -5,6 +5,110 @@ Releases are tags (`vX.Y.Z`) published to PyPI by `.github/workflows/publish.yml
 
 ## Unreleased
 
+## 0.9.8 (2026-09-10) — optional dependencies, one auth decorator, per-app backends
+
+This is the release with intentional breaks. Every one is listed under
+"Upgrade notes", and each has a deprecation warning rather than a silent
+change of behaviour where that was possible.
+
+Optional dependencies
+
+- **A bare install no longer pulls in WeasyPrint, google-cloud-storage,
+  psycopg2, redis, rq, resend, gunicorn or pytest.** Every app was installing
+  a PDF renderer and a cloud SDK whether or not it used them. They are extras
+  now: `pdf`, `gcs`, `postgres`, `redis`, `email`, `prod`, `test`, plus `all`.
+- Every module that imports one of them fails with a message naming the exact
+  install command instead of an import traceback.
+- `feather new` writes a `requirements.txt` naming the extras the app actually
+  enabled, so a generated app installs what it needs and nothing else.
+- `feather --version` and `feather security-check` report which extras are
+  installed.
+
+One `auth_required`
+
+- `feather.auth_required` and `feather.auth.auth_required` were two different
+  decorators with the same name. Which one an app imported decided whether a
+  suspended user got a generic authorization error or the specific one that
+  drives the suspended and pending page redirects. They are now the same
+  object, and the tenancy-aware behaviour is the one that survives.
+
+Per-app backends
+
+- The job queue, cache, rate limiter and asset manifest were module-level
+  singletons, so two apps in one process shared them. They now live in
+  `app.extensions["feather"]`. `get_queue()` and `get_cache()` are unchanged;
+  reading the old private names warns, and assigning to them no longer does
+  anything. Use `feather.core.registry.set_backend` and `reset_backends`.
+- The event dispatcher stays process-wide on purpose: `@listen` runs at import
+  time, before any app exists, so a per-app dispatcher would silently drop
+  every listener. An app opts in by setting its own on `app.extensions`.
+
+Fixed
+
+- `@job(retry=N)` was silently ignored on the RQ backend while working on the
+  others. It is honoured now. `@job(concurrency=N)` cannot be supported on RQ
+  and warns once per job instead of doing nothing quietly.
+- The RQ backend passed framework keyword arguments through to the job
+  function, which the other backends stopped doing in 0.9.6.
+- The job and cache backends re-read the environment directly, ignoring
+  values set in `config.py`. They go through the app's configuration now, with
+  the environment as the fallback. No default changed.
+- **A scaffolded app with email but no authentication could not start.** The
+  generated `services/__init__.py` imported an email service module that was
+  only written when authentication was also enabled, and service discovery
+  raised on the missing module before the app served a request.
+- The scaffold's own template files were missing from the built wheel, so a
+  `feather new` run from a PyPI install would have failed. They ship now, and
+  a test builds a wheel to keep it that way.
+
+Typing
+
+- `paginate`, `to_dict`, `JobResult`, `@inject` and the storage, cache and
+  queue interfaces are annotated. With `py.typed` from 0.9.7, a type checker
+  and an AI assistant now both get real signatures.
+
+Internal
+
+- The scaffold generator was 7,785 lines of Python string literals containing
+  CSS, HTML, Jinja and Python. The file bodies are now 123 real files under
+  `feather/scaffold/`, applied as overlays, and the generator is 627 lines.
+  Generated output is unchanged: 176 option combinations, 10,176 files,
+  compared byte for byte. Two things fell out of the move: the sidebar logo
+  was pasted four times and is now written once, and the multi-tenant admin
+  service was previously produced by eleven string replacements against the
+  single-tenant source, any one of which could have silently stopped matching
+  and shipped an admin panel that read every tenant's data.
+
+Upgrade notes
+
+- **Every app must name its extras in `requirements.txt`:**
+
+  ```
+  - feather-framework==0.9.7
+  + feather-framework[postgres,redis,email,prod,test]==0.9.8
+  ```
+
+  Choose by feature: `postgres` for a `postgresql://` URL, `redis` for
+  `CACHE_BACKEND=redis` or `JOB_BACKEND=rq`, `email` for Resend, `gcs` for
+  `STORAGE_BACKEND=gcs`, `pdf` for WeasyPrint, `prod` for gunicorn (which
+  `feather start` and the Docker web process need), `test` for the app's own
+  pytest run. `feather-framework[all]==0.9.8` reproduces 0.9.7 exactly.
+  `feather security-check` reports what is installed. Dockerfiles need no
+  change: the generated install line already quotes the whole specifier.
+- **A suspended user now yields `ACCOUNT_SUSPENDED`, not
+  `AUTHORIZATION_ERROR`.** The status is still 403 and the exception is still
+  an `AuthorizationError` subclass, so only code matching on the error string
+  is affected. A user model with no `approved_at` attribute now reports
+  suspended rather than pending.
+- **Assigning to `feather.jobs._queue_instance`, `feather.cache._cache_instance`
+  or the private rate limiter no longer has any effect.** Reading them warns.
+  Tests that swapped a backend that way should use
+  `feather.core.registry.set_backend`.
+- **`GET /auth/logout` is deprecated.** It still works and now warns. Change
+  `<a href="/auth/logout">` to a form that POSTs; the scaffold already does.
+- `GCSStorage` without the package raises `MissingGCSDependency`, which is both
+  an `ImportError` and a `StorageError`, so existing handlers still catch it.
+
 ## 0.9.7 (2026-09-10) — Docker deployment, Render removed, machine-checkable conventions
 
 Additive for apps on 0.9.6. One manual step is needed to fix a bug that

@@ -1,0 +1,51 @@
+"""Tests for authentication flows."""
+
+import pytest
+from models.user import User
+from feather.db import db
+
+
+class TestPublicAccess:
+    """Test public route access."""
+
+    def test_home_page_accessible(self, client):
+        """Home page is accessible without authentication."""
+        response = client.get("/")
+        assert response.status_code == 200
+
+    def test_health_check_accessible(self, client):
+        """Health check is accessible without authentication."""
+        response = client.get("/health")
+        assert response.status_code == 200
+
+
+class TestProtectedRoutes:
+    """Test that protected routes require authentication."""
+
+    def test_admin_requires_auth(self, client):
+        """Admin panel requires authentication."""
+        response = client.get("/admin/")
+        # Should redirect to login or return 401
+        assert response.status_code in [302, 401, 403]
+
+    def test_admin_users_requires_auth(self, client):
+        """Admin users page requires authentication."""
+        response = client.get("/admin/users")
+        assert response.status_code in [302, 401, 403]
+
+
+class TestLoginFlow:
+    """Test login behavior."""
+
+    def test_google_login_route_exists(self, client):
+        """Google login route is registered."""
+        response = client.get("/auth/google/login")
+        # 302 = OAuth configured and redirecting
+        # 503 = OAuth not configured (expected in tests without credentials)
+        assert response.status_code in [302, 503]
+
+    def test_logout_route_exists(self, client):
+        """Logout route is registered and redirects."""
+        response = client.get("/auth/logout")
+        # Should redirect to home
+        assert response.status_code == 302

@@ -1,0 +1,91 @@
+/**
+ * Admin Analytics Chart
+ * ======================
+ * ECharts rendering for user growth analytics.
+ */
+
+(function() {
+  "use strict";
+
+  var container = document.getElementById("chart-container");
+  var chartEl = document.getElementById("user-growth-chart");
+  var chart = null;
+
+  function isDark() {
+    return document.documentElement.classList.contains("dark");
+  }
+
+  function themeColors() {
+    var dark = isDark();
+    return {
+      text: dark ? "#94a3b8" : "#6b7280",
+      line: dark ? "#818cf8" : "#000",
+      area: dark ? "rgba(129, 140, 248, 0.1)" : "rgba(0, 0, 0, 0.1)",
+      splitLine: dark ? "#334155" : "#e5e7eb"
+    };
+  }
+
+  async function loadAndRender(days) {
+    if (!container) return;
+    var apiUrl = container.dataset.apiUrl;
+    if (!apiUrl) return;
+
+    try {
+      var result = await ApiUtility.get(apiUrl + "?days=" + days);
+      if (result.success && result.data) {
+        renderChart(result.data);
+      }
+    } catch (error) {
+      console.error("Failed to load user growth data:", error);
+    }
+  }
+
+  function renderChart(data) {
+    if (!chartEl) return;
+    if (chart) chart.dispose();
+
+    chart = echarts.init(chartEl);
+    var colors = themeColors();
+
+    chart.setOption({
+      tooltip: { trigger: "axis" },
+      grid: { left: 40, right: 20, top: 20, bottom: 30 },
+      xAxis: {
+        type: "category",
+        data: data.map(function(d) {
+          return new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        }),
+        axisLabel: { color: colors.text },
+        axisLine: { lineStyle: { color: colors.splitLine } }
+      },
+      yAxis: {
+        type: "value",
+        minInterval: 1,
+        axisLabel: { color: colors.text },
+        splitLine: { lineStyle: { color: colors.splitLine } }
+      },
+      series: [{
+        type: "line",
+        data: data.map(function(d) { return d.count; }),
+        smooth: true,
+        lineStyle: { color: colors.line },
+        itemStyle: { color: colors.line },
+        areaStyle: { color: colors.area }
+      }]
+    });
+  }
+
+  window.addEventListener("resize", function() {
+    if (chart) chart.resize();
+  });
+
+  document.addEventListener("DOMContentLoaded", function() {
+    var selector = document.getElementById("time-range-select");
+    if (selector) {
+      selector.addEventListener("change", function(e) {
+        loadAndRender(parseInt(e.target.value));
+      });
+    }
+    loadAndRender(30);
+  });
+})();

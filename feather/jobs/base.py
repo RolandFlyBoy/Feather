@@ -39,7 +39,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Generic, Optional, TypeVar
+
+#: The type a job function returns. ``JobResult[User]`` is the result of a
+#: job whose function returns a ``User``; plain ``JobResult`` still works and
+#: means ``JobResult[Any]``.
+T = TypeVar("T")
 
 
 #: Keyword arguments that belong to the queue itself, never to the job
@@ -63,7 +68,7 @@ FRAMEWORK_ENQUEUE_KWARGS = frozenset(
 )
 
 
-def strip_framework_kwargs(kwargs: dict) -> tuple[dict, dict]:
+def strip_framework_kwargs(kwargs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """Split enqueue kwargs into framework options and function kwargs.
 
     Args:
@@ -91,8 +96,17 @@ class JobStatus(Enum):
 
 
 @dataclass
-class JobResult:
+class JobResult(Generic[T]):
     """Result of a job execution.
+
+    Generic over what the job function returns, so a typed helper can say
+    what ``result`` holds::
+
+        def enqueue_report() -> JobResult[Report]:
+            return get_queue().enqueue(build_report)
+
+    Plain ``JobResult`` is ``JobResult[Any]``, so nothing that already used
+    it needs to change.
 
     Attributes:
         job_id: Unique job identifier.
@@ -106,7 +120,7 @@ class JobResult:
 
     job_id: str
     status: JobStatus
-    result: Any = None
+    result: Optional[T] = None
     error: Optional[str] = None
     enqueued_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
@@ -127,6 +141,13 @@ class JobQueue(ABC):
     All job queue backends must implement these methods to provide
     a consistent job queueing interface.
 
+    Attributes:
+        supports_concurrency: Whether the backend can honour
+            ``@job(concurrency=N)``. False by default; a backend that can
+            cap concurrent executions of one task sets it True, and the
+            @job decorator warns once instead of silently ignoring the
+            option on a backend that cannot.
+
     Example::
 
         class MyQueue(JobQueue):
@@ -143,15 +164,18 @@ class JobQueue(ABC):
                 pass
     """
 
+    #: Whether @job(concurrency=N) can be honoured (see the class docstring).
+    supports_concurrency: bool = False
+
     @abstractmethod
     def enqueue(
         self,
-        func: Callable,
-        *args,
+        func: Callable[..., Any],
+        *args: Any,
         queue_name: str = "default",
         delay: Optional[int] = None,
-        **kwargs,
-    ) -> JobResult:
+        **kwargs: Any,
+    ) -> JobResult[Any]:
         """Add a job to the queue.
 
         Args:
@@ -167,7 +191,7 @@ class JobQueue(ABC):
         pass
 
     @abstractmethod
-    def get_job(self, job_id: str) -> Optional[JobResult]:
+    def get_job(self, job_id: str) -> Optional[JobResult[Any]]:
         """Get the status of a job.
 
         Args:
@@ -192,12 +216,12 @@ class JobQueue(ABC):
 
     def enqueue_at(
         self,
-        func: Callable,
+        func: Callable[..., Any],
         scheduled_time: datetime,
-        *args,
+        *args: Any,
         queue_name: str = "default",
-        **kwargs,
-    ) -> JobResult:
+        **kwargs: Any,
+    ) -> JobResult[Any]:
         """Schedule a job to run at a specific time.
 
         Args:
@@ -224,12 +248,12 @@ class JobQueue(ABC):
 
     def enqueue_in(
         self,
-        func: Callable,
+        func: Callable[..., Any],
         delay_seconds: int,
-        *args,
+        *args: Any,
         queue_name: str = "default",
-        **kwargs,
-    ) -> JobResult:
+        **kwargs: Any,
+    ) -> JobResult[Any]:
         """Schedule a job to run after a delay.
 
         Args:
@@ -255,7 +279,7 @@ class JobQueue(ABC):
         """
         return 0  # Override in subclasses
 
-    def get_failed_jobs(self, queue_name: str = "default") -> list[JobResult]:
+    def get_failed_jobs(self, queue_name: str = "default") -> list[JobResult[Any]]:
         """Get failed jobs from a queue.
 
         Args:
@@ -266,7 +290,7 @@ class JobQueue(ABC):
         """
         return []  # Override in subclasses
 
-    def retry_job(self, job_id: str) -> Optional[JobResult]:
+    def retry_job(self, job_id: str) -> Optional[JobResult[Any]]:
         """Retry a failed job.
 
         Args:

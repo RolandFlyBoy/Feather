@@ -1,0 +1,25 @@
+"""Account status routes for suspended users."""
+
+from flask import redirect, render_template, url_for
+from flask_login import current_user, logout_user
+
+from feather import page
+from feather.auth import login_only
+
+
+__FEATHER_ACCOUNT_PENDING_ROUTE__@page.get("/account/suspended")
+@login_only
+def account_suspended():
+    """Show suspended page for users whose accounts have been deactivated."""
+    # If user is active, redirect to home
+    if current_user.active:
+        return redirect(url_for("page.home"))
+    return render_template("pages/account/suspended.html")
+
+
+@page.post("/account/logout")
+@login_only
+def account_logout():
+    """Log out the current user and redirect to home."""
+    logout_user()
+    return redirect(url_for("page.home"))

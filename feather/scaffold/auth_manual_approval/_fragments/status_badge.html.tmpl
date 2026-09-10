@@ -1,0 +1,7 @@
+{% if user.active %}
+                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    {% elif user.approved_at is defined and user.approved_at %}
+                    <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
+                    {% else %}
+                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                    {% endif %}

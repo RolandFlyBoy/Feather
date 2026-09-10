@@ -64,7 +64,11 @@ Note:
 from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Optional
 
-from feather.jobs.base import JobQueue, JobResult, JobStatus
+from feather._optional import require
+from feather.jobs.base import JobQueue, JobResult, JobStatus, strip_framework_kwargs
+
+#: What to say when rq/redis is missing.
+_RQ_FEATURE = "The RQ job backend"
 
 
 def resolve_serializer(name: str):
@@ -76,12 +80,11 @@ def resolve_serializer(name: str):
     based design needs. The queue and the worker MUST agree; `feather
     worker` reads the same setting.
     """
+    serializers = require("rq.serializers", feature=_RQ_FEATURE)
     if name is None or str(name).lower() in ("pickle", "default", ""):
-        from rq.serializers import DefaultSerializer
-        return DefaultSerializer
+        return serializers.DefaultSerializer
     if str(name).lower() == "json":
-        from rq.serializers import JSONSerializer
-        return JSONSerializer
+        return serializers.JSONSerializer
     raise ValueError(f"Unknown JOB_SERIALIZER {name!r}; use 'pickle' or 'json'")
 
 
@@ -123,6 +126,10 @@ class RQQueue(JobQueue):
             print(status.result)
     """
 
+    #: RQ has no per-task concurrency limit (it is a worker-count setting),
+    #: so @job(concurrency=N) cannot be honoured here.
+    supports_concurrency = False
+
     def __init__(
         self,
         redis_url: str = "redis://localhost:6379/0",
@@ -130,16 +137,11 @@ class RQQueue(JobQueue):
         default_timeout: int = 300,
         serializer: str = "pickle",
     ):
-        try:
-            from redis import Redis
-            from rq import Queue
-        except ImportError:
-            raise ImportError(
-                "RQ queue requires the 'rq' package. "
-                "Install it with: pip install rq"
-            )
+        redis_module = require("redis", feature=_RQ_FEATURE)
+        rq_module = require("rq", feature=_RQ_FEATURE)
+        Queue = rq_module.Queue
 
-        self._redis = Redis.from_url(redis_url)
+        self._redis = redis_module.Redis.from_url(redis_url)
         self._default_queue = default_queue
         self._default_timeout = default_timeout
         self._serializer = resolve_serializer(serializer)
@@ -155,7 +157,7 @@ class RQQueue(JobQueue):
 
     def _get_queue(self, name: str):
         """Get or create a queue by name."""
-        from rq import Queue
+        Queue = require("rq", feature=_RQ_FEATURE).Queue
 
         if name not in self._queues:
             self._queues[name] = Queue(
@@ -184,13 +186,21 @@ class RQQueue(JobQueue):
             queue_name: Name of the queue (default: 'default').
             delay: Delay execution by N seconds (optional).
             job_timeout: Timeout for this job in seconds (optional).
-            retry: Number of retry attempts on failure (optional).
-            **kwargs: Keyword arguments for the function.
+            retry: Number of retry attempts on failure, honoured through
+                ``rq.Retry`` (optional).
+            **kwargs: Keyword arguments for the function. Queue-level options
+                (``concurrency`` in particular, which RQ cannot express) are
+                stripped rather than passed to the function.
 
         Returns:
             JobResult with job_id and initial status.
         """
-        from rq import Retry
+        Retry = require("rq", feature=_RQ_FEATURE).Retry
+
+        # Strip queue-level options so they never reach the job function.
+        # RQ has no per-task concurrency limit; the @job decorator warns
+        # about that at enqueue time, so here it is simply dropped.
+        _framework_kwargs, kwargs = strip_framework_kwargs(kwargs)
 
         queue = self._get_queue(queue_name)
 
@@ -233,7 +243,7 @@ class RQQueue(JobQueue):
         Returns:
             JobResult or None if not found.
         """
-        from rq.job import Job
+        Job = require("rq.job", feature=_RQ_FEATURE).Job
 
         try:
             job = Job.fetch(job_id, connection=self._redis, serializer=self._serializer)
@@ -265,7 +275,7 @@ class RQQueue(JobQueue):
         Returns:
             True if job was canceled, False if not found or already started.
         """
-        from rq.job import Job
+        Job = require("rq.job", feature=_RQ_FEATURE).Job
 
         try:
             job = Job.fetch(job_id, connection=self._redis, serializer=self._serializer)
@@ -297,7 +307,9 @@ class RQQueue(JobQueue):
         Returns:
             List of failed JobResults.
         """
-        from rq.registry import FailedJobRegistry
+        FailedJobRegistry = require(
+            "rq.registry", feature=_RQ_FEATURE
+        ).FailedJobRegistry
 
         queue = self._get_queue(queue_name)
         registry = FailedJobRegistry(queue=queue)
@@ -319,7 +331,7 @@ class RQQueue(JobQueue):
         Returns:
             New JobResult if retried, None if not found.
         """
-        from rq.job import Job
+        Job = require("rq.job", feature=_RQ_FEATURE).Job
 
         try:
             job = Job.fetch(job_id, connection=self._redis, serializer=self._serializer)

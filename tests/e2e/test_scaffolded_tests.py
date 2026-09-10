@@ -62,7 +62,13 @@ class TestScaffoldedTestsRun:
 
         # Install Feather framework (editable install from source)
         subprocess.run(
-            [str(pip), "install", "-e", str(feather_root)],
+            # [all]: from 0.9.8 the heavy packages (resend, redis, rq,
+            # weasyprint, google-cloud-storage, psycopg2) are extras, and a
+            # scaffolded app with the email or jobs features enabled imports
+            # them. A real app gets them through the extras its generated
+            # requirements.txt names; this harness installs the framework
+            # from source, so it takes the lot.
+            [str(pip), "install", "-e", f"{feather_root}[all]"],
             check=True,
             capture_output=True,
         )
@@ -243,7 +249,13 @@ class TestMigrationsWork:
 
         # Install Feather framework (editable install from source)
         subprocess.run(
-            [str(pip), "install", "-e", str(feather_root)],
+            # [all]: from 0.9.8 the heavy packages (resend, redis, rq,
+            # weasyprint, google-cloud-storage, psycopg2) are extras, and a
+            # scaffolded app with the email or jobs features enabled imports
+            # them. A real app gets them through the extras its generated
+            # requirements.txt names; this harness installs the framework
+            # from source, so it takes the lot.
+            [str(pip), "install", "-e", f"{feather_root}[all]"],
             check=True,
             capture_output=True,
         )
@@ -336,7 +348,13 @@ class TestMultiTenantMigrationsWork:
 
         # Install Feather framework (editable install from source)
         subprocess.run(
-            [str(pip), "install", "-e", str(feather_root)],
+            # [all]: from 0.9.8 the heavy packages (resend, redis, rq,
+            # weasyprint, google-cloud-storage, psycopg2) are extras, and a
+            # scaffolded app with the email or jobs features enabled imports
+            # them. A real app gets them through the extras its generated
+            # requirements.txt names; this harness installs the framework
+            # from source, so it takes the lot.
+            [str(pip), "install", "-e", f"{feather_root}[all]"],
             check=True,
             capture_output=True,
         )
@@ -536,7 +554,13 @@ def _scaffold_and_install(config, project_path, feather_root):
         python = venv_path / "bin" / "python"
 
     subprocess.run(
-        [str(pip), "install", "-e", str(feather_root)],
+        # [all]: from 0.9.8 the heavy packages (resend, redis, rq,
+        # weasyprint, google-cloud-storage, psycopg2) are extras, and a
+        # scaffolded app with the email or jobs features enabled imports
+        # them. A real app gets them through the extras its generated
+        # requirements.txt names; this harness installs the framework from
+        # source, so it takes the lot.
+        [str(pip), "install", "-e", f"{feather_root}[all]"],
         check=True,
         capture_output=True,
     )

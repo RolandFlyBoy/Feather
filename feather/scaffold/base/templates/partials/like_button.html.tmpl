@@ -1,0 +1,27 @@
+{#
+Like Button Partial
+===================
+An HTMX-powered like button that updates without page reload.
+
+This template is returned by the server after a like/unlike action.
+HTMX swaps this HTML into the page, updating the button state.
+
+Usage in a page template:
+    {% include "partials/like_button.html" %}
+
+Flask route example:
+    @api.post("/posts/<post_id>/like")
+    def like_post(post_id):
+        post = Post.query.get_or_404(post_id)
+        post.toggle_like(current_user)
+        return render_template("partials/like_button.html", post=post, liked=True)
+#}
+{% from "components/icon.html" import icon %}
+
+<button hx-post="/api/posts/{{ post.id }}/{% if liked %}unlike{% else %}like{% endif %}"
+        hx-swap="outerHTML"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors
+               {% if liked %}bg-red-50 text-red-600 hover:bg-red-100{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+    {{ icon("favorite", size="sm") }}
+    <span>{{ post.like_count if post else 0 }}</span>
+</button>

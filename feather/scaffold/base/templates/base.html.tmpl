@@ -1,0 +1,80 @@
+{% from "components/confirm_modal.html" import confirm_modal %}
+{% from "components/prompt_modal.html" import prompt_modal %}
+{% from "components/toast.html" import toast %}
+{% from "components/page_loader.html" import page_loader %}
+{% from "components/htmx_indicator.html" import htmx_indicator %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/svg+xml" href="/feather-static/favicon.svg">
+    <link rel="apple-touch-icon" href="/feather-static/apple-touch-icon.png">
+    <title>{% block title %}My App{% endblock %}</title>
+
+    <!-- Google Material Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+
+    {% if config.DEBUG %}
+    <!-- Development: Vite serves assets with HMR -->
+    <script type="module" src="http://localhost:5173/@vite/client"></script>
+    <link rel="stylesheet" href="http://localhost:5173/static/css/app.css">
+    {% else %}
+    <!-- Production: Use built assets from manifest -->
+    <link rel="stylesheet" href="{{ feather_asset('styles') }}">
+    {% endif %}
+
+    <!-- Dark mode: restore preference before render to avoid flash -->
+    <script src="/feather-static/dark-mode.js"></script>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-gray-100" hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
+    {{ page_loader() }}
+    <script src="/feather-static/page-loader.js"></script>
+    {{ htmx_indicator() }}
+    {% block content %}{% endblock %}
+
+    <!-- Vendor libs (htmx, idiomorph, echarts) - bundled from npm -->
+    {% if config.DEBUG %}
+    <script type="module" src="http://localhost:5173/static/js/vendor.js"></script>
+    {% else %}
+    <script type="module" src="{{ feather_asset('vendor') }}"></script>
+    {% endif %}
+
+    <!-- Framework JS (served from feather package) -->
+    <script src="/feather-static/api.js"></script>
+    <script src="/feather-static/feather.js"></script>
+    <script src="/feather-static/dropdown.js"></script>
+    <script src="/feather-static/toast.js"></script>
+    <script src="/feather-static/prompt-modal.js"></script>
+
+    <!-- App JS (shared utilities) -->
+    {% if config.DEBUG %}
+    <script type="module" src="http://localhost:5173/static/js/app.js"></script>
+    {% else %}
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% endif %}
+
+    <!-- Page islands -->
+    {% block islands %}{% endblock %}
+
+    <!-- Confirm Modal -->
+    {{ confirm_modal() }}
+
+    <!-- Prompt Modal -->
+    {{ prompt_modal() }}
+
+    <!-- Toast Notifications -->
+    {{ toast() }}
+
+    <!-- Pending Toast (shown after redirect, handled by toast.js) -->
+    {% if pending_toast %}
+    <div id="pending-toast-data" data-message="{{ pending_toast.message }}" data-type="{{ pending_toast.type }}" style="display:none;"></div>
+    {% endif %}
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

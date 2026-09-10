@@ -108,7 +108,7 @@ For more information, see README.md and the docstrings of each module
 (feather.core.app, feather.services, feather.jobs, feather.events, ...).
 """
 
-__version__ = "0.9.7"
+__version__ = "0.9.8"
 
 # =============================================================================
 # Core Application
@@ -174,12 +174,16 @@ from feather.db.mixins import (
 # Pagination utilities for list endpoints
 from feather.db.pagination import paginate, PaginatedResult
 
+# Optional dependency extras: raised when a feature needs a package the app
+# has not installed (see feather/_optional.py). Subclasses ImportError.
+from feather._optional import MissingDependencyError
+
 # =============================================================================
 # Event System
 # =============================================================================
 # Pub/sub pattern for loose coupling between components. Dispatch events after
 # actions complete, and listen for them in separate handlers.
-from feather.events.dispatcher import dispatch, listen
+from feather.events.dispatcher import dispatch, get_dispatcher, listen
 
 # =============================================================================
 # Storage
@@ -275,6 +279,7 @@ __all__ = [
     # Events - Pub/sub for loose coupling
     "dispatch",
     "listen",
+    "get_dispatcher",
     # Storage - File upload/download
     "get_storage",
     # Caching - Response and result caching
@@ -299,4 +304,6 @@ __all__ = [
     "RateLimitError",
     "StorageError",
     "DatabaseError",
+    # Optional dependency extras (0.9.8)
+    "MissingDependencyError",
 ]

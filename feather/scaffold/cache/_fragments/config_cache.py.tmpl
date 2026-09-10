@@ -1,0 +1,5 @@
+
+    # Caching (Redis)
+    CACHE_BACKEND = os.environ.get("CACHE_BACKEND", "redis")
+    CACHE_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    CACHE_DEFAULT_TTL = 300  # 5 minutes

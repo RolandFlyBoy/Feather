@@ -1,0 +1,147 @@
+# CLAUDE.md - Feather Project
+
+Guide for AI coding assistants working on this Feather project.
+
+**App Configuration:** __FEATHER_AGENTS_FEATURES__
+
+---
+
+## ⚠️ Critical Rules (MUST FOLLOW)
+
+These rules are mandatory. Violating them will cause bugs, security issues, or poor UX.
+
+### 1. No Inline Styles or Scripts
+- **Never use inline Tailwind classes** in templates
+- **Never use inline `<script>` blocks** in templates
+- **Never use inline event handlers** (`onclick`, `onchange`, etc.)
+- Put CSS in `static/css/app.css` using `@apply`
+- Put JS in `static/js/` (shared) or `static/islands/` (components)
+- Attach handlers with `addEventListener` in JS files
+
+### 2. Never Use Native Browser Dialogs
+- **Never use `alert()`** - Use modal components with X close button
+- **Never use `confirm()`** - Use `hx-confirm` (styled modal) or custom modal
+- **Never use `prompt()`** - Use `window.showPrompt()` (styled modal)
+- All modals must close with ESC key and have visible X button
+
+### 3. Never Use Raw fetch()
+- **Always use `ApiUtility`** from `/feather-static/api.js`
+- It provides: automatic CSRF tokens, retry logic, error handling
+- Example: `ApiUtility.post('/api/items', data)` not `fetch('/api/items', ...)`
+
+### 4. Progressive Enhancement Order
+- Try **Components** first (server-rendered Jinja2 macros)
+- Then **HTMX** (server interactions without page reload)
+- Only use **Islands** when client-side state is truly needed
+- 90% of features should work with Components + HTMX
+
+### 5. Keep Routes Thin, Services Fat
+- Routes: validate input, call services, return response
+- Services: all business logic, database operations, validation rules
+- Never put complex logic in route handlers
+__FEATHER_AGENTS_AUTH_RULES____FEATHER_AGENTS_MULTI_TENANT_RULES____FEATHER_AGENTS_AUTH_ROUTES__
+---
+
+## Project Structure
+
+```
+__FEATHER_AGENTS_MODELS_DIR__services/        # Business logic (auto-discovered)
+routes/
+  api/           # API routes → /api/*
+  pages/         # Page routes → /*
+templates/
+  components/    # Custom/override components
+  partials/      # HTMX response fragments
+  pages/         # Full page templates
+static/
+  css/app.css    # Tailwind styles (use @apply)
+  islands/       # Interactive JS components
+```
+
+## Development Commands
+
+```bash
+feather dev              # Start dev server (port 5173)
+feather routes           # List all routes
+feather shell            # Python shell with app context
+__FEATHER_AGENTS_DB_COMMANDS____FEATHER_AGENTS_SEED_COMMAND__```
+
+## Quick Reference
+
+### Three-Layer UI
+
+| Need | Use |
+|------|-----|
+| Static UI | **Component** (Jinja2 macro) |
+| Server interaction | **HTMX** (returns HTML partial) |
+| Complex client state | **Island** (JS with reactive state) |
+
+### Routes
+```python
+@api.get("/users")
+@inject(UserService)
+def list_users(user_service):
+    return {"users": user_service.list_all()}
+```
+
+### Services
+```python
+class UserService(Service):
+    def create(self, email: str) -> User:
+        user = User(email=email)
+        self.save(user)
+        return user
+```
+
+### HTMX Cross-Element Updates
+```python
+def with_trigger(content, trigger="dataUpdated"):
+    response = make_response(content)
+    response.headers["HX-Trigger"] = trigger
+    return response
+```
+
+### Islands
+```javascript
+island("counter", {
+  state: { count: 0 },
+  actions: {
+    increment() { this.state.count++; }
+  },
+  render(state) {
+    return { ".count": state.count };
+  }
+});
+```
+__FEATHER_AGENTS_AUTH_PATTERNS____FEATHER_AGENTS_MULTI_TENANT_PATTERNS____FEATHER_AGENTS_DB_PATTERNS__
+---
+
+## Deployment
+
+This project ships a Docker deployment layout. One host runs everything
+under `docker compose`: Caddy terminates TLS, `web` runs gunicorn via
+`feather start`, Postgres and Valkey stay on the internal network.
+
+| File | What it is |
+|------|------------|
+__FEATHER_AGENTS_DEPLOY_ROWS__
+
+```bash
+cp .env.example .env          # then fill in the blanks (SECRET_KEY, DOMAIN, ...)
+feather env check             # which keys config.py reads, and what is missing
+feather security-check        # production settings audit (`feather start` gates on it)
+
+docker compose -f docker-compose.dev.yml up -d   # local Postgres + Valkey
+./deploy/deploy.sh                               # on the server
+```
+
+Rules that matter:
+
+__FEATHER_AGENTS_DEPLOY_RULES__
+
+---
+
+## Full Documentation
+
+For comprehensive patterns, architecture, and advanced features:
+https://github.com/RolandFlyBoy/Feather/blob/main/README.md

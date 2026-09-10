@@ -1,0 +1,147 @@
+{% extends "pages/admin/base.html" %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    <!-- Header with Create Button -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-semibold text-gray-900">Tenants</h2>
+            <p class="text-sm text-gray-600">Manage organizations in the platform</p>
+        </div>
+        <button data-action="show-create-tenant"
+                class="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800">
+            <span class="material-symbols-outlined text-sm align-middle mr-1">add</span>
+            New Tenant
+        </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-black flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-xl">business</span>
+                </div>
+                <div>
+                    <p class="text-2xl font-semibold">{{ stats.total }}</p>
+                    <p class="text-sm text-gray-600">Total Tenants</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-green-600 text-xl">check_circle</span>
+                </div>
+                <div>
+                    <p class="text-2xl font-semibold">{{ stats.active }}</p>
+                    <p class="text-sm text-gray-600">Active</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-yellow-600 text-xl">schedule</span>
+                </div>
+                <div>
+                    <p class="text-2xl font-semibold">{{ stats.pending }}</p>
+                    <p class="text-sm text-gray-600">Pending</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-red-600 text-xl">block</span>
+                </div>
+                <div>
+                    <p class="text-2xl font-semibold">{{ stats.suspended }}</p>
+                    <p class="text-sm text-gray-600">Suspended</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Filter -->
+    <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-600">Filter:</span>
+        <a href="{{ url_for('admin.tenants_page') }}"
+           class="px-3 py-1.5 text-sm rounded-lg {% if not status_filter %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+            All
+        </a>
+        <a href="{{ url_for('admin.tenants_page', status='active') }}"
+           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'active' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+            Active
+        </a>
+        <a href="{{ url_for('admin.tenants_page', status='pending') }}"
+           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'pending' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+            Pending
+        </a>
+        <a href="{{ url_for('admin.tenants_page', status='suspended') }}"
+           class="px-3 py-1.5 text-sm rounded-lg {% if status_filter == 'suspended' %}bg-black text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+            Suspended
+        </a>
+    </div>
+
+    <!-- Tenants Table -->
+    <div id="tenants-table-container">
+        {% include "partials/admin/tenants_table.html" %}
+    </div>
+</div>
+
+<!-- Create Tenant Modal -->
+<div id="create-tenant-modal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-black/50" data-action="hide-create-tenant"></div>
+        <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Create New Tenant</h3>
+                <button data-action="hide-create-tenant"
+                        class="text-gray-400 hover:text-gray-600">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <form action="{{ url_for('admin.create_tenant') }}" method="POST" class="space-y-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tenant Name</label>
+                    <input type="text" name="name" required
+                           placeholder="Acme Corporation"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email Domain</label>
+                    <input type="text" name="domain" required
+                           placeholder="acme.com"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black">
+                    <p class="text-xs text-gray-500 mt-1">Users with this email domain can join</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Admin Email</label>
+                    <input type="email" name="admin_email" required
+                           placeholder="admin@acme.com"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black">
+                    <p class="text-xs text-gray-500 mt-1">This user will be the tenant admin</p>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button"
+                            data-action="hide-create-tenant"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800">
+                        Create Tenant
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-import feather.jobs as jobs_module
+from feather.core.registry import feather_state, reset_backends, set_backend
 from feather.jobs import job
 from feather.jobs.base import JobStatus
 from feather.jobs.sync import SyncQueue
@@ -26,13 +26,20 @@ pytestmark = pytest.mark.jobs
 
 @contextmanager
 def use_queue(queue):
-    """Force feather.jobs.get_queue() to return the given queue."""
-    previous = jobs_module._queue_instance
-    jobs_module._queue_instance = queue
+    """Force feather.jobs.get_queue() to return the given queue.
+
+    With no app context the registry resolves to the process-level store,
+    which is where a bare `@job(...).enqueue()` lands.
+    """
+    previous = feather_state().get("queue")
+    set_backend("queue", queue)
     try:
         yield queue
     finally:
-        jobs_module._queue_instance = previous
+        if previous is None:
+            reset_backends(None, "queue")
+        else:
+            set_backend("queue", previous)
 
 
 def _wait_for(predicate, timeout=2.0, interval=0.02):

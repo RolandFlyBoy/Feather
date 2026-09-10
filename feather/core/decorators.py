@@ -66,10 +66,10 @@ Same for ``@page.get()``, ``@page.post()``, etc.
 """
 
 from functools import wraps
-from typing import Callable, Type, Optional
+from typing import Any, Callable, Optional, Type
 
 from flask import Blueprint, jsonify, request, g, session
-from flask_login import current_user, login_required as flask_login_required
+from flask_login import login_required as flask_login_required
 
 
 # =============================================================================
@@ -153,83 +153,9 @@ def csrf_exempt(view: Callable) -> Callable:
     return decorated_function
 
 
-def auth_required(f: Callable) -> Callable:
-    """Require authentication for a route.
-
-    Use this decorator on routes that require a logged-in user.
-
-    Two-step check:
-    1. If user has no session (is_anonymous=True) → 401 AuthenticationError
-    2. If user is suspended (is_active=False) → 403 AuthorizationError
-
-    This distinction is important: suspended users have a valid session but
-    are blocked from accessing protected resources with a clear "suspended"
-    message, not a confusing "please log in" message.
-
-    Args:
-        f: The route function to protect.
-
-    Returns:
-        Decorated function that checks authentication first.
-
-    Raises:
-        AuthenticationError: If user has no session (401).
-        AuthorizationError: If user is suspended (403).
-
-    Example:
-        Protect an API route::
-
-            @api.get('/me')
-            @auth_required
-            def get_current_user():
-                return {'user': current_user.to_dict()}
-
-        Protect a page route::
-
-            @page.get('/settings')
-            @auth_required
-            def settings():
-                return render_template('settings.html')
-
-        Combined with service injection (note decorator order)::
-
-            @api.post('/posts')
-            @auth_required      # Check auth first
-            @inject(PostService)  # Then inject services
-            def create_post(post_service):
-                data = request.get_json()
-                post = post_service.create(user_id=current_user.id, **data)
-                return {'post': post.to_dict()}, 201
-
-    Note:
-        This decorator uses Flask-Login's ``current_user`` proxy. Make sure
-        you have Flask-Login configured with a user loader.
-    """
-    from feather.exceptions import AuthenticationError, AuthorizationError
-
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Step 1: Check if user has a session (is_anonymous is False for real users)
-        # We use is_anonymous instead of is_authenticated because Flask-Login's
-        # is_authenticated returns is_active, which would conflate "no session"
-        # with "suspended user"
-        if current_user.is_anonymous:
-            raise AuthenticationError("Authentication required")
-
-        # Step 2: Check if user is active (not suspended)
-        # is_active should be a @property, but handle method for backwards compat
-        is_active = getattr(current_user, "is_active", True)
-        if callable(is_active):
-            is_active = is_active()
-        if not is_active:
-            raise AuthorizationError("Account suspended")
-
-        return f(*args, **kwargs)
-
-    return decorated_function
-
-
-def inject(*service_classes: Type) -> Callable:
+def inject(
+    *service_classes: Type[Any],
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Inject service instances into route handlers.
 
     This decorator creates instances of the specified service classes and
@@ -280,9 +206,9 @@ def inject(*service_classes: Type) -> Callable:
     """
     from feather.services.base import registry
 
-    def decorator(f: Callable) -> Callable:
+    def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(f)
-        def decorated_function(*args, **kwargs):
+        def decorated_function(*args: Any, **kwargs: Any) -> Any:
             # Track non-singleton services for cleanup
             services_to_cleanup = []
 
@@ -407,3 +333,27 @@ _add_route_methods(page)
 # (all hard dependencies, no import cycle back to this module), so this import
 # always succeeds. The old try/except stub fallback was unreachable.
 from feather.auth.decorators import admin_required, role_required  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# auth_required lives in one place
+# ---------------------------------------------------------------------------
+# Until 0.9.8 there were two decorators with this name and different
+# behaviour, and which one an app got depended on the import it happened to
+# write:
+#
+#   from feather import auth_required        -> raised a plain
+#                                               AuthorizationError for a
+#                                               suspended user
+#   from feather.auth import auth_required   -> raised AccountSuspendedError
+#                                               / AccountPendingError, which
+#                                               is what the error handlers
+#                                               key on for the suspended and
+#                                               pending redirects
+#
+# Both names now resolve to the tenancy-aware implementation in
+# feather.auth.decorators, so the two import paths are the same object and
+# behave identically. Imported at the bottom of the module because
+# feather.auth pulls in feather.exceptions and flask_login, neither of which
+# imports this module back.
+from feather.auth.decorators import auth_required  # noqa: E402,F401

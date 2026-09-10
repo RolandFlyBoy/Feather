@@ -1,0 +1,85 @@
+import { defineConfig } from "vite";
+import { resolve } from "path";
+import { readdirSync, existsSync } from "fs";
+import tailwindcss from "@tailwindcss/vite";
+import fullReload from "vite-plugin-full-reload";
+
+// Auto-discover islands
+function discoverIslands() {
+  const islandsDir = resolve(__dirname, "static/islands");
+  const entries = {};
+
+  if (existsSync(islandsDir)) {
+    readdirSync(islandsDir)
+      .filter((file) => file.endsWith(".js"))
+      .forEach((file) => {
+        const name = file.replace(".js", "");
+        entries[`islands/${name}`] = resolve(islandsDir, file);
+      });
+  }
+
+  return entries;
+}
+
+export default defineConfig({
+  plugins: [
+    tailwindcss(),
+    // Watch templates and trigger full page reload
+    fullReload(["templates/**/*.html", "static/css/**/*.css"], { delay: 100 }),
+  ],
+  server: {
+    port: 5173,
+    proxy: {
+      // Proxy everything except Vite internals to Flask
+      "^(?!/@vite|/@id|/node_modules|/static).*": {
+        target: "http://127.0.0.1:5000",
+        changeOrigin: false,  // Keep original Host header for correct cookie domain
+        configure: (proxy) => {
+          // Add X-Forwarded headers for OAuth redirect URI detection
+          // Pass through existing proto header (from ngrok/tunnels) or default to http
+          proxy.on("proxyReq", (proxyReq, req) => {
+            proxyReq.setHeader("X-Forwarded-Host", req.headers.host);
+            const proto = req.headers["x-forwarded-proto"] || "http";
+            proxyReq.setHeader("X-Forwarded-Proto", proto);
+          });
+        },
+      },
+    },
+    watch: {
+      // Ignore non-frontend files to prevent unnecessary reloads
+      ignored: [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/venv/**",
+        "**/__pycache__/**",
+        "**/migrations/**",
+        "**/*.py",
+        "**/*.pyc",
+      ],
+    },
+  },
+  build: {
+    outDir: "static/dist",
+    manifest: true,
+    rollupOptions: {
+      input: {
+        // Vendor libs (htmx, echarts) - must load before other scripts
+        vendor: resolve(__dirname, "static/js/vendor.js"),
+        // Styles
+        styles: resolve(__dirname, "static/css/app.css"),
+        // Islands (auto-discovered)
+        ...discoverIslands(),
+      },
+      output: {
+        entryFileNames: "[name]-[hash].js",
+        chunkFileNames: "[name]-[hash].js",
+        assetFileNames: "[name]-[hash][extname]",
+      },
+    },
+    minify: "terser",
+    terserOptions: {
+      mangle: { toplevel: false },
+      compress: { keep_classnames: true, keep_fnames: true },
+    },
+  },
+});

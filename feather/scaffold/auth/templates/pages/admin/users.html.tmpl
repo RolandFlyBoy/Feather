@@ -1,0 +1,36 @@
+{% extends "pages/admin/base.html" %}
+
+{% block admin_title %}Users{% endblock %}
+
+{% block admin_content %}
+<div class="space-y-6">
+
+    <!-- Search Bar -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex items-center gap-4">
+            <span class="material-symbols-outlined text-gray-400">search</span>
+            <input type="text"
+                   name="q"
+                   value="{{ search }}"
+                   placeholder="Search by username, name, or email..."
+                   hx-get="{{ url_for('admin.users_page') }}"
+                   hx-trigger="input changed delay:500ms"
+                   hx-target="#users-table-container"
+                   hx-select="#users-table-container"
+                   class="flex-1 outline-none text-sm">
+            {% if search %}
+            <a href="{{ url_for('admin.users_page') }}"
+               class="text-gray-400 hover:text-gray-600">
+                <span class="material-symbols-outlined">close</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Table Container (HTMX target) -->
+    <div id="users-table-container">
+        {% include "partials/admin/users_table.html" %}
+    </div>
+
+</div>
+{% endblock %}

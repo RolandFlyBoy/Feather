@@ -453,5 +453,7 @@ def test(
             sys.exit(result.returncode)
         except FileNotFoundError:
             raise click.ClickException(
-                "pytest not found. Install it with: pip install pytest pytest-cov"
+                "pytest not found. Install it with: "
+                "pip install 'feather-framework[test]' "
+                "(or: pip install pytest pytest-cov)"
             )

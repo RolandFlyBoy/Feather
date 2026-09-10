@@ -1,0 +1,198 @@
+"""Admin panel routes."""
+
+import json
+
+from flask import abort, Blueprint, jsonify, make_response, redirect, render_template, request, session, url_for
+from flask_login import current_user
+from markupsafe import escape as html_escape
+
+from feather.auth import admin_required
+from services.admin_service import AdminService
+
+
+page = Blueprint("admin", __name__, url_prefix="/admin")
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+
+def redirect_with_toast(url: str, message: str, toast_type: str = "success"):
+    """Redirect with a pending toast message stored in session."""
+    session["_pending_toast"] = {"message": message, "type": toast_type}
+    return redirect(url)
+
+
+def with_toast(html_content: str, message: str, toast_type: str = "success"):
+    """Wrap HTML response with HX-Trigger header for toast notification."""
+    response = make_response(html_content)
+    response.headers["HX-Trigger"] = json.dumps({
+        "showToast": {"message": message, "type": toast_type}
+    })
+    return response
+
+
+@page.context_processor
+def inject_admin_context():
+    """Inject common admin context into all templates."""
+    pending_toast = session.pop("_pending_toast", None)
+    return {
+        "fallback_avatar": AdminService.fallback_avatar,
+        "pending_toast": pending_toast,
+    }
+
+
+# =============================================================================
+# User Management Routes
+# =============================================================================
+
+
+@page.route("/")
+@admin_required
+def index():
+    """Admin index - redirect to users page."""
+    return redirect(url_for("admin.users_page"))
+
+
+@page.route("/users")
+@admin_required
+def users_page():
+    """Users list with search and pagination."""
+    search = request.args.get("q", "").strip()
+    page_num = request.args.get("page", 1, type=int)
+    per_page = 50
+    offset = (page_num - 1) * per_page
+
+    service = AdminService()
+    if search:
+        result = service.search_users(search, limit=per_page, offset=offset)
+    else:
+        result = service.get_all_users(limit=per_page, offset=offset)
+
+    return render_template(
+        "pages/admin/users.html",
+        users=result["users"],
+        pagination=result["pagination"],
+        search=search,
+    )
+
+
+@page.route("/users/<user_id>")
+@admin_required
+def user_detail_page(user_id: str):
+    """User detail page."""
+    service = AdminService()
+    user = service.get_user_detail(user_id)
+    if not user:
+        abort(404, "User not found")
+
+    return render_template("pages/admin/user_detail.html", user=user)
+
+
+@page.route("/users/<user_id>/toggle-status", methods=["POST"])
+@admin_required
+def toggle_user_status(user_id: str):
+    """Toggle user active status. Returns partial for HTMX."""
+    service = AdminService()
+    user = service.toggle_user_status(user_id)
+    if not user:
+        abort(404, "User not found")
+
+    status = "activated" if user.active else "suspended"
+
+    # Build status pill HTML for OOB swap
+    if user.active:
+        pill_html = '<span class="px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">Active</span>'
+    elif hasattr(user, 'approved_at') and user.approved_at:
+        pill_html = '<span class="px-2 py-1 text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded">Suspended</span>'
+    else:
+        pill_html = '<span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded">Pending</span>'
+
+    # Include OOB swap for the status pill in the profile card
+    oob_pill = f'<span id="status-pill" hx-swap-oob="true">{pill_html}</span>'
+    html = render_template("partials/admin/user_actions.html", user=user) + oob_pill
+    return with_toast(html, f"{user.email} has been {status}.")
+
+
+@page.route("/users/<user_id>/update-role", methods=["POST"])
+@admin_required
+def update_user_role(user_id: str):
+    """Update user role. Returns partial for HTMX."""
+    role = request.form.get("role", "user")
+    service = AdminService()
+    user = service.update_user_role(user_id, role)
+    if not user:
+        abort(404, "User not found")
+
+    html = render_template("partials/admin/user_actions.html", user=user)
+    return with_toast(html, f"Updated {user.email} role to {role}.")
+
+
+# =============================================================================
+# Tools Routes
+# =============================================================================
+
+
+@page.route("/tools")
+@admin_required
+def tools_page():
+    """Admin tools page."""
+    return render_template("pages/admin/tools.html")
+
+
+# =============================================================================
+# Analytics Routes
+# =============================================================================
+
+
+@page.route("/analytics")
+@admin_required
+def analytics_page():
+    """Analytics dashboard page."""
+    service = AdminService()
+    stats = service.get_user_stats()
+    return render_template("pages/admin/analytics.html", stats=stats)
+
+
+@page.route("/api/stats/user-growth")
+@admin_required
+def api_user_growth():
+    """Get user growth data for analytics chart."""
+    days = request.args.get("days", 30, type=int)
+    service = AdminService()
+    data = service.get_user_growth(days)
+    return jsonify({"success": True, "data": data})
+
+
+# =============================================================================
+# Error Logs Routes
+# =============================================================================
+
+
+@page.route("/logs")
+@admin_required
+def logs_page():
+    """Logs page with search and filtering."""
+    search = request.args.get("search", "").strip()
+    filter_code = request.args.get("filter", "")
+    page_num = request.args.get("page", 1, type=int)
+
+    service = AdminService()
+    logs_result = service.get_logs(
+        limit=50,
+        page=page_num,
+        status_code=filter_code if filter_code else None,
+        search=search if search else None,
+    )
+    stats = service.get_log_stats(days=7)
+
+    return render_template(
+        "pages/admin/logs.html",
+        logs=logs_result["items"],
+        pagination=logs_result["pagination"],
+        stats=stats,
+        search=search,
+        filter=filter_code,
+    )
+__FEATHER_ADMIN_EMAIL_ROUTES____FEATHER_ADMIN_TENANT_ROUTES__

@@ -1,0 +1,58 @@
+"""Log model for admin panel event and error logging."""
+
+import uuid
+from datetime import datetime, timezone
+
+from feather.db import db, Model
+
+
+class Log(Model):
+    """Log model for tracking application events and errors.
+
+    Rows carry the tenant_id of the user whose request produced them, and it is
+    NULL when there was no authenticated user (an unhandled 5xx on a public
+    page, for example). Nothing on the model enforces scoping: AdminService
+    filters log queries by the current admin's tenant, and platform admins see
+    every row, NULL tenant_id included.
+
+    Attributes:
+        id: UUID primary key
+        level: Log level (INFO, WARNING, ERROR)
+        event_type: Type of event (e.g., NotFoundError, ValidationError, UserLogin)
+        message: Human-readable message
+        path: URL path where the event occurred
+        method: HTTP method (GET, POST, etc.)
+        user_id: ID of user who triggered the event (if authenticated)
+        tenant_id: ID of tenant for scoping (nullable for platform-level events)
+        stack_trace: Full stack trace for debugging (errors only)
+        request_data: Sanitized request data (JSON string)
+        created_at: Timestamp of when the event occurred
+    """
+
+    __tablename__ = "logs"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    # Log level and event type
+    level = db.Column(db.String(20), default="ERROR", nullable=False, index=True)
+    event_type = db.Column(db.String(100), nullable=False, index=True)
+    message = db.Column(db.Text, nullable=False)
+    path = db.Column(db.String(500))
+    method = db.Column(db.String(10))
+
+    # User context
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=True)
+    tenant_id = db.Column(db.String(36), db.ForeignKey("tenants.id"), nullable=True, index=True)
+
+    # Debug info (for errors)
+    stack_trace = db.Column(db.Text)
+    request_data = db.Column(db.Text)
+
+    # Timestamp
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    # Relationships
+    user = db.relationship("User", backref="logs")
+
+    def __repr__(self):
+        return f"<Log {self.level} {self.event_type}: {self.path}>"

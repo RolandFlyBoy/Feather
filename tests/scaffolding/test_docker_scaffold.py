@@ -161,7 +161,45 @@ class TestRequirementsPin:
 
         project = scaffold_project(FULL)
         reqs = (project / "requirements.txt").read_text()
-        assert f"feather-framework=={_get_feather_version()}" in reqs
+        # Since 0.9.8 the line carries the extras this app needs, so it reads
+        # feather-framework[email,postgres,...]==X.Y.Z rather than a bare pin.
+        line = next(l for l in reqs.splitlines() if l.startswith("feather-framework"))
+        assert line.endswith(f"=={_get_feather_version()}")
+        assert line.startswith("feather-framework[")
+
+    def test_names_the_extras_the_app_enabled(self, scaffold_project):
+        """A feature whose extra is missing fails at startup, not at install.
+
+        FULL turns on Postgres plus jobs and cache, so psycopg2 and redis
+        have to be named or the built image cannot connect or enqueue.
+        """
+        project = scaffold_project(FULL)
+        extras = self._extras(project)
+        assert {"postgres", "redis", "prod", "test"} <= extras
+
+    def test_email_and_storage_extras_follow_their_features(self, scaffold_project):
+        project = scaffold_project(
+            {**FULL, "include_email": True, "include_storage": True, "storage_backend": "gcs"}
+        )
+        extras = self._extras(project)
+        assert "email" in extras, "resend is not installed without the email extra"
+        assert "gcs" in extras, "google-cloud-storage is not installed without the gcs extra"
+
+    @staticmethod
+    def _extras(project) -> set:
+        line = next(
+            l for l in (project / "requirements.txt").read_text().splitlines()
+            if l.startswith("feather-framework")
+        )
+        return set(line.split("[", 1)[1].split("]", 1)[0].split(","))
+
+    def test_minimal_app_does_not_ask_for_what_it_lacks(self, scaffold_project):
+        project = scaffold_project({"database": "none"})
+        extras = self._extras(project)
+        # No database, no cache, no jobs, no email, no GCS.
+        assert extras.isdisjoint({"postgres", "redis", "email", "gcs", "pdf"})
+        # Every app is still meant to be deployable and testable.
+        assert {"prod", "test"} <= extras
 
     def test_dockerfile_installs_the_pinned_framework_first(self, scaffold_project):
         project = scaffold_project(FULL)
