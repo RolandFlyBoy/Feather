@@ -3,6 +3,11 @@
 Releases are tags (`vX.Y.Z`) published to PyPI by `.github/workflows/publish.yml`
 (trusted publishing, no tokens). See "Releasing" in CLAUDE.md.
 
+0.9.6, 0.9.7 and 0.9.8 are documented below but were never uploaded to PyPI.
+They were milestones on the way to 0.9.9, which contains all of their changes
+and is the first release after 0.9.5. Upgrading from 0.9.5 means reading all
+four sections, and `pip install feather-framework==0.9.7` will not resolve.
+
 ## Unreleased
 
 ## 0.9.9 (2026-09-10) — real rate limiting in scaffolded apps
@@ -27,6 +32,15 @@ appears in newly generated projects.
   requirements name it when the app has authentication.
 - `@rate_limit`'s documentation now says plainly that it is a single-process
   guard and points at the generated module for production.
+- **A generated app passes its own `feather check`.** Two scaffolded
+  templates used inline styles, so a new project reported two errors against
+  code it had not touched, which is the fastest way to teach someone to
+  ignore a linter. The toast data carrier now uses the `hidden` attribute and
+  the analytics chart's dimensions moved to a class. A test asserts zero
+  errors across all four app configurations.
+- The nightly CI job runs the suite in three processes rather than one. The
+  whole suite in a single pytest process was killed locally partway through
+  the end-to-end tests, which spawn subprocess apps.
 
 Two traps are worth recording, because both fail silently and both cost real
 debugging time in production:
