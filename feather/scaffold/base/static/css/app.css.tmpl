@@ -884,6 +884,13 @@
   .admin-chart-container {
     height: 250px;
   }
+
+  /* The element ECharts renders into. It needs explicit dimensions at
+     init time, which is why this is a class and not left to the parent. */
+  .admin-chart-canvas {
+    width: 100%;
+    height: 100%;
+  }
 }
 
 /* Dark mode overrides — outside @layer so they override Tailwind utilities */

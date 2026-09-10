@@ -72,7 +72,7 @@
 
     <!-- Pending Toast (shown after redirect, handled by toast.js) -->
     {% if pending_toast %}
-    <div id="pending-toast-data" data-message="{{ pending_toast.message }}" data-type="{{ pending_toast.type }}" style="display:none;"></div>
+    <div id="pending-toast-data" data-message="{{ pending_toast.message }}" data-type="{{ pending_toast.type }}" hidden></div>
     {% endif %}
 
     {% block scripts %}{% endblock %}
