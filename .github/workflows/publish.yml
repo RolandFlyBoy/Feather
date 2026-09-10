@@ -1,0 +1,59 @@
+# Release Feather to PyPI with trusted publishing (no tokens anywhere).
+#
+# Flow:
+#   1. bump `version` in pyproject.toml and `__version__` in feather/__init__.py
+#   2. commit, then `git tag v0.9.6 && git push origin main v0.9.6`
+#   3. this workflow runs the tests, builds the sdist + wheel, checks that the
+#      tag matches the version, and uploads via OpenID Connect.
+#
+# One-time setup on PyPI (project feather-framework -> Manage -> Publishing):
+#   owner RolandFlyBoy, repository Feather, workflow publish.yml, environment pypi.
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: # re-run a failed upload for the current tag
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tag must match the package version
+        run: |
+          pkg=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          init=$(python -c "import re; print(re.search(r'__version__ = \"([^\"]+)\"', open('feather/__init__.py').read()).group(1))")
+          tag="${GITHUB_REF_NAME#v}"
+          echo "pyproject=$pkg  __init__=$init  tag=$tag"
+          test "$pkg" = "$init" && test "$pkg" = "$tag"
+      - name: Test
+        run: |
+          pip install -e ".[dev]" 2>/dev/null || pip install -e . pytest
+          python -m pytest -q
+      - name: Build
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi # matches the trusted publisher registered on PyPI
+    permissions:
+      id-token: write # OIDC token for PyPI; no API token stored anywhere
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
