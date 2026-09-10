@@ -37,6 +37,7 @@ EXTRAS: dict[str, tuple[str, ...]] = {
     "postgres": ("psycopg2-binary",),
     "redis": ("redis", "rq"),
     "email": ("resend",),
+    "ratelimit": ("flask-limiter",),
     "prod": ("gunicorn",),
     "test": ("pytest", "pytest-cov"),
 }
@@ -49,6 +50,7 @@ EXTRA_DESCRIPTIONS: dict[str, str] = {
     "postgres": "PostgreSQL driver",
     "redis": "Redis cache and the RQ job backend",
     "email": "Transactional email (Resend)",
+    "ratelimit": "Distributed rate limiting (Flask-Limiter)",
     "prod": "Production WSGI server (gunicorn)",
     "test": "pytest for the app's own test suite",
 }
@@ -71,6 +73,7 @@ MODULE_PACKAGES: dict[str, tuple[str, Optional[str]]] = {
     # package directly.
     "rq_scheduler": ("rq-scheduler", None),
     "resend": ("resend", "email"),
+    "flask_limiter": ("flask-limiter", "ratelimit"),
     "gunicorn": ("gunicorn", "prod"),
     "pytest": ("pytest", "test"),
 }

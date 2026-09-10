@@ -1,0 +1,18 @@
+
+    # Rate limiting (Flask-Limiter, wired up in rate_limits.py)
+    #
+    # Counters are shared through this URI, so a limit holds across every
+    # gunicorn worker and container. Leave it empty in development and the
+    # counters live in process memory instead - fine for one process, wrong
+    # for N. Set it to the Redis URL in production.
+    RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI") or os.environ.get("REDIS_URL")
+
+    # Applied to every endpoint that has no limit of its own (static files
+    # are exempt - see rate_limits.EXEMPT_ENDPOINTS).
+    RATELIMIT_DEFAULT = os.environ.get("RATELIMIT_DEFAULT", "600 per hour")
+
+    # Google OAuth login and callback, per IP.
+    RATELIMIT_LOGIN = os.environ.get("RATELIMIT_LOGIN", "10 per minute")
+
+    # Admin POST routes (suspend a user, change a role, send an email).
+    RATELIMIT_ADMIN = os.environ.get("RATELIMIT_ADMIN", "60 per minute")

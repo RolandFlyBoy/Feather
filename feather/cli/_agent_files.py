@@ -29,6 +29,12 @@ SAFE_COMMANDS = [
     "Bash(feather security-check:*)",
     "Bash(feather test)",
     "Bash(feather test:*)",
+    # Flask-Limiter's own inspector: which routes carry which limit. It is
+    # the fastest way to catch a limit that was registered but never
+    # enforced, and it only reads the route table (auth apps only - see
+    # rate_limits.py).
+    "Bash(flask limiter limits)",
+    "Bash(flask limiter limits:*)",
     "Bash(pytest)",
     "Bash(pytest:*)",
     "Bash(git status)",

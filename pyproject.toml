@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feather-framework"
-version = "0.9.8"
+version = "0.9.9"
 description = "An opinionated, batteries-included web framework for building production applications with AI."
 readme = "README.md"
 license = "MIT"
@@ -64,13 +64,14 @@ redis = [                                    # CACHE_BACKEND=redis, JOB_BACKEND=
     "rq>=2.0.0",
 ]
 email = ["resend>=2.0.0"]                    # transactional email
+ratelimit = ["flask-limiter>=4.1"]           # scaffolded apps' rate_limits.py
 prod = ["gunicorn>=23.0.0"]                  # feather start / Docker web process
 test = [                                     # the app's own test suite
     "pytest>=8.0.0",
     "pytest-cov>=6.0.0",
 ]
 all = [
-    "feather-framework[pdf,gcs,postgres,redis,email,prod,test]",
+    "feather-framework[pdf,gcs,postgres,redis,email,ratelimit,prod,test]",
 ]
 dev = [
     # Framework development: every extra (the framework test suite imports

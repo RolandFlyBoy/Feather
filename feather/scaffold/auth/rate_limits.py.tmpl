@@ -1,0 +1,177 @@
+"""Rate limiting for __FEATHER_APP_NAME__ (Flask-Limiter).
+
+Flask-Limiter counts requests in Redis when a Redis URL is configured, so
+one limit is shared by every gunicorn worker and every container. Feather's
+own ``@rate_limit`` decorator counts in process memory instead: under
+``--workers 4`` a limit of 10/minute really allows 40, and a restart forgets
+every counter. Use that decorator for a quick guard in development; this
+file is what production leans on.
+
+Two things about Flask-Limiter are easy to get wrong, and both fail
+silently - no error, no log line, just no limit:
+
+1. ``limiter.limit(...)`` returns a **wrapper**. Applying it to a view that
+   is already registered and dropping the result enforces nothing, and it
+   also takes the endpoint out of the default limit, so the route ends up
+   less protected than it was. The wrapper has to be assigned back into
+   ``app.view_functions`` - that is what ``_apply()`` below does.
+
+2. The default limit applies to **every** endpoint, static files included.
+   One page load pulls ten or more scripts and fonts through Flask, so
+   without an exemption an ordinary user gets a 429 on
+   ``/feather-static/*.js`` and the page half-renders. ``_exempt()``
+   filters those requests out.
+
+The numbers live in config.py (the ``RATELIMIT_*`` keys), not here, so they
+can be tuned per environment without editing this logic.
+
+Wiring (app.py)::
+
+    app = Feather(__name__)
+    init_rate_limits(app)   # after Feather() - it re-registers view functions
+
+Checking it::
+
+    flask limiter limits    # every route Flask-Limiter actually limits
+"""
+
+import os
+
+from flask import current_app, request
+
+#: Endpoints that never count against a limit: Flask's own ``static`` and
+#: the framework assets Feather serves from ``/feather-static/``.
+EXEMPT_ENDPOINTS = {"static", "feather_static"}
+
+#: Used only when config.py does not define the matching ``RATELIMIT_*``
+#: key. config.py is the place to change these.
+FALLBACK_LIMITS = {
+    "RATELIMIT_DEFAULT": "600 per hour",
+    "RATELIMIT_LOGIN": "10 per minute",
+    "RATELIMIT_ADMIN": "60 per minute",
+}
+
+
+def _limit_for(app, key: str) -> str:
+    """The configured limit string for one of the ``RATELIMIT_*`` keys."""
+    return app.config.get(key) or FALLBACK_LIMITS[key]
+
+
+def _storage_uri(app) -> str:
+    """Where the counters live: Redis when configured, memory otherwise."""
+    uri = (
+        app.config.get("RATELIMIT_STORAGE_URI")
+        or os.environ.get("RATELIMIT_STORAGE_URI")
+        or os.environ.get("REDIS_URL")
+    )
+    if uri:
+        return uri
+
+    app.logger.warning(
+        "Rate limits are counted in process memory. Every gunicorn worker "
+        "keeps its own counters, so with N workers a client gets N times the "
+        "configured limit and a restart forgets everything. Set "
+        "RATELIMIT_STORAGE_URI (or REDIS_URL) to a Redis URL in production."
+    )
+    return "memory://"
+
+
+def _exempt() -> bool:
+    """True for requests that must not count against any limit.
+
+    Static assets are the important case: the default limit would otherwise
+    be spent on the scripts and fonts of a single page load.
+    """
+    if request.endpoint in EXEMPT_ENDPOINTS:
+        return True
+    # The app's own test suite makes hundreds of requests from one address.
+    return bool(current_app.config.get("TESTING"))
+
+
+def _apply(app, limiter, endpoint: str, rule: str) -> bool:
+    """Put ``rule`` on an already-registered endpoint.
+
+    ``limiter.limit(rule)(view)`` only builds a wrapper; the limit is
+    enforced by *calling* that wrapper, so it has to replace the view in
+    ``app.view_functions``. Calling ``limiter.limit(...)`` and discarding
+    what it returns is the silent no-op described at the top of this file.
+
+    Returns:
+        True when the endpoint existed and is now limited.
+    """
+    view = app.view_functions.get(endpoint)
+    if view is None:
+        return False
+    app.view_functions[endpoint] = limiter.limit(rule)(view)
+    return True
+
+
+def _write_endpoints(app, prefix: str) -> list:
+    """Endpoints under a blueprint that accept POST, in a stable order."""
+    found = []
+    for url_rule in app.url_map.iter_rules():
+        endpoint = url_rule.endpoint
+        if not endpoint.startswith(prefix):
+            continue
+        if "POST" not in (url_rule.methods or set()):
+            continue
+        if endpoint not in found:
+            found.append(endpoint)
+    return sorted(found)
+
+
+def init_rate_limits(app):
+    """Install Flask-Limiter on ``app``.
+
+    Call it *after* ``Feather(__name__)`` has returned: it works on the
+    routes that are already registered.
+
+    Returns:
+        The Limiter, or None when flask-limiter is not installed.
+    """
+    try:
+        from flask_limiter import Limiter
+        from flask_limiter.util import get_remote_address
+    except ImportError:
+        app.logger.warning(
+            "flask-limiter is not installed, so no rate limits are in force. "
+            "Install it with: pip install 'feather-framework[ratelimit]'"
+        )
+        return None
+
+    storage_uri = _storage_uri(app)
+
+    def build(uri: str):
+        # Flask-Limiter reads RATELIMIT_STORAGE_URI from config as well as
+        # from this argument; keep the two saying the same thing.
+        app.config["RATELIMIT_STORAGE_URI"] = uri
+        return Limiter(
+            get_remote_address,
+            app=app,
+            default_limits=[_limit_for(app, "RATELIMIT_DEFAULT")],
+            storage_uri=uri,
+            headers_enabled=True,
+        )
+
+    try:
+        limiter = build(storage_uri)
+    except Exception as exc:  # unreachable Redis must not take the app down
+        if storage_uri == "memory://":
+            raise
+        app.logger.error(
+            f"Rate limit storage {storage_uri!r} is unusable ({exc}); falling "
+            "back to per-process in-memory counters."
+        )
+        limiter = build("memory://")
+
+    limiter.request_filter(_exempt)
+
+    login_limit = _limit_for(app, "RATELIMIT_LOGIN")
+    for endpoint in ("google_auth.login", "google_auth.callback"):
+        _apply(app, limiter, endpoint, login_limit)
+
+    admin_limit = _limit_for(app, "RATELIMIT_ADMIN")
+    for endpoint in _write_endpoints(app, "admin."):
+        _apply(app, limiter, endpoint, admin_limit)
+
+    return limiter

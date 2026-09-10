@@ -1,0 +1,15 @@
+"""Main application entry point."""
+
+from feather import Feather
+
+from rate_limits import init_rate_limits
+
+app = Feather(__name__)
+
+# Rate limits (Flask-Limiter). Applied after Feather() has discovered and
+# registered every route, because protecting an endpoint means replacing its
+# view function. See rate_limits.py.
+init_rate_limits(app)
+
+if __name__ == "__main__":
+    app.run()

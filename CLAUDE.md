@@ -234,14 +234,21 @@ folded into the framework or the scaffold.
       `.feather-templates` link.
 - [x] Thread job backend and `job_timeout` (0.9.5).
 - [x] Logout and the remember cookie (0.9.5).
-- [ ] **Adopt Flask-Limiter in the scaffold.** The framework's `@rate_limit`
-      is per-process, so it does nothing useful across gunicorn workers. Two
-      traps when adding it: `limiter.limit(...)(app.view_functions[ep])` is a
-      silent no-op unless the result is assigned back
-      (`app.view_functions[ep] = limiter.limit(rule)(view)`); and static
-      assets count against the default limit, so a page load of ten scripts
-      and fonts earns a 429 unless `static` and `feather_static` are exempted
-      through `limiter.request_filter`.
+- [x] **Flask-Limiter in the scaffold.** The framework's `@rate_limit` is
+      per-process, so it does nothing useful across gunicorn workers. Since
+      0.9.9 an app scaffolded with auth gets a `rate_limits.py` that runs
+      Flask-Limiter (the optional `ratelimit` extra) over the OAuth login and
+      callback routes and every admin POST route, with Redis storage from
+      `RATELIMIT_STORAGE_URI` / `REDIS_URL` and a logged warning naming the
+      multi-worker consequence when it falls back to memory. Both traps bit
+      in production and both are now covered by
+      `tests/scaffolding/test_rate_limits.py`: `limiter.limit(rule)(view)`
+      only returns a wrapper, so unless it is assigned back
+      (`app.view_functions[ep] = limiter.limit(rule)(view)`) nothing is
+      enforced and the endpoint also drops out of the default limit; and the
+      default limit otherwise counts static assets, so a page load of ten
+      scripts and fonts earns a 429 unless `static` and `feather_static` are
+      exempted through `limiter.request_filter`.
 
 ## Testing
 

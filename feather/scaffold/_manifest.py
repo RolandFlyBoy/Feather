@@ -132,6 +132,11 @@ def _requirement_spec(options: dict) -> str:
         extras.add("redis")
     if options.get("include_email"):
         extras.add("email")
+    if options.get("include_auth"):
+        # rate_limits.py wires Flask-Limiter onto the login, callback and
+        # admin POST routes; without the extra it logs a warning and the app
+        # runs with no limits at all.
+        extras.add("ratelimit")
     if (options.get("storage_backend") or "") == "gcs":
         extras.add("gcs")
     return requirement_spec(_feather_version(), sorted(extras))

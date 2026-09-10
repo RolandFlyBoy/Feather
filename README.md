@@ -1622,7 +1622,42 @@ def create_comment():
 | `key` | Rate limit by `'ip'`, `'user'`, or `'ip+user'` | `'ip'` |
 | `message` | Custom error message | "Rate limit exceeded" |
 
-**Note:** Uses in-memory tracking. For multi-process deployments (Gunicorn workers), use Redis-based rate limiting.
+**Note:** `@rate_limit` keeps its counters in the process. Under
+`gunicorn --workers 4` a limit of ten per minute is really forty per minute,
+so treat it as a development guard and a convenience for single-process
+deployments, not as protection.
+
+#### In production: Flask-Limiter
+
+Scaffolded apps with authentication ship a `rate_limits.py` that does this
+properly. It limits the Google OAuth login and callback and every admin POST
+route through Flask-Limiter, sharing counters across workers via Redis:
+
+```bash
+pip install "feather-framework[ratelimit]"
+```
+
+```bash
+# .env — counters are shared when this points at Redis
+RATELIMIT_STORAGE_URI=redis://localhost:6379/1
+```
+
+Without it the limiter falls back to memory and logs a warning saying so.
+The limits themselves live in `config.py` as `RATELIMIT_DEFAULT`,
+`RATELIMIT_LOGIN` and `RATELIMIT_ADMIN`, each overridable by environment
+variable. `flask limiter limits` prints which routes are actually limited.
+
+**Two things that fail silently if you wire this up by hand.** Both cost real
+debugging time in production:
+
+- **Assign the wrapper back.** Flask-Limiter enforces a limit only through
+  the function it returns, so `limiter.limit(rule)(app.view_functions[ep])`
+  with the result discarded does nothing — and worse, drops that endpoint out
+  of the default limit too. Write `app.view_functions[ep] = limiter.limit(rule)(view)`.
+- **Exempt static endpoints.** One page load fetches ten or more scripts and
+  fonts from Flask. Without a `limiter.request_filter` exempting `static` and
+  `feather_static`, a busy user gets a 429 on the app's own JavaScript while
+  the page is still loading.
 
 ### Serializers
 
@@ -2375,6 +2410,7 @@ environment; `config.py` wins.
 | `JOB_BACKEND` | `thread` | `sync`, `thread` or `rq`. |
 | `JOB_MAX_WORKERS` | `4` | Thread pool size for the thread backend. |
 | `JOB_SERIALIZER` | pickle | Set to `json` for RQ. Pickle payloads are code execution for anyone who can write to Redis. |
+| `RATELIMIT_STORAGE_URI` | unset | Where Flask-Limiter keeps counters in a scaffolded app. Falls back to `REDIS_URL`, then to memory with a warning. |
 | `REDIS_URL` | unset | Required for the `rq` backend. |
 
 **Development**
@@ -2406,6 +2442,7 @@ PDF renderer:
 | `email` | resend | Sending transactional email |
 | `gcs` | google-cloud-storage | `STORAGE_BACKEND=gcs` |
 | `pdf` | WeasyPrint | Generating PDFs |
+| `ratelimit` | flask-limiter | Rate limiting that works across workers (auth apps) |
 | `prod` | gunicorn | Running `feather start` or the Docker web process |
 | `test` | pytest, pytest-cov | Running the app's own tests |
 | `all` | all of the above | Reproducing the pre-0.9.8 install |

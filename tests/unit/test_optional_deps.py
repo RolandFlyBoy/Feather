@@ -34,7 +34,7 @@ class TestExtrasMetadata:
     def test_every_documented_extra_is_declared(self):
         from feather._optional import EXTRAS
 
-        assert set(EXTRAS) == {"pdf", "gcs", "postgres", "redis", "email", "prod", "test"}
+        assert set(EXTRAS) == {"pdf", "gcs", "postgres", "redis", "email", "ratelimit", "prod", "test"}
 
     def test_extras_map_to_distributions(self):
         from feather._optional import EXTRAS
@@ -44,6 +44,7 @@ class TestExtrasMetadata:
         assert EXTRAS["postgres"] == ("psycopg2-binary",)
         assert EXTRAS["redis"] == ("redis", "rq")
         assert EXTRAS["email"] == ("resend",)
+        assert EXTRAS["ratelimit"] == ("flask-limiter",)
         assert EXTRAS["prod"] == ("gunicorn",)
         assert EXTRAS["test"] == ("pytest", "pytest-cov")
 
@@ -220,7 +221,7 @@ class TestSecurityCheckReportsExtras:
 
         result = run_checks(tmp_path, None)
         assert "extras" in result
-        assert set(result["extras"]) == {"pdf", "gcs", "postgres", "redis", "email", "prod", "test"}
+        assert set(result["extras"]) == {"pdf", "gcs", "postgres", "redis", "email", "ratelimit", "prod", "test"}
 
     def test_extras_check_line_present(self, tmp_path):
         from feather.cli.security_check import run_checks

@@ -533,8 +533,9 @@ def rate_limit(
     keeps its own counts, so a client gets roughly N times the configured
     limit and a restart resets everything. That is fine for slowing down a
     login form on a single box; for anything that must hold across workers
-    use Flask-Limiter with a Redis storage backend instead (the scaffold
-    adopts Flask-Limiter in 0.9.7).
+    use Flask-Limiter with a Redis storage backend instead. Apps scaffolded
+    from 0.9.9 with authentication get exactly that, wired up in their own
+    ``rate_limits.py`` (``pip install 'feather-framework[ratelimit]'``).
 
     The client address comes from ``request.remote_addr``. Feather wraps the
     app in ProxyFix, which rewrites ``remote_addr`` from ``X-Forwarded-For``
@@ -589,7 +590,8 @@ def rate_limit(
         - In development with debug mode, rate limiting still applies
         - Rate limits reset after the period passes
         - The store is per-process; for production with multiple workers
-          use Flask-Limiter with Redis
+          use Flask-Limiter with Redis (scaffolded auth apps ship a
+          ``rate_limits.py`` that does this)
     """
 
     def decorator(f: Callable) -> Callable:

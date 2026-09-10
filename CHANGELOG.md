@@ -5,6 +5,44 @@ Releases are tags (`vX.Y.Z`) published to PyPI by `.github/workflows/publish.yml
 
 ## Unreleased
 
+## 0.9.9 (2026-09-10) — real rate limiting in scaffolded apps
+
+Additive. Nothing an existing app does changes; the new behaviour only
+appears in newly generated projects.
+
+- **Scaffolded apps with authentication now rate-limit through
+  Flask-Limiter.** The framework's own `@rate_limit` keeps its counters in
+  the process, so under `gunicorn --workers 4` a limit of ten per minute is
+  really forty per minute. Generated apps get a `rate_limits.py` that covers
+  the Google OAuth login and callback and every admin POST route, backed by
+  Redis through `RATELIMIT_STORAGE_URI` or `REDIS_URL`, and falling back to
+  memory with a warning that names the multi-worker consequence.
+- Limits live in `config.py` as `RATELIMIT_DEFAULT`, `RATELIMIT_LOGIN` and
+  `RATELIMIT_ADMIN`, each overridable by environment variable, rather than
+  being buried in the logic.
+- Static endpoints are exempt. A single page load fetches ten or more scripts
+  and fonts from Flask, so without the exemption a busy user earns a 429 on
+  the app's own JavaScript while the page is still loading.
+- New `ratelimit` extra (`flask-limiter>=4.1`), included in `all`. Generated
+  requirements name it when the app has authentication.
+- `@rate_limit`'s documentation now says plainly that it is a single-process
+  guard and points at the generated module for production.
+
+Two traps are worth recording, because both fail silently and both cost real
+debugging time in production:
+
+1. Flask-Limiter only enforces a limit through the wrapper it returns.
+   `limiter.limit(rule)(app.view_functions[endpoint])` with the result
+   discarded is not merely a no-op: the endpoint also drops out of the
+   default limit, so the call makes things worse than doing nothing. The
+   result must be assigned back.
+2. Static assets count against the default limit unless `static` and
+   `feather_static` are exempted through `limiter.request_filter`.
+
+Both are covered by tests that boot a generated app and watch for a real 429,
+and the first has a mutation test that reintroduces the bug and asserts the
+limit stops firing, so the passing test cannot pass for the wrong reason.
+
 ## 0.9.8 (2026-09-10) — optional dependencies, one auth decorator, per-app backends
 
 This is the release with intentional breaks. Every one is listed under

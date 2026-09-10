@@ -1,0 +1,28 @@
+---
+
+## Rate Limiting
+
+App-level rate limiting is **Flask-Limiter**, set up in `rate_limits.py` and
+called from `app.py` after `Feather(__name__)` has registered the routes.
+Feather's own `@rate_limit` decorator is *per process*: with `--workers 4` a
+limit of 10/minute really allows 40 and a restart forgets the counters, so
+use it only as a quick guard in development.
+
+- The numbers are `RATELIMIT_DEFAULT`, `RATELIMIT_LOGIN` and
+  `RATELIMIT_ADMIN` in `config.py`. `RATELIMIT_STORAGE_URI` (or `REDIS_URL`)
+  points the counters at Redis; without it they are per-process memory.
+- To limit a route that is already registered, put the wrapper back:
+  `app.view_functions[endpoint] = limiter.limit(rule)(view)`. Calling
+  `limiter.limit(...)` and discarding what it returns enforces nothing and
+  silently drops the endpoint out of the default limit too.
+- Static assets must never count against a limit - one page load fetches ten
+  or more files through Flask. `rate_limits.EXEMPT_ENDPOINTS` covers `static`
+  and `feather_static`; add to it, do not remove from it.
+- New routes get the default limit automatically. Give a route its own limit
+  with `@limiter.limit(...)` at definition time, or `_apply()` in
+  `rate_limits.py` for one that already exists.
+
+```bash
+flask limiter limits      # every route Flask-Limiter actually limits
+```
+
