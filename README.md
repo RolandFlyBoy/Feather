@@ -94,6 +94,8 @@ The mental model: start with Components for everything static, reach for HTMX wh
 ```bash
 pip install feather-framework
 ```
+Releases are published from GitHub Actions on version tags; pin the version in
+your app's requirements (`feather-framework==0.9.5`) for reproducible builds.
 
 **Or with pipx (isolated environment):**
 ```bash

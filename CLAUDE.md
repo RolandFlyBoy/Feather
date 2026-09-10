@@ -172,6 +172,60 @@ feather test --framework      # Run framework tests
 feather new testapp           # Test scaffolding
 ```
 
+## Releasing
+
+Releases go to PyPI from GitHub Actions with trusted publishing: PyPI trusts
+the `publish.yml` workflow in RolandFlyBoy/Feather (environment `pypi`), so
+there is no API token anywhere. Set up once on PyPI on 2026-09-10.
+
+1. Add the changes to `CHANGELOG.md` under "Unreleased" as you go.
+2. Bump `version` in `pyproject.toml` and `__version__` in
+   `feather/__init__.py` (they must match), move the changelog entry under
+   the new version, commit ("Bump version to X.Y.Z").
+3. `git tag vX.Y.Z && git push origin main vX.Y.Z`.
+4. The workflow refuses a tag that does not match the version strings, runs
+   the test suite, builds and `twine check`s the sdist and wheel, then
+   uploads. Re-run from the Actions tab if the upload step fails.
+5. Apps pin the release (`feather-framework==X.Y.Z` in their
+   requirements.txt) and upgrade by bumping the pin.
+
+## Lessons from apps in production (2026-09)
+
+Things found while running OpenCVNGN on Feather, worth folding into the
+framework or its scaffold. Not yet done unless ticked.
+
+- [ ] **htmx extensions load after htmx has processed the page.** The
+      scaffold's `vendor.js` imports htmx (which initialises the document as
+      soon as it runs) and then `await import()`s the SSE extension, so any
+      `hx-ext="sse"` element present at page load never opens its
+      EventSource. `htmx.process()` will not re-init those nodes. OpenCVNGN's
+      fix: after the extensions load,
+      `document.querySelectorAll('[sse-connect]').forEach(el => htmx.trigger(el, 'htmx:afterProcessNode'))`.
+      Put that in the scaffold's vendor.js.
+- [ ] **Flask-Limiter 4 only enforces a decorated limit through the wrapper it
+      returns.** `limiter.limit(...)(app.view_functions[ep])` without assigning
+      the result back is a silent no-op. The scaffold's rate-limit helper
+      should re-register: `app.view_functions[ep] = limiter.limit(rule)(view)`.
+- [ ] **Static assets count against Flask-Limiter's default limit.** A page
+      load fetches ten or more scripts and fonts from Flask; busy users hit
+      429s on `/feather-static/*.js`. Exempt `static` and `feather_static`
+      endpoints via `limiter.request_filter`.
+- [ ] **Flask-WTF CSRF tokens expire after an hour** on top of the session
+      lifetime; a form left open (a pasted job description, a long
+      interview) fails with a generic error. Consider `WTF_CSRF_TIME_LIMIT =
+      None` as the scaffold default: the session bounds the token.
+- [ ] **Tests that hold one app context across requests from several test
+      clients** all resolve to the first loaded user, because Flask-Login
+      caches the user on `g` for the app context. Document: seed inside a
+      context, make requests outside it.
+- [ ] **The custom confirm modal must be looked up at event time.** The
+      scaffold's confirm handler ran before the modal markup (which base.html
+      renders after the scripts) existed, so every `hx-confirm` fell through
+      to the native dialog. Resolve the modal inside the `htmx:confirm`
+      handler.
+- [x] Thread job backend and `job_timeout` (0.9.5).
+- [x] Logout and the remember cookie (0.9.5).
+
 ## Testing
 
 ```bash
