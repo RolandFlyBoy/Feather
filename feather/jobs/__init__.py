@@ -182,7 +182,15 @@ def get_queue() -> JobQueue:
             "JOB_ENABLE_MONITORING",
             os.environ.get("JOB_ENABLE_MONITORING", "").lower() in ("true", "1", "yes"),
         )
-        serializer = current_app.config.get("JOB_SERIALIZER", os.environ.get("JOB_SERIALIZER", "pickle"))
+        # `or`, not dict.get's default: a config.py that writes
+        # JOB_SERIALIZER = os.environ.get("JOB_SERIALIZER") leaves the key
+        # present but None, and falling back to pickle there would put the
+        # queue and `feather worker` on different serializers.
+        serializer = (
+            current_app.config.get("JOB_SERIALIZER")
+            or os.environ.get("JOB_SERIALIZER")
+            or "pickle"
+        )
         app = current_app._get_current_object()
     except RuntimeError:
         # No Flask app context

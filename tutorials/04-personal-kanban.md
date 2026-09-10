@@ -2,7 +2,7 @@
 
 ## Kanban Tutorial Series
 
-> This is part 4 of a 5-part series building a production Kanban app.
+> This is part 4 of a 6-part series building a production Kanban app.
 > [View series overview](index.md)
 
 | Part | Title | Status |
@@ -12,6 +12,7 @@
 | 3 | Drag-and-Drop | Complete |
 | 4 | Personal Kanban | **You are here** |
 | 5 | SaaS Kanban | |
+| 6 | Deploying | |
 
 ## This Tutorial
 
@@ -20,7 +21,7 @@
 **Features covered:**
 - Multiple Kanban boards per user with dashboard home page
 - Google OAuth authentication
-- Role-based access control (admin, user, viewer)
+- Role-based access control (admin, editor, user)
 - PDF attachments with Google Cloud Storage
 - Admin panel for user management
 - PDF export
@@ -58,44 +59,53 @@ Before starting, you'll need:
 feather new kanban
 ```
 
-You'll see interactive prompts:
+You'll see interactive prompts. This tutorial assumes the answers shown here:
 
 ```
 Project Configuration
 
 App Type
   Simple       - Static pages, no authentication
-  Single-Tenant  - Authentication with role-based access
-  Multi-Tenant   - Separate tenant accounts with isolation
-  Select type [simple]:
-```
+  Single-tenant - One organization, user accounts
+  Multi-tenant  - Multiple organizations (SaaS)
 
-Choose `single-tenant`.
+  Select type (simple, single-tenant, multi-tenant) [simple]: single-tenant
 
-```
 Database
-  Type [none]:
+  Type (sqlite, postgresql) [sqlite]: postgresql
+  Database name [kanban]:
+
+Background Jobs
+  Include background jobs? [Y/n]:
+
+Features (press Enter for defaults):
+  Auto-approve new user signups? [y/N]:
+  Include Redis caching? [Y/n]: n
+  Include cloud storage (GCS)? [Y/n]:
+  Include email support (Resend)? [y/N]:
+
+User Profile Fields (optional):
+  Include display_name? [Y/n]:
+
+Admin Setup
+  Admin email: you@gmail.com
 ```
 
-Choose `postgresql`.
+Two answers matter for this tutorial:
 
-```
-Database name [kanban]:
-```
+- **Database: `postgresql`.** The prompt defaults to `sqlite` for single-tenant
+  apps, so you have to type it. SQLite works too, but the tutorial's `.env`
+  assumes Postgres.
+- **Cloud storage (GCS): yes.** It already defaults to `Y` — keep it. PDF
+  attachments in Step 6 need it.
+- **Redis caching: `n`.** It defaults to `Y`, which sets `CACHE_BACKEND=redis`
+  and expects a Redis server. Nothing here uses the cache, so say no and skip
+  the dependency. Background jobs stay at the default: the thread backend runs
+  them in-process, no Redis required.
 
-Press Enter to accept `kanban`.
-
-```
-Include cloud storage (GCS)? [y/N]:
-```
-
-Type `y` for GCS support (needed for PDF attachments).
-
-```
-Admin email:
-```
-
-Enter your Gmail address (for the admin account).
+Everything else can be left at its default. The admin email should be the Gmail
+address you'll sign in with, because `seeds.py` grants that address the admin
+role.
 
 Then:
 ```bash
@@ -137,11 +147,13 @@ After `feather new` with the options above, you have:
 ```
 kanban/
 ├── models/
-│   ├── __init__.py
+│   ├── __init__.py         # Imports User, Log, Account, AccountUser
 │   ├── user.py             # User model with roles
-│   └── error_log.py        # Error logging (we'll delete this)
+│   ├── log.py              # Log model - powers /admin/logs
+│   └── account.py          # Account and AccountUser (billing/ownership)
 ├── services/
-│   └── __init__.py
+│   ├── __init__.py
+│   └── admin_service.py    # Admin panel - imports Log, Account, AccountUser
 ├── routes/
 │   ├── api/
 │   └── pages/
@@ -152,9 +164,15 @@ kanban/
 ├── static/
 │   ├── css/app.css
 │   └── islands/
+├── tests/
+│   └── test_home.py        # Tests the scaffolded welcome page
 ├── seeds.py                # Creates admin user
 └── migrations/
 ```
+
+> **Don't delete `log.py` or `account.py`.** The scaffolded
+> `services/admin_service.py` and `seeds.py` import `Log`, `Account` and
+> `AccountUser`. Remove them and the app won't start.
 
 ### User Model (models/user.py)
 
@@ -182,7 +200,9 @@ class User(UserMixin, Model):
     created_at = db.Column(db.DateTime, ...)
     updated_at = db.Column(db.DateTime, ...)
 
+    @property
     def is_active(self):
+        # Flask-Login requires a property here, not a method.
         return bool(self.active)
 
     @property
@@ -203,7 +223,7 @@ Plus new features:
 - **Kanban model** for multiple boards per user
 - **Dashboard home page** showing all user's boards
 - User ownership of boards
-- **Role-based access** (admin, user, viewer)
+- **Role-based access** (admin and editor can change boards, user is read-only)
 - File attachments on cards
 - PDF export
 - Admin panel customization
@@ -219,19 +239,15 @@ The scaffolded app includes demo files we'll replace. Delete them first:
 ```bash
 rm routes/pages/home.py
 rm templates/pages/home.html
-rm models/error_log.py
+rm tests/test_home.py
 rm static/islands/counter.js
 ```
 
-Update `models/__init__.py` to remove the error_log import:
+`tests/test_home.py` goes with the route it tests — leave it behind and
+`feather test` fails on a 404 as soon as you delete `routes/pages/home.py`.
 
-```python
-"""SQLAlchemy models - Auto-discovered by Feather."""
-
-from feather.db import db, Model
-
-from models.user import User
-```
+Leave `models/__init__.py` alone for now. We'll add our models to it in Step 1;
+the `Log`, `Account` and `AccountUser` imports already in there have to stay.
 
 ### Step 1: Create Models
 
@@ -332,17 +348,27 @@ class Card(UUIDMixin, TimestampMixin, OrderingMixin, Model):
         return f"<Card {self.title}>"
 ```
 
-Update `models/__init__.py` to add the new models:
+Update `models/__init__.py` to add the new models. Keep everything that's
+already there — import order matters, because Alembic creates tables in the
+order the models are imported and a foreign key can't point at a table that
+doesn't exist yet:
 
 ```python
 """SQLAlchemy models - Auto-discovered by Feather."""
 
 from feather.db import db, Model
-
 from models.user import User
+from models.log import Log
+from models.account import Account, AccountUser
 from models.kanban import Kanban
 from models.column import Column
 from models.card import Card
+
+__all__ = [
+    "db", "Model",
+    "Account", "AccountUser", "Log", "User",
+    "Kanban", "Column", "Card",
+]
 ```
 
 ### Step 2: Run Migration
@@ -353,6 +379,19 @@ feather db upgrade
 ```
 
 ### Step 3: Create Services
+
+Before the code, a word about roles. Feather ships four of them — `admin`,
+`editor`, `moderator` and `user` — and those are the only ones the scaffolded
+admin panel can assign from its dropdown. So we use them as-is: **editors and
+admins can change boards, everyone else gets a read-only view.** New users get
+`user` by default, and you promote someone to `editor` from `/admin/users`.
+
+If you'd rather have a role named something else (a `viewer` that can't even see
+other people's boards, say), add it to `ROLE_INHERITS` in
+`feather/auth/roles.py`, then add it to the `valid_roles` list in
+`services/admin_service.py` and to the `<select>` in
+`templates/pages/admin/user_detail.html` so the admin panel can actually assign it.
+The `role` column is a plain string, so no migration is needed.
 
 Create `services/kanban_service.py`:
 
@@ -385,16 +424,16 @@ class KanbanService(Service):
 
     def create(self, user_id: str, title: str) -> Kanban:
         """Create a new kanban for a user."""
-        if current_user.role == "viewer":
-            raise AuthorizationError("Viewers cannot create boards")
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to create boards")
         kanban = Kanban(user_id=user_id, title=title)
         self.save(kanban)
         return kanban
 
     def delete(self, id: str, user_id: str) -> None:
         """Delete a kanban (user must own it)."""
-        if current_user.role == "viewer":
-            raise AuthorizationError("Viewers cannot delete boards")
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to delete boards")
         kanban = self.get_by_id(id, user_id)
         self.db.delete(kanban)
         self.db.commit()
@@ -429,8 +468,8 @@ class ColumnService(Service):
 
     def create(self, kanban_id: str, user_id: str, title: str) -> Column:
         """Create a new column in a kanban (user must own kanban)."""
-        if current_user.role == "viewer":
-            raise AuthorizationError("Viewers cannot create columns")
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to create columns")
         kanban = Kanban.query.get(kanban_id)
         if not kanban or kanban.user_id != user_id:
             raise AuthorizationError("You don't have access to this board")
@@ -442,8 +481,8 @@ class ColumnService(Service):
 
     def delete(self, id: str, user_id: str) -> None:
         """Delete a column (user must own it via kanban)."""
-        if current_user.role == "viewer":
-            raise AuthorizationError("Viewers cannot delete columns")
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to delete columns")
         column = self.get_by_id(id, user_id)
         kanban_id = column.kanban_id
         self.db.delete(column)
@@ -477,8 +516,8 @@ class CardService(Service):
 
     def create(self, column_id: str, user_id: str, title: str) -> Card:
         """Create a new card in a column (user must own kanban)."""
-        if current_user.role == "viewer":
-            raise AuthorizationError("Viewers cannot create cards")
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to create cards")
         column = Column.query.get(column_id)
         if not column or column.kanban.user_id != user_id:
             raise AuthorizationError("You don't have access to this column")
@@ -490,8 +529,8 @@ class CardService(Service):
 
     def delete(self, id: str, user_id: str) -> None:
         """Delete a card (user must own it via kanban)."""
-        if current_user.role == "viewer":
-            raise AuthorizationError("Viewers cannot delete cards")
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to delete cards")
         card = self.get_by_id(id, user_id)
         column_id = card.column_id
         self.db.delete(card)
@@ -501,8 +540,8 @@ class CardService(Service):
 
     def move(self, card_id: str, user_id: str, to_column_id: str, to_position: int) -> Card:
         """Move a card to a new position."""
-        if current_user.role == "viewer":
-            raise AuthorizationError("Viewers cannot move cards")
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to move cards")
         card = self.get_by_id(card_id, user_id)
 
         # Verify target column ownership via kanban
@@ -878,7 +917,7 @@ Create `templates/pages/dashboard.html` (the home page):
             </h1>
         </div>
         <div class="dashboard-header-right">
-            {% if current_user.role != "viewer" %}
+            {% if current_user.role in ["editor", "admin"] %}
             <button id="add-kanban-btn" class="btn-primary">
                 {{ icon("add", size="sm") }} New Board
             </button>
@@ -908,7 +947,7 @@ Create `templates/pages/dashboard.html` (the home page):
         {% else %}
         <div class="empty-state">
             <p>{{ icon("dashboard", size="xl") }}</p>
-            <p>No boards yet. {% if current_user.role != "viewer" %}Create your first board!{% endif %}</p>
+            <p>No boards yet. {% if current_user.role in ["editor", "admin"] %}Create your first board!{% endif %}</p>
         </div>
         {% endfor %}
     </div>
@@ -917,7 +956,7 @@ Create `templates/pages/dashboard.html` (the home page):
 {% endblock %}
 
 {% block scripts %}
-{% if current_user.role != "viewer" %}
+{% if current_user.role in ["editor", "admin"] %}
 {% if config.DEBUG %}
 <script type="module" src="http://localhost:5173/static/js/dashboard.js"></script>
 {% else %}
@@ -972,7 +1011,7 @@ Create `templates/partials/kanban_card.html`:
             · Updated {{ kanban.updated_at.strftime('%b %d') }}
         </p>
     </a>
-    {% if current_user.role != "viewer" %}
+    {% if current_user.role in ["editor", "admin"] %}
     <button hx-delete="/htmx/kanbans/{{ kanban.id }}"
             hx-target="#kanban-{{ kanban.id }}"
             hx-swap="outerHTML"
@@ -1004,7 +1043,7 @@ Create `templates/pages/board.html`:
             </h1>
         </div>
         <div class="kanban-header-right">
-            {% if current_user.role != "viewer" %}
+            {% if current_user.role in ["editor", "admin"] %}
             <button id="add-column-btn" class="btn-primary">
                 {{ icon("add", size="sm") }} Add Column
             </button>
@@ -1034,7 +1073,7 @@ Create `templates/pages/board.html`:
                 {% include "partials/column.html" %}
             {% else %}
                 <div class="empty-board">
-                    <p>No columns yet. {% if current_user.role != "viewer" %}Click "Add Column" to get started!{% endif %}</p>
+                    <p>No columns yet. {% if current_user.role in ["editor", "admin"] %}Click "Add Column" to get started!{% endif %}</p>
                 </div>
             {% endfor %}
         </div>
@@ -1044,7 +1083,7 @@ Create `templates/pages/board.html`:
 {% endblock %}
 
 {% block scripts %}
-{% if current_user.role != "viewer" %}
+{% if current_user.role in ["editor", "admin"] %}
 {% if config.DEBUG %}
 <script type="module" src="http://localhost:5173/static/js/board.js"></script>
 {% else %}
@@ -1070,7 +1109,7 @@ Create `templates/partials/column.html`:
 <div id="column-{{ column.id }}" class="kanban-column">
     <div class="column-header">
         <h2 class="column-title">{{ column.title }}</h2>
-        {% if current_user.role != "viewer" %}
+        {% if current_user.role in ["editor", "admin"] %}
         <button hx-delete="/htmx/columns/{{ column.id }}"
                 hx-target="#column-{{ column.id }}"
                 hx-swap="outerHTML"
@@ -1091,7 +1130,7 @@ Create `templates/partials/column.html`:
         {% endfor %}
     </div>
 
-    {% if current_user.role != "viewer" %}
+    {% if current_user.role in ["editor", "admin"] %}
     <form hx-post="/htmx/columns/{{ column.id }}/cards"
           hx-target="#column-{{ column.id }}-cards"
           hx-swap="beforeend"
@@ -1112,7 +1151,7 @@ Create `templates/partials/card.html`:
      class="kanban-card"
      data-id="{{ card.id }}">
     <div class="card-content">
-        {% if current_user.role != "viewer" %}
+        {% if current_user.role in ["editor", "admin"] %}
         <span class="drag-handle">
             {{ icon("drag_indicator", size="sm") }}
         </span>
@@ -1126,12 +1165,12 @@ Create `templates/partials/card.html`:
             <button data-action="view-pdf" data-card-id="{{ card.id }}" class="card-pdf-icon has-pdf" title="View PDF">
                 {{ icon("picture_as_pdf", size="sm") }}
             </button>
-            {% elif current_user.role != "viewer" %}
+            {% elif current_user.role in ["editor", "admin"] %}
             <button data-action="show-upload" data-card-id="{{ card.id }}" class="card-pdf-icon" title="Attach PDF">
                 {{ icon("attach_file", size="sm") }}
             </button>
             {% endif %}
-            {% if current_user.role != "viewer" %}
+            {% if current_user.role in ["editor", "admin"] %}
             <button hx-delete="/htmx/cards/{{ card.id }}"
                     hx-target="#card-{{ card.id }}"
                     hx-swap="outerHTML"
@@ -1155,7 +1194,7 @@ Create `templates/partials/pdf_viewer.html` for viewing PDF attachments:
     <div class="pdf-viewer-header">
         <h2 class="pdf-viewer-title">{{ card.title }}</h2>
         <div class="pdf-viewer-actions">
-            {% if current_user.role != "viewer" %}
+            {% if current_user.role in ["editor", "admin"] %}
             <button data-action="replace-pdf" data-card-id="{{ card.id }}" class="btn-secondary btn-sm">
                 {{ icon("upload", size="sm") }} Replace
             </button>
@@ -1798,7 +1837,7 @@ The export route is already defined in `routes/api/board.py`. Add the export but
     <a href="/api/kanbans/{{ kanban.id }}/export" class="btn-secondary">
         {{ icon("picture_as_pdf", size="sm") }} Export PDF
     </a>
-    {% if current_user.role != "viewer" %}
+    {% if current_user.role in ["editor", "admin"] %}
     <button id="add-column-btn" class="btn-primary">
         {{ icon("add", size="sm") }} Add Column
     </button>
@@ -1846,7 +1885,7 @@ Your app should now have:
 - Google OAuth authentication
 - Dashboard showing all user's boards in a 2-column grid
 - Multiple Kanban boards per user
-- Three user roles (admin, user, viewer)
+- Three of Feather's built-in roles in use (admin, editor, user)
 - Admin panel at `/admin/` (admin role only)
 - All previous drag-drop functionality
 - PDF attachments on cards with viewer modal
@@ -1902,7 +1941,7 @@ migrations/                 # Generated by feather db migrate
 
 - **Multiple boards per user** with Kanban model hierarchy
 - **Dashboard home page** with 2-column grid layout
-- **Role-based access control** (admin, user, viewer)
+- **Role-based access control** (admin, editor, user)
 - **`@auth_required`** decorator for protected routes
 - **`@login_only`** decorator for pages accessible to non-active users (pending approval)
 - **`current_user`** for accessing logged-in user and role

@@ -151,7 +151,7 @@ class TestProxyFix:
     """Test ProxyFix middleware for reverse proxy support.
 
     ProxyFix is essential for:
-    - Production: Render, Heroku, AWS ALB, nginx
+    - Production: Caddy, nginx, Traefik, AWS ALB
     - Development: ngrok, localtunnel for OAuth testing
     """
 

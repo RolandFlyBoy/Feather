@@ -2,7 +2,7 @@
 
 ## Kanban Tutorial Series
 
-> This is part 3 of a 5-part series building a production Kanban app.
+> This is part 3 of a 6-part series building a production Kanban app.
 > [View series overview](index.md)
 
 | Part | Title | Status |
@@ -12,6 +12,7 @@
 | 3 | Drag-and-Drop | **You are here** |
 | 4 | Personal Kanban | |
 | 5 | SaaS Kanban | |
+| 6 | Deploying | |
 
 ## This Tutorial
 

@@ -7,7 +7,7 @@
 
 Feather is a full-stack web framework built on proven technologies: **Flask** for the backend, **Tailwind CSS** for styling, **HTMX** for dynamic interactions, and **vanilla JavaScript** for complex client-side behavior.
 
-Built with and optimized for [Claude Code](https://claude.ai/code), though it works with any AI coding assistant. Each project includes a `CLAUDE.md` that gives AI assistants the context they need to follow framework conventions.
+Built with and optimized for [Claude Code](https://claude.ai/code), though it works with any AI coding assistant. Each project includes a `CLAUDE.md` and an identical `AGENTS.md` giving assistants the conventions to follow, and `feather check` enforces the ones that can be enforced, so an assistant can verify its own work rather than hoping.
 
 ### What's Included
 
@@ -158,7 +158,22 @@ Open http://localhost:5173 — Vite handles frontend assets with HMR, Flask runs
 
 **Note:** If using background jobs with the thread backend, set `FLASK_DEBUG=0` in `.env`. The Flask reloader kills background threads on file changes. Use `JOB_BACKEND=sync` during development if you need debug mode.
 
-Every Feather project includes a `CLAUDE.md` guide that helps AI assistants understand the framework's patterns and conventions. It's a starting point—add your own project-specific context, domain rules, or coding preferences as your app grows.
+Every Feather project includes a `CLAUDE.md` and an `AGENTS.md` with the same
+content, written together so they cannot drift, plus a `.claude/settings.json`
+that pre-approves the read-only commands an assistant needs. `AGENTS.md` is
+the vendor-neutral name other tools look for. Both carry the full rules rather
+than one linking to the other, because an assistant that has to follow a link
+often does not.
+
+They are a starting point—add your project's own domain rules and preferences
+as the app grows. What makes them useful is that the rules are checkable:
+
+```bash
+feather check        # are the conventions being followed?
+feather components   # what arguments does this macro take?
+feather routes       # what is actually registered?
+feather test         # does it still work?
+```
 
 ### Project Structure
 
@@ -189,7 +204,7 @@ myapp/
 ```
 
 **Framework-provided** (served from `/feather-static/`, auto-update with Feather upgrades):
-- Components: `button`, `card`, `modal`, `input`, `alert`, `icon`, `dropdown`
+- Components: see [Components](#components) for the full list
 - JS: `api.js` (CSRF-aware fetch), `feather.js` (Islands runtime)
 
 Override any component by creating your own version in `templates/components/`.
@@ -210,7 +225,34 @@ The concepts are explained in [How the Frontend Works](#how-the-frontend-works).
 {{ button("Delete", variant="danger", icon=icon("delete", size="sm")) }}
 ```
 
-**Available:** `button`, `card`, `modal`, `input`, `textarea`, `alert`, `icon`, `dropdown`, `confirm_modal`, `prompt_modal`, `toast`
+**Available macros** — every one lives in `feather/templates/components/` and is
+imported from `components/<file>.html`:
+
+| Macro | File | Signature |
+|-------|------|-----------|
+| `alert` | `alert.html` | `alert(message, class="")` |
+| `button` | `button.html` | `button(text, type="button", variant="primary", icon=None, class="")` |
+| `card` | `card.html` | `card(class="")` — call block |
+| `confirm_modal` | `confirm_modal.html` | `confirm_modal()` — backs `hx-confirm` |
+| `dropdown` | `dropdown.html` | `dropdown(name, options, selected=None, placeholder=None, label=None, inline=False, required=False, class="")` |
+| `htmx_indicator` | `htmx_indicator.html` | `htmx_indicator(color="#6366f1")` |
+| `icon` | `icon.html` | `icon(name, size="md", class="")` |
+| `input` | `input.html` | `input(name, type="text", placeholder="", required=False, class="")` |
+| `textarea` | `input.html` | `textarea(name, rows=3, placeholder="", required=False, class="")` |
+| `modal` | `modal.html` | `modal(id, class="")` — call block |
+| `page_loader` | `page_loader.html` | `page_loader(color="#6366f1", bg="#f9fafb")` |
+| `prompt_modal` | `prompt_modal.html` | `prompt_modal()` — backs `window.showPrompt()` |
+| `spinner` | `spinner.html` | `spinner(size="md", color="currentColor")` |
+| `toast` | `toast.html` | `toast()` — the toast container |
+
+`card` and `modal` wrap their contents, so use `{% call %}`:
+
+```html
+{% from "components/card.html" import card %}
+{% call card(class="mt-4") %}
+    <h2>Title</h2>
+{% endcall %}
+```
 
 ### HTMX
 
@@ -290,13 +332,19 @@ Every scaffolded app includes a dark mode toggle that persists across pages via 
 
 **Toggle button (scaffolded in templates):**
 ```html
-<button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
-    <span class="material-symbols-outlined icon-light">bedtime</span>
-    <span class="material-symbols-outlined icon-dark">sunny</span>
+<button data-toggle-dark-mode
+        class="p-2 rounded-lg text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
+        title="Toggle dark mode">
+    <span class="dark:hidden"><span class="material-symbols-outlined">bedtime</span></span>
+    <span class="hidden dark:inline"><span class="material-symbols-outlined">sunny</span></span>
 </button>
 ```
 
-**CSS classes (in `app.css`):**
+The only thing `dark-mode.js` looks for is the `data-toggle-dark-mode`
+attribute; which icon shows is plain `dark:` variants on the two spans. If you
+would rather keep the markup clean, move the swap into `app.css` and give the
+button a class of your own:
+
 ```css
 .dark-mode-toggle .icon-light { @apply dark:hidden; }
 .dark-mode-toggle .icon-dark  { @apply hidden dark:inline; }
@@ -1194,7 +1242,8 @@ The `feather worker` command handles the setup that would otherwise require a cu
 | Flag | Description |
 |------|-------------|
 | `--burst` | Exit when queue is empty |
-| `--simple-worker` | Force SimpleWorker (no fork, default on macOS) |
+| `--simple` | Force SimpleWorker — one process, no fork (the default on macOS) |
+| `--fork` | Force the forking worker — one process per job, so a crashing job can't take the worker down (the default on Linux, and what the Docker `worker` target runs) |
 | `--no-scheduler` | Disable delayed job scheduler |
 | `--name` | Worker name (for identification in logs) |
 | `--log-level` | DEBUG, INFO, WARNING, ERROR (default: INFO) |
@@ -1203,45 +1252,34 @@ The `feather worker` command handles the setup that would otherwise require a cu
 
 In production, workers run as separate services that share the same Docker image (or codebase) as your web server — just with a different start command.
 
-**Render** — add a Background Worker service in `render.yaml`:
-
-```yaml
-services:
-  - type: web
-    name: myapp
-    runtime: docker
-    # ... web service config ...
-
-  - type: worker
-    name: myapp-worker
-    runtime: docker
-    envVars:
-      # Same env vars as the web service
-      - key: FLASK_CONFIG
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: myapp-db
-          property: connectionString
-      - key: REDIS_URL
-        value: redis://...
-    dockerCommand: feather worker
-```
-
-**Docker Compose:**
+The generated `docker-compose.yml` already has one when you enable background
+jobs — same image, different build target:
 
 ```yaml
 services:
   web:
-    build: .
-    command: gunicorn app:app --bind 0.0.0.0:8000
+    build:
+      context: .
+      target: web
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql://myapp:${POSTGRES_PASSWORD}@db:5432/myapp
+      REDIS_URL: redis://redis:6379/0
 
   worker:
-    build: .
-    command: feather worker
-    env_file: .env  # Same secrets, same database
+    build:
+      context: .
+      target: worker      # same Dockerfile, CMD ["feather", "worker", "--fork"]
+    env_file: .env        # same secrets, same database
+    environment:
+      JOB_BACKEND: rq
+      JOB_SERIALIZER: json
+      DATABASE_URL: postgresql://myapp:${POSTGRES_PASSWORD}@db:5432/myapp
+      REDIS_URL: redis://redis:6379/0
 ```
+
+Run more of them with `docker compose up -d --scale worker=3`, unless your jobs
+include a singleton loop (a scheduler, a billing tick) that must not run twice.
 
 **Key points:**
 - Workers share the same image, env vars, and database as the web service
@@ -1587,9 +1625,13 @@ Convert model objects to JSON with automatic snake_case to camelCase conversion.
 **Basic usage:**
 ```python
 from feather.serializers import Serializer
+from models import User
 
 class UserSerializer(Serializer):
-    fields = ['id', 'email', 'created_at']
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'created_at']
+        camel_case = True
 
 # Serialize
 user = User.query.first()
@@ -1609,7 +1651,9 @@ from feather.serializers import (
 )
 
 class UserSerializer(Serializer):
-    fields = ['id', 'email', 'status', 'balance', 'created_at', 'full_name', 'posts']
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'status', 'balance', 'created_at', 'full_name', 'posts']
 
     status = StringField()                          # Coerce to string
     balance = FloatField()                          # Coerce to float
@@ -1617,9 +1661,16 @@ class UserSerializer(Serializer):
     full_name = MethodField()                       # Computed field
     posts = NestedField(PostSerializer, many=True)  # Nested objects
 
-    def get_full_name(self, obj, context=None):
+    def get_full_name(self, obj, **context):
         return f"{obj.first_name} {obj.last_name}"
 ```
+
+`camel_case` defaults to `True`, so `created_at` is serialized as `createdAt`.
+Set it to `False` in `Meta` to keep the Python names.
+
+`feather generate serializer UserSerializer id email created_at` writes exactly
+this shape, including the `Meta` block and a commented example of a computed
+field.
 
 **Available field types:**
 | Field | Description |
@@ -1725,7 +1776,7 @@ readinessProbe:
   periodSeconds: 10
 ```
 
-**Render, Railway, Fly.io:** These platforms auto-detect `/health` endpoints. No configuration needed—just deploy and they'll use it.
+**Docker:** the generated Dockerfile already has `HEALTHCHECK ... curl /health`, and `deploy/deploy.sh` waits on it before declaring a deploy finished. Most PaaS hosts either detect `/health` or take it as a configured health-check path.
 
 ### Error Logging
 
@@ -1794,6 +1845,56 @@ Custom directives are merged with defaults — you only need to specify the ones
 ```python
 FEATHER_SECURITY_HEADERS = False
 ```
+
+### Checking Conventions
+
+The rules in this document are not only advice. `feather check` enforces the
+ones that can be enforced, and reports a file, a line and a remedy for each
+problem it finds.
+
+```bash
+feather check                   # everything
+feather check --only templates  # one group
+feather check --strict          # warnings fail too
+feather check --json            # for tooling
+```
+
+| Rule | Severity | What it catches |
+|------|----------|-----------------|
+| `inline-script` | error | A `<script>` block in a template rather than a file under `static/` |
+| `inline-handler` | error | `onclick=` and friends instead of an `hx-*` attribute or an island |
+| `inline-style` | error | A `style=` attribute instead of a class |
+| `inline-tailwind` | warning | Utility classes in markup instead of `@apply` in `app.css` |
+| `native-dialog` | error | `alert()`, `confirm()` or `prompt()` |
+| `raw-fetch` | error | `fetch()` instead of `ApiUtility`, which handles CSRF and retries |
+| `google-image-referrer` | error | A Google avatar without `referrerpolicy="no-referrer"` |
+| `unprotected-route` | warning | A route with no auth decorator |
+| `fat-route` | warning | A route handler doing work that belongs in a service |
+| `tenant-isolation` | error | A query on a tenant-scoped model with no tenant filter |
+| `orphan-island` | warning | An island no template mounts |
+| `missing-island` | error | A template mounting an island that does not exist |
+| `syntax-error` | error | A module Feather's discovery would fail to import |
+
+It exits non-zero on any error, so it works as a pre-commit hook or a CI
+step. A route that is deliberately public is exempted with a
+`# feather: public` comment in its module, which records the decision rather
+than hiding it.
+
+### Component Catalogue
+
+Never guess a macro's arguments. `feather components` reads them from the
+macros themselves, so it is right even when documentation is not.
+
+```bash
+feather components                      # signatures and import lines
+feather components --json               # for tooling
+feather components --markdown -o docs/components.md
+```
+
+Components your app defines under `templates/components/` are listed
+alongside the framework's, and one that shares a filename with a framework
+component is marked as overriding it, which is how the template loader
+resolves it at runtime.
 
 ### Security Check
 
@@ -2072,6 +2173,12 @@ feather start --worker-class gevent  # Async workers
 # Development Commands
 feather routes                  # List all registered routes
 feather shell                   # Python shell with app context
+feather check                   # Check the project against Feather's conventions
+feather check --json            # Machine-readable findings for CI
+feather check --only templates  # One group of rules
+feather check --strict          # Warnings fail too
+feather components              # Every component macro with its signature
+feather components --markdown -o docs/components.md
 
 # Security
 feather security-check          # Audit config, cookies, secrets, dependencies
@@ -2093,7 +2200,7 @@ feather test -f --list-markers  # Show available markers
 feather test -f --clean         # Clean test artifacts
 
 # Database Commands
-feather db init                 # Initialize migrations directory
+feather db init                 # Create a migrations/ directory (see note below)
 feather db migrate -m "msg"     # Generate migration from model changes
 feather db upgrade              # Apply pending migrations
 feather db downgrade            # Revert last migration
@@ -2113,7 +2220,8 @@ feather generate serializer UserSerializer id email
 feather worker                  # Start RQ worker (default queue)
 feather worker high default low # Process specific queues (priority order)
 feather worker --burst          # Exit when queue is empty
-feather worker --simple-worker  # Force SimpleWorker (no fork)
+feather worker --simple          # Force SimpleWorker (no fork; default on macOS)
+feather worker --fork            # Force the forking worker (default on Linux)
 feather worker --no-scheduler   # Disable delayed job scheduler
 
 # Job Queue Management (thread and RQ backends)
@@ -2130,7 +2238,24 @@ feather jobs clear              # Clear job history
 # Administration (multi-tenant)
 feather platform-admin <email>          # Grant platform admin
 feather platform-admin <email> --revoke # Revoke platform admin
+
+# Deployment
+feather docker init             # Write Dockerfile, compose files, deploy/ scripts, .env.example
+feather docker init --force     # Overwrite files that already exist
+feather docker init --domain example.com   # Seed DOMAIN in .env.example
+feather docker init --no-worker # Skip the background-job worker service
+
+# Environment
+feather env check               # Which env keys config.py reads, and which are missing
+feather env check --env-file prod.env      # Check a production env file
+feather env check --json        # Machine-readable output for CI
 ```
+
+> **`feather db init` is for apps that have no `migrations/` directory.**
+> `feather new` already scaffolds one, so running it in a fresh app fails with
+> "directory migrations already exists". You need it when you add a database to
+> an app scaffolded without one, or after deleting `migrations/` to start the
+> migration history over.
 
 ### Configuration
 
@@ -2314,275 +2439,404 @@ FLASK_CONFIG=prod
 
 Supported shorthands: `development`/`dev`, `production`/`prod`, `testing`/`test`
 
-### Deploying to Render
-
-Render is a popular platform for deploying web applications. Feather includes a CLI command to generate all the files you need.
-
-#### Step 1: Generate Deployment Files
-
-```bash
-feather deploy render
-```
-
-This creates three files:
-
-| File | Purpose |
-|------|---------|
-| `Dockerfile` | Multi-stage build with Python 3.11, Node.js 22 (for Vite 7), and system deps |
-| `render.yaml` | Blueprint defining your web service and PostgreSQL database |
-| `.dockerignore` | Excludes venv, node_modules, .env, tests from the build |
-
-**Options:**
-```bash
-feather deploy render --name myapp      # Custom app name (default: directory name)
-feather deploy render --region frankfurt # Deploy to Frankfurt (default: oregon)
-```
-
-Available regions: `oregon`, `ohio`, `virginia`, `frankfurt`, `singapore`
-
-#### Step 2: Review Generated Files
-
-The generated `render.yaml` creates:
-- A **web service** running your Feather app with Gunicorn
-- A **PostgreSQL database** (basic-256mb plan)
-- Auto-generated `SECRET_KEY` for session security
-- `DATABASE_URL` automatically linked to the database
-
-```yaml
-# render.yaml (generated)
-services:
-  - type: web
-    name: myapp
-    runtime: docker
-    healthCheckPath: /api/health
-    envVars:
-      - key: FLASK_CONFIG
-        value: production
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: myapp-db
-          property: connectionString
-```
-
-#### Step 3: Upload Environment Variables
-
-**Important:** The generated blueprint only includes Render-managed variables. You must upload your production `.env` file manually for:
-
-- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (for OAuth)
-- `RESEND_API_KEY` (for email)
-- `GCS_BUCKET` and `GCS_CREDENTIALS_JSON` (for file storage)
-- Any other app-specific secrets
-
-**To upload your .env:**
-1. Go to your service in the Render dashboard
-2. Click **Environment** in the left sidebar
-3. Click **Add from .env file**
-4. Upload your production `.env` (not your development one!)
-
-**Tip:** Create a `.env.production` file for your production secrets (add it to `.gitignore`). Use this file when uploading to Render's Environment section:
-```bash
-# .env.production (add to .gitignore - never commit)
-GOOGLE_CLIENT_ID=your-prod-client-id
-GOOGLE_CLIENT_SECRET=your-prod-secret
-RESEND_API_KEY=re_xxxx
-RESEND_FROM_EMAIL=noreply@yourdomain.com
-```
-
-#### Step 4: Update Google OAuth Redirect URI
-
-Before deploying, add your Render URL to Google Cloud Console:
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Edit your OAuth client
-3. Add authorized redirect URI: `https://myapp.onrender.com/auth/google/callback`
-
-#### Step 5: Deploy
-
-**Option A: Connect via GitHub (recommended)**
-1. Push your code to GitHub (including the generated files)
-2. Go to [Render Dashboard](https://dashboard.render.com/)
-3. Click **New** → **Blueprint**
-4. Connect your GitHub repo
-5. Render auto-detects `render.yaml` and deploys
-
-**Option B: Use Render CLI**
-```bash
-# Install Render CLI
-brew install render-cli  # macOS
-# or
-pip install render-cli
-
-# Deploy the blueprint
-render blueprint apply
-```
-
-#### Step 6: Run Database Migrations
-
-The Dockerfile automatically runs `feather db upgrade` on startup. For the first deploy, you may need to manually run seeds:
-
-```bash
-# SSH into your Render service or use the shell
-python seeds.py
-```
-
-Or the Dockerfile handles this too—it runs `seeds.py` if the file exists.
-
-#### Tips and Gotchas
-
-**1. Health check timing**
-Render waits for `/api/health` to return 200 before routing traffic. If your app takes time to start (database migrations, large models), increase the health check grace period in the dashboard.
-
-**2. Database connections**
-The free PostgreSQL plan has connection limits. If you see "too many connections" errors, reduce Gunicorn workers or add connection pooling.
-
-**3. Automatic deploys**
-By default, Render auto-deploys when you push to your main branch. Disable this in settings if you prefer manual deploys.
-
-**4. Logs**
-View logs in the Render dashboard or CLI:
-```bash
-render logs --service myapp
-```
-
-**5. Custom domains**
-Add your domain in the Render dashboard → Settings → Custom Domains. Render handles SSL certificates automatically.
-
-**6. Cost optimization**
-- Start with the free tier for testing
-- Upgrade to Starter ($7/mo) for production (faster deploys, more resources)
-- The database free tier expires after 90 days—upgrade before that
-
 ### Health Check Endpoint
 
-Feather provides `/api/health` (or `/health`) for deployment platforms:
+Feather registers three endpoints on every app — you don't write them:
+
+| Endpoint | Checks | Use for |
+|----------|--------|---------|
+| `/health` | Process **and** database connectivity. 200 when healthy, 503 when not | Load balancers, Docker `HEALTHCHECK`, uptime monitors |
+| `/health/live` | Process only — always 200 if Python is running | Kubernetes liveness probe |
+| `/health/ready` | Same checks as `/health` | Kubernetes readiness probe |
 
 ```bash
-curl https://myapp.onrender.com/api/health
+curl https://example.com/health
 # {"status": "healthy", "timestamp": "...", "checks": {"database": "ok"}}
 ```
 
-Use this as your health check path in Render, Fly.io, AWS, etc.
+Prefer `/health` over a hand-written route: a container with a broken
+`DATABASE_URL` reports unhealthy instead of quietly serving 500s.
 
-### Deployment
+> Apps scaffolded before 0.9.7 also have a `routes/api/health.py` giving
+> `/api/health`. That route is yours, not the framework's, and it only proves
+> the process is listening. Point new health checks at `/health`.
 
-These are starter templates to get you running quickly. Every production environment is different—you'll need to adjust these based on your infrastructure, scaling requirements, and security policies.
+---
 
-**What stays the same:**
-- `feather build` compiles Tailwind CSS and bundles JavaScript
-- `gunicorn app:app` runs the production server
-- Environment variables configure the app (SECRET_KEY, DATABASE_URL, etc.)
+### Deploying with Docker
 
-**What you'll customize:**
-- Worker count and type based on your traffic patterns
-- Database connection pooling for your expected load
-- Health check endpoints for your orchestration platform
-- SSL/TLS termination (usually handled by your load balancer)
-- Logging and monitoring integration
+Feather deploys as a Docker image behind [Caddy](https://caddyserver.com/), on
+one machine. A €7/month VPS runs the app, Postgres, Redis and TLS termination
+with room to spare, and the whole thing is eight files in your repository.
 
-#### Render
-
-Generate deployment files automatically:
+`feather new` scaffolds them. To add them to an existing app:
 
 ```bash
-feather deploy render
-feather deploy render --name myapp --region frankfurt
+feather docker init                     # writes the files below, never overwrites
+feather docker init --force             # overwrite existing files
+feather docker init --domain example.com
+feather docker init --no-worker         # no background-job worker service
 ```
 
-This creates a `Dockerfile`, `render.yaml`, and `.dockerignore`. The generated `render.yaml` uses Docker runtime:
+It inspects your project to decide what to generate — a `db` service if you have
+a database, `redis` and a `worker` if you use background jobs — and it never
+overwrites a file that already exists unless you pass `--force`.
+
+#### What gets generated
+
+| File | What it does |
+|------|--------------|
+| `Dockerfile` | Multi-stage build. A `base` stage (python:3.11-slim, non-root `app` user), a `frontend` stage (node:22-alpine, `npm ci --ignore-scripts`, `npm run build`), a `worker` target and a `web` target. No Node in the runtime image. |
+| `.dockerignore` | Keeps `venv/`, `node_modules/`, `.git/`, `.env*`, `logs/`, `static/dist/` and tests out of the build context. |
+| `docker-compose.yml` | Production stack: `caddy`, `web`, `worker` (if you enabled jobs), `db` (postgres:16), `redis` (valkey:8). Only Caddy publishes ports. |
+| `docker-compose.dev.yml` | Postgres and Redis on localhost for local development. Nothing else. |
+| `deploy/Caddyfile` | TLS, compression, `reverse_proxy web:8000`, the proxy header contract. |
+| `deploy/deploy.sh` | Build, migrate once, swap containers, wait for health. |
+| `deploy/backup.sh` | Nightly `pg_dump` with retention, for cron. |
+| `.env.example` | Every key this app reads, secrets blanked, with the compose-provided ones marked. |
+
+The `web` target is last in the Dockerfile, so a plain `docker build .` produces
+the web image; the worker is `docker build --target worker .`. Both come from
+one Dockerfile and share a layer cache.
+
+Two details in the Dockerfile that are easy to break:
+
+- Feather is installed on its own layer, **before** the rest of
+  `requirements.txt`, because the frontend stage copies the framework's
+  templates out of that layer. Tailwind scans them for the class names the
+  built-in components use. Remove that copy and every framework component
+  renders unstyled in production.
+- **Migrations do not run in `CMD`.** Two web containers starting at once would
+  race on `feather db upgrade`. `deploy/deploy.sh` runs them exactly once.
+
+#### Local development
+
+The app itself stays on your machine so `feather dev` keeps Vite's hot reload.
+Only the dependencies go in containers:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d    # Postgres + Redis
+feather dev                                        # Flask + Vite on the host
+```
+
+The ports and credentials match the `DATABASE_URL` and `REDIS_URL` in the
+generated `.env`, so nothing else needs configuring. Bring up one service alone
+with `docker compose -f docker-compose.dev.yml up -d db`. Stop them with `down`;
+add `-v` to throw the local data away.
+
+You can still build and run the production image locally to check it:
+
+```bash
+docker compose build web
+docker compose run --rm web feather security-check
+```
+
+#### First deploy to a VPS
+
+Any Ubuntu 24.04 box works — Hetzner, DigitalOcean, Vultr. Four vCPU and 8 GB
+is comfortable for an app plus its database.
+
+**1. Point DNS at the server.** An `A` record for the hostname you'll put in
+`DOMAIN`, TTL 300 until you're happy. Caddy cannot issue a certificate before
+DNS resolves to the machine, so do this first.
+
+**2. Create a deploy user and install Docker.** As root on the fresh box:
+
+```bash
+adduser deploy && usermod -aG sudo deploy
+# copy your SSH key to /home/deploy/.ssh/authorized_keys, then disable
+# root login and password auth in /etc/ssh/sshd_config
+
+apt update && apt install -y ca-certificates curl git ufw fail2ban unattended-upgrades
+curl -fsSL https://get.docker.com | sh
+usermod -aG docker deploy
+
+ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp
+ufw enable
+```
+
+**3. Get the code onto the server.** As `deploy`:
+
+```bash
+sudo mkdir -p /opt/myapp && sudo chown deploy:deploy /opt/myapp
+git clone git@github.com:you/myapp.git /opt/myapp
+```
+
+**4. Write `.env` on the server.** This file never enters git and never goes
+into the image. It is the single source of truth for production secrets.
+
+```bash
+cd /opt/myapp
+cp .env.example .env
+chmod 600 .env
+nano .env
+```
+
+At minimum:
+
+```bash
+DOMAIN=example.com
+POSTGRES_PASSWORD=          # python -c "import secrets; print(secrets.token_urlsafe(32))"
+SECRET_KEY=                 # python -c "import secrets; print(secrets.token_urlsafe(48))"
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+`docker-compose.yml` reads `DOMAIN` and `POSTGRES_PASSWORD` itself for `${...}`
+interpolation, and passes the whole file into the containers with
+`env_file: .env` — so `POSTGRES_PASSWORD` is written once and `DATABASE_URL` is
+built from it. Don't set `FLASK_CONFIG`, `PORT`, `WEB_CONCURRENCY`,
+`DATABASE_URL`, `REDIS_URL` or `JOB_BACKEND` here; compose sets those on the
+container and a duplicate in `.env` only creates a way for them to disagree.
+
+Run `feather env check` to see which keys your `config.py` actually reads and
+which are still missing from `.env`. It exits non-zero when a key that has no
+fallback is unset, so it works as a CI or deploy gate.
+
+**5. Deploy.**
+
+```bash
+./deploy/deploy.sh
+```
+
+Watch the first run — Caddy requests a certificate while the app starts, and
+`docker compose logs -f caddy` shows whether issuance worked. When the script
+prints `Healthy. Deploy complete.` the site is live over HTTPS.
+
+#### What `deploy/deploy.sh` does
+
+```bash
+./deploy/deploy.sh          # deploy the current checkout
+./deploy/deploy.sh --pull   # git pull --ff-only first
+```
+
+In order:
+
+1. **`docker compose build`** — every service. Web and worker are separate
+   images even though they share a Dockerfile; building only `web` leaves the
+   worker running last week's code.
+2. **`docker compose up -d db redis`** — dependencies first, so the migration
+   step has something to talk to.
+3. **`docker compose run --rm web feather db upgrade`** — migrations, once, in a
+   throwaway container built from the *new* image. The old containers are still
+   serving while this runs, so a migration that fails leaves the site up.
+4. **`docker compose up -d --remove-orphans`** — swap the containers.
+5. **Wait for health.** It polls Docker's own health status for the `web`
+   container (which runs `curl /health`, which checks the database) for up to
+   120 seconds. Healthy: prune dangling images and exit 0. Unhealthy or timed
+   out: dump the last 50 log lines and exit 1.
+
+The ordering is the whole point. Migrations run exactly once, against the image
+about to serve traffic, before any long-lived container starts — so two web
+containers can never race on the same Alembic upgrade, and a migration failure
+is not a partial deploy.
+
+There is no automatic rollback. If a deploy goes bad, check out the previous
+commit and run `./deploy/deploy.sh` again; migrations already applied are not
+reverted, so undo those deliberately with `feather db downgrade`. Confirm what
+the database is actually at:
+
+```bash
+docker compose exec -T db psql -U myapp -d myapp -c "SELECT version_num FROM alembic_version;"
+```
+
+#### TLS and the proxy headers
+
+Caddy obtains and renews Let's Encrypt certificates automatically for every
+hostname in `deploy/Caddyfile`. There is nothing to run, no certbot cron, no
+renewal to forget. The generated file is:
+
+```
+{$DOMAIN} {
+	encode gzip zstd
+
+	reverse_proxy web:8000 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+```
+
+`{$DOMAIN}` comes from `.env` via compose. To serve `www` as well, add a second
+block — a certificate is issued for each hostname that appears in the file:
+
+```
+www.example.com {
+	redir https://example.com{uri} permanent
+}
+```
+
+Two headers are load-bearing:
+
+- **`X-Forwarded-Proto` and `Host`** — Caddy sets these by default and Feather's
+  ProxyFix reads them. Without them Google OAuth builds an `http://`
+  `redirect_uri` and secure session cookies are dropped on every response.
+- **`X-Real-IP`** — Caddy does *not* set this one, which is why the generated
+  config does. Rate limiting and any geo logic read it; when it goes missing
+  they fail silently rather than loudly.
+
+After editing the Caddyfile, validate before reloading:
+
+```bash
+docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+#### Backups
+
+`deploy/backup.sh` dumps Postgres in `pg_dump` custom format (compressed and
+restorable table by table) and keeps 14 days. Run it from cron on the host:
+
+```bash
+0 3 * * * /opt/myapp/deploy/backup.sh >> /var/log/myapp-backup.log 2>&1
+```
+
+Tune with `BACKUP_DIR` and `BACKUP_KEEP_DAYS`. Restore:
+
+```bash
+docker compose exec -T db pg_restore -U myapp -d myapp --clean < backups/myapp-<stamp>.dump
+```
+
+A backup on the same disk as the database is not a backup. Add a step that
+copies the dump off the machine — object storage, another host, anywhere — and
+consider encrypting it on the way out:
+
+```bash
+openssl enc -aes-256-cbc -pbkdf2 -pass file:/root/.backup.key \
+    -in "$dump" -out "$dump.enc" && rm "$dump"
+```
+
+Everything that matters lives in Postgres and your object storage. The
+containers and Redis are disposable; the dumps are not.
+
+#### Continuous deployment with GitHub Actions
+
+The shape that works: test on a runner with real service containers, then SSH
+in and run the same `deploy/deploy.sh` you'd run by hand. The server builds its
+own images, so CI needs no registry and holds no application secrets — two
+repository secrets total, `SSH_KEY` (the private key for `deploy@`) and
+`SSH_HOST`.
 
 ```yaml
-# render.yaml
-services:
-  - type: web
-    name: myapp
-    runtime: docker
-    plan: starter
-    region: oregon
-    healthCheckPath: /api/health
-    envVars:
-      - key: FLASK_CONFIG
-        value: production
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: myapp-db
-          property: connectionString
+# .github/workflows/deploy.yml
+name: Deploy
 
-databases:
-  - name: myapp-db
-    plan: basic-256mb
-    databaseName: myapp
-    postgresMajorVersion: 16
-    region: oregon
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+
+# Never cancel a deploy in flight: a half-applied migration is worse
+# than a queued release.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: myapp_ci
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ["5432:5432"]
+      redis:
+        image: valkey/valkey:8
+        options: >-
+          --health-cmd "valkey-cli ping" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/myapp_ci
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-not-a-real-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: pip install -r requirements.txt
+      - run: npm ci --ignore-scripts && npm run build
+      - run: feather db upgrade      # proves migrations apply from scratch
+      - run: feather test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Load the deploy key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+      - name: Build, migrate and restart
+        run: ssh deploy@${{ secrets.SSH_HOST }} 'cd /opt/myapp && ./deploy/deploy.sh --pull'
 ```
 
-The generated Dockerfile runs migrations, optional seeds, then starts Gunicorn:
+Running `feather db upgrade` against an empty Postgres in CI is the cheapest
+migration test there is: it catches a migration chain that no longer applies
+before the chain reaches production.
 
-```dockerfile
-CMD ["sh", "-c", "feather db upgrade && (test -f seeds.py && python seeds.py || true) && gunicorn app:app --workers 2 --threads 4 --bind 0.0.0.0:10000"]
+**Hardening the CI key.** A key that can run any command is a key that can read
+your `.env`. Lock it to one command with a forced command in the server's
+`~deploy/.ssh/authorized_keys`:
+
+```
+command="/opt/myapp/deploy/deploy.sh --pull",no-agent-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA... github-actions
 ```
 
-#### Docker
+The workflow's `ssh` argument is then ignored and the key cannot open a shell.
 
-```dockerfile
-FROM python:3.11-slim
+#### Production checklist
 
-WORKDIR /app
+Before the first real user:
 
-# Install Feather (includes all Python deps)
-RUN pip install feather-framework
+- [ ] `feather security-check` passes (run it on the server against the live
+      file: `feather security-check --env-file .env`)
+- [ ] `SECRET_KEY` is a real random value, not the scaffolded placeholder
+- [ ] `FLASK_CONFIG=production` — set by compose; confirm with
+      `docker compose exec web printenv FLASK_CONFIG`
+- [ ] `TRUSTED_HOSTS` lists the hostnames you serve, so Host-header spoofing
+      cannot forge absolute URLs in emails and redirects
+- [ ] `OAUTH_CALLBACK_URL` (and the matching redirect URI in Google Cloud
+      Console) uses `https://` and the exact hostname, `www` included
+- [ ] `JOB_SERIALIZER=json` — the default in the generated compose file. `pickle`
+      will unpickle arbitrary objects off Redis; only switch if a job argument
+      genuinely cannot be JSON-encoded
+- [ ] `.env` on the server is `chmod 600` and not in git
+- [ ] `feather env check` reports no missing keys
+- [ ] A database that isn't SQLite, with `deploy/backup.sh` in cron and one
+      restore actually tested
+- [ ] An external uptime monitor pointed at `https://<domain>/health`
+- [ ] `docker compose logs` capped (the generated file sets `max-size: 20m`,
+      `max-file: 3` — Docker's default grows until the disk fills)
+- [ ] Server backups or snapshots enabled at the provider as well
 
-# Install Node deps for Tailwind/Vite
-COPY package.json package-lock.json ./
-RUN npm install
+#### Upgrading from `feather deploy render`
 
-COPY . .
-RUN feather build
+0.9.7 removed `feather deploy render`. Your existing `Dockerfile` and
+`render.yaml` are your files and keep working — nothing was deleted from your
+repo. To adopt the new layout, run `feather docker init`; it will not overwrite
+anything without `--force`.
 
-ENV FLASK_DEBUG=0
-EXPOSE 8000
+One change matters even if you stay where you are: replace the absolute
+`@source` line in `static/css/app.css` with
 
-# Adjust workers based on container resources
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "app:app"]
+```css
+@source "../../.feather-templates/**/*.html";
 ```
 
-#### Fly.io
-
-```toml
-# fly.toml
-app = "myapp"
-primary_region = "ord"
-
-[build]
-  builder = "paketobuildpacks/builder:base"
-
-[env]
-  FLASK_DEBUG = "0"
-
-[http_service]
-  internal_port = 8000
-  force_https = true
-
-[[services.http_checks]]
-  path = "/health"
-  interval = "30s"
-  timeout = "5s"
-```
-
-#### Production Checklist
-
-Before going live:
-
-- [ ] Set a strong `SECRET_KEY` (generate with `python -c "import secrets; print(secrets.token_hex(32))"`)
-- [ ] Use a managed database (not SQLite)
-- [ ] Enable HTTPS (most platforms handle this automatically)
-- [ ] Configure health checks for your load balancer
-- [ ] Set up log aggregation (the app outputs JSON logs in production)
-- [ ] Test the `/health` endpoint returns 200
-- [ ] Review environment variables for sensitive data
+and add `.feather-templates` to `.gitignore`. Older scaffolds baked the absolute
+path of the installed Feather package into that file, so images built anywhere
+but the machine that ran `feather new` silently lack every framework component
+style.
 
 ---
 
@@ -2613,6 +2867,7 @@ Step-by-step guides for building complete applications with Feather. Each tutori
 | 3 | [Drag-and-Drop](tutorials/03-drag-and-drop.md) | Islands, OrderingMixin, Optimistic Updates |
 | 4 | [Personal Kanban](tutorials/04-personal-kanban.md) | Auth, Admin, GCS Storage, Jobs |
 | 5 | [SaaS Kanban](tutorials/05-saas-kanban.md) | Multi-tenancy, Platform Admin |
+| 6 | [Deploying](tutorials/06-deploying.md) | Docker, Caddy, VPS, backups, CI/CD |
 
 ---
 

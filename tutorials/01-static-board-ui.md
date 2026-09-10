@@ -2,7 +2,7 @@
 
 ## Kanban Tutorial Series
 
-> This is part 1 of a 5-part series building a production Kanban app.
+> This is part 1 of a 6-part series building a production Kanban app.
 > [View series overview](index.md)
 
 | Part | Title | Status |
@@ -12,6 +12,7 @@
 | 3 | Drag-and-Drop | |
 | 4 | Personal Kanban | |
 | 5 | SaaS Kanban | |
+| 6 | Deploying | |
 
 ## This Tutorial
 
@@ -55,10 +56,18 @@ Press Enter to accept `simple` (the default).
 
 ```
 Database
-  Type [none]:
+  Type (none, sqlite, postgresql) [none]:
 ```
 
 Press Enter to accept `none` (the default). We'll add a database in Tutorial 2.
+
+```
+Background Jobs
+  Include background jobs? [Y/n]:
+```
+
+Press Enter. Nothing in this tutorial uses them, and the default costs you
+nothing — the thread backend needs no Redis.
 
 Then start the dev server:
 

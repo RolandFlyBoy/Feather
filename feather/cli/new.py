@@ -315,6 +315,13 @@ def new(name: str, no_prompt: bool):
     click.echo()
     click.echo("Then open http://localhost:5173 in your browser")
 
+    click.echo()
+    click.echo(click.style("Deployment:", fg="yellow"))
+    click.echo("  Dockerfile, docker-compose.yml, docker-compose.dev.yml, deploy/ and")
+    click.echo("  .env.example are already written. On a server: cp .env.example .env,")
+    click.echo("  fill it in, then ./deploy/deploy.sh. See the Deployment section of")
+    click.echo("  CLAUDE.md, and `feather docker init --help` to regenerate the files.")
+
 
 def _create_database(db_name: str) -> bool:
     """Create PostgreSQL database. Returns True if successful or already exists."""
@@ -390,6 +397,35 @@ def _create_project_structure(project_path: Path, database: str = "postgresql", 
         (project_path / directory).mkdir(parents=True, exist_ok=True)
 
     click.echo("  Created directory structure")
+
+
+def _create_docker_files(
+    project_path: Path,
+    name: str,
+    database: str = "postgresql",
+    include_cache: bool = False,
+    include_jobs: bool = False,
+    env_body: str = None,
+    domain: str = None,
+) -> list:
+    """Write the Docker deployment layout into a freshly scaffolded project.
+
+    Shares every file body with ``feather docker init`` via
+    :mod:`feather.cli._docker_templates`, so an app scaffolded today and an
+    app that runs ``feather docker init`` later get identical files.
+    """
+    from feather.cli._docker_templates import docker_files, slugify, write_docker_files
+
+    files = docker_files(
+        name,
+        app_slug=slugify(name),
+        database=database != "none",
+        redis=include_cache or include_jobs,
+        worker=include_jobs,
+        domain=domain,
+        base_env=env_body,
+    )
+    return write_docker_files(project_path, files, force=True)
 
 
 def _create_project_files(
@@ -476,6 +512,19 @@ if __name__ == "__main__":
         )
     )
 
+    # Docker deployment layout (Dockerfile, compose files, Caddyfile, deploy
+    # scripts, .env.example). The bodies live in _docker_templates so
+    # `feather docker init` writes exactly the same thing into an app that
+    # was scaffolded before this release.
+    _create_docker_files(
+        project_path,
+        name=name,
+        database=database,
+        include_cache=include_cache,
+        include_jobs=include_jobs,
+        env_body=(project_path / ".env").read_text(),
+    )
+
     # .gitignore
     (project_path / ".gitignore").write_text(
         """# Python
@@ -513,6 +562,10 @@ htmlcov/
 # Misc
 .DS_Store
 *.log
+
+# Symlink to the installed Feather package's templates, refreshed by
+# `feather dev` / `feather build` so Tailwind can scan framework components.
+.feather-templates
 """
     )
 
@@ -648,12 +701,25 @@ export default defineConfig({
     )
 
     # static/css/app.css
-    # Find feather templates path for Tailwind scanning
-    import feather
-    feather_templates_path = Path(feather.__file__).parent / "templates"
-
+    #
+    # Framework templates are scanned through `.feather-templates`, a
+    # PROJECT-RELATIVE path, never the absolute path of the installed
+    # package. `feather dev` and `feather build` point that name at wherever
+    # pip put Feather (feather/cli/_templates_link.py), and the Docker build
+    # COPYs the real directory in. An absolute path here silently drops every
+    # framework component class from the CSS as soon as the project is built
+    # anywhere but the machine that scaffolded it.
     (project_path / "static/css/app.css").write_text(
-        f'@import "tailwindcss";\n\n/* Scan Feather framework templates for Tailwind classes */\n@source "{feather_templates_path}/**/*.html";\n\n/* Dark mode — manual toggle via .dark class on <html> */\n@custom-variant dark (&:where(.dark, .dark *));\n\n'
+        '@import "tailwindcss";\n\n'
+        "/* Scan Feather's own component templates for Tailwind classes.\n"
+        "   .feather-templates is a symlink to the installed package's\n"
+        "   templates (refreshed by `feather dev` / `feather build`) and a\n"
+        "   real directory inside the Docker image. */\n"
+        '@source "../../.feather-templates/**/*.html";\n\n'
+        "/* Scan this project's templates (relative, so it builds anywhere) */\n"
+        '@source "../../templates/**/*.html";\n\n'
+        "/* Dark mode — manual toggle via .dark class on <html> */\n"
+        "@custom-variant dark (&:where(.dark, .dark *));\n\n"
         + """/* Sensible defaults */
 @layer base {
   /* Interactive elements get pointer cursor */
@@ -2699,16 +2765,28 @@ def test_home_page(client):
 '''
     )
 
-    # CLAUDE.md - Compact guide for AI coding assistants
-    (project_path / "CLAUDE.md").write_text(
+    # Guidance for AI coding assistants.
+    #
+    # AGENTS.md carries the rules because every assistant reads that name;
+    # CLAUDE.md points at it so the two can never drift apart. The rules are
+    # also checkable rather than merely stated: `feather check` enforces them
+    # and `feather components` answers "what arguments does this macro take"
+    # from the macros themselves.
+    from feather.cli._agent_files import agent_files
+
+    for relative, content in agent_files(
+        name,
         _build_claude_md_content(
             database=database,
             include_auth=include_auth,
             tenant_mode=tenant_mode,
             include_cache=include_cache,
             include_jobs=include_jobs,
-        )
-    )
+        ),
+    ).items():
+        target = project_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content)
 
     # Vendor JS - bundles htmx, echarts, idiomorph from npm (no CDN).
     # Written for every app type: base.html loads it and vite.config.js builds it.
@@ -3473,7 +3551,82 @@ rows = db.session.execute(combined).all()
 ```
 '''
 
+    # --- Deployment -------------------------------------------------------
+    # The scaffold writes the whole Docker layout; point the agent at it.
+    deploy_rows = [
+        "| `Dockerfile` | Multi-stage build: `base`, `frontend` (Vite/Tailwind)"
+        + (", `worker`" if include_jobs else "")
+        + ", `web` |",
+        "| `docker-compose.yml` | Production services. Reads `./.env`; only Caddy is exposed |",
+        "| `docker-compose.dev.yml` | Local Postgres and Valkey, so `feather dev` keeps Vite HMR on the host |",
+        "| `deploy/Caddyfile` | TLS, gzip, and the `X-Real-IP` / `X-Forwarded-Proto` header contract Feather's ProxyFix needs |",
+    ]
+    if has_database:
+        deploy_rows += [
+            "| `deploy/deploy.sh` | Build, migrate once, swap containers, wait on the container health status |",
+            "| `deploy/backup.sh` | Nightly `pg_dump`, for cron |",
+        ]
+    else:
+        deploy_rows.append(
+            "| `deploy/deploy.sh` | Build, swap containers, wait on the container health status |"
+        )
+    deploy_rows.append(
+        "| `.env.example` | Every key this app reads, and which ones compose supplies |"
+    )
+
+    deploy_rules = []
+    if has_database:
+        deploy_rules.append(
+            "- **Health is `/health`**, not `/api/health`. It checks the database, so a\n"
+            "  container that cannot reach Postgres reports unhealthy instead of serving\n"
+            "  500s. Every generated healthcheck points at it."
+        )
+        deploy_rules.append(
+            "- **Migrations never run in the container `CMD`** - two web containers\n"
+            "  starting at once would race. The deploy script applies them exactly once,\n"
+            "  against the new image, before swapping containers."
+        )
+    else:
+        deploy_rules.append(
+            "- **Health is `/health`**, not `/api/health`. Every generated healthcheck\n"
+            "  points at it."
+        )
+    deploy_rules += [
+        "- **`.feather-templates`** is a symlink to the installed Feather package's\n"
+        "  templates so Tailwind can scan framework components. `feather dev` and\n"
+        "  `feather build` refresh it; the image COPYs the real directory in. Never\n"
+        "  put an absolute path in `static/css/app.css`.",
+        "- **Commit `package-lock.json`** so the image build uses `npm ci`.",
+        "- `feather docker init` regenerates any of these files (`--force` to\n"
+        "  overwrite).",
+    ]
+
     content += '''
+---
+
+## Deployment
+
+This project ships a Docker deployment layout. One host runs everything
+under `docker compose`: Caddy terminates TLS, `web` runs gunicorn via
+`feather start`, Postgres and Valkey stay on the internal network.
+
+| File | What it is |
+|------|------------|
+''' + "\n".join(deploy_rows) + '''
+
+```bash
+cp .env.example .env          # then fill in the blanks (SECRET_KEY, DOMAIN, ...)
+feather env check             # which keys config.py reads, and what is missing
+feather security-check        # production settings audit (`feather start` gates on it)
+
+docker compose -f docker-compose.dev.yml up -d   # local Postgres + Valkey
+./deploy/deploy.sh                               # on the server
+```
+
+Rules that matter:
+
+''' + "\n".join(deploy_rules) + '''
+
 ---
 
 ## Full Documentation
@@ -3764,12 +3917,21 @@ class ProductionConfig(Config):
 
     DEBUG = False
     SECRET_KEY = os.environ.get("SECRET_KEY")  # Required — no fallback
+
+    # Host allow-list. Behind a reverse proxy Flask trusts the forwarded Host
+    # header, so without this a poisoned Host can rewrite absolute URLs.
+    # Comma-separated, e.g. "example.com,www.example.com".
+    TRUSTED_HOSTS = os.environ.get("TRUSTED_HOSTS")
 '''
 
     if include_auth:
         config += '''    SESSION_COOKIE_SECURE = True       # HTTPS only
     REMEMBER_COOKIE_SECURE = True      # HTTPS only
     SESSION_PROTECTION = "basic"       # Marks session non-fresh on IP/UA change (doesn't destroy session)
+
+    # Absolute OAuth redirect URI. Without it the callback is built from the
+    # request Host, which is attacker-controllable behind a proxy.
+    OAUTH_CALLBACK_URL = os.environ.get("OAUTH_CALLBACK_URL")
 '''
 
     if include_jobs:
@@ -4814,17 +4976,30 @@ class AccountUser(Model):
 
 
 def _build_api_routes_content(include_auth: bool) -> str:
-    """Build example API routes based on auth option."""
+    """Build example API routes based on auth option.
+
+    ``/api/health`` delegates to Feather's own ``/health``: that one checks
+    the database and answers 503 when it is unreachable, whereas a route
+    returning a hard-coded ``{"status": "ok"}`` reports healthy for a
+    container that cannot reach Postgres at all. Every generated healthcheck
+    (Dockerfile, compose, Caddyfile, deploy.sh) points at ``/health``.
+    """
     if include_auth:
         return '''"""Example API routes with authentication."""
 
 from feather import api, auth_required
+from feather.core.health import health_check
 
 
 @api.get("/health")
 def health():
-    """Public health check endpoint."""
-    return {"status": "ok"}
+    """Public health check.
+
+    Delegates to Feather's own /health so this endpoint really does verify
+    the database: it returns 503 when the database is unreachable. Prefer
+    /health directly; this alias exists for clients already calling it.
+    """
+    return health_check()
 
 
 @api.get("/me")
@@ -4849,12 +5024,18 @@ def get_current_user():
         return '''"""Example API routes."""
 
 from feather import api
+from feather.core.health import health_check
 
 
 @api.get("/health")
 def health():
-    """Health check endpoint."""
-    return {"status": "ok"}
+    """Health check.
+
+    Delegates to Feather's own /health so this endpoint really does verify
+    the database: it returns 503 when the database is unreachable. Prefer
+    /health directly; this alias exists for clients already calling it.
+    """
+    return health_check()
 '''
 
 

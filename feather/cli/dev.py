@@ -8,6 +8,8 @@ from pathlib import Path
 
 import click
 
+from feather.cli._templates_link import LINK_NAME, ensure_templates_link
+
 
 @click.command()
 @click.option("--port", default=5000, help="Flask port (Vite proxies to this)")
@@ -29,6 +31,22 @@ def dev(port: int, host: str, no_vite: bool):
 
     click.echo(click.style("Starting Feather development server...", fg="cyan", bold=True))
     click.echo()
+
+    # Tailwind scans .feather-templates for the framework component classes
+    # (static/css/app.css lists it as a @source). Refresh it before Vite runs
+    # so a fresh clone, or a venv rebuilt somewhere else, still gets them.
+    status, detail = ensure_templates_link(Path.cwd())
+    if status == "error":
+        click.echo(
+            click.style(
+                f"  Warning: {detail}\n"
+                "  Tailwind will not see Feather's component classes.",
+                fg="yellow",
+            ),
+            err=True,
+        )
+    elif status in ("created", "updated"):
+        click.echo(f"  {LINK_NAME} -> {detail}")
 
     env = os.environ.copy()
     env["FLASK_ENV"] = "development"

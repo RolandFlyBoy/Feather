@@ -11,6 +11,7 @@ A fully-featured Kanban board with:
 - File attachments (GCS)
 - PDF export
 - Multi-tenant SaaS architecture
+- A one-command deploy to your own domain, over HTTPS
 
 ## Series Overview
 
@@ -21,6 +22,7 @@ A fully-featured Kanban board with:
 | 3 | [Drag-and-Drop](03-drag-and-drop.md) | Islands, OrderingMixin, Optimistic Updates |
 | 4 | [Personal Kanban](04-personal-kanban.md) | Auth, Admin Panel, GCS Storage, PDF Export |
 | 5 | [SaaS Kanban](05-saas-kanban.md) | Multi-tenancy, Platform Admin |
+| 6 | [Deploying](06-deploying.md) | Docker, Caddy, VPS setup, backups, CI/CD |
 
 ## How to Use These Tutorials
 
@@ -45,11 +47,12 @@ You don't need to complete previous tutorials. Each tutorial's Prerequisites sec
 
 | Tutorial | Database | Auth | Tenant | Jobs | Cache | Storage |
 |----------|----------|------|--------|------|-------|---------|
-| 1 | none | - | - | no | - | - |
-| 2 | sqlite | - | - | no | - | - |
+| 1 | none | - | - | default | - | - |
+| 2 | sqlite | - | - | default | - | - |
 | 3 | (continues from Tutorial 2) | | | | | |
 | 4 | postgresql | yes | single | yes | no | yes |
 | 5 | postgresql | yes | multi | yes | no | yes |
+| 6 | (deploys the app from Tutorial 4 or 5) | | | | | |
 
 ## Prerequisites
 
@@ -57,6 +60,7 @@ You don't need to complete previous tutorials. Each tutorial's Prerequisites sec
 - Feather CLI installed (`pip install -e .` from Feather repo, or `pipx install feather-framework`)
 - For Tutorials 4-5: PostgreSQL running locally
 - For Tutorials 4-5: Google OAuth and GCS credentials
+- For Tutorial 6: a domain you control the DNS for, and a VPS you can SSH into
 
 ## Time Estimate
 

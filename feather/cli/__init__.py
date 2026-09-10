@@ -12,8 +12,11 @@ from feather.cli.dev import dev
 from feather.cli.db import db_group
 from feather.cli.generate import generate
 from feather.cli.build import build, start
-from feather.cli.deploy import deploy
+from feather.cli.docker import docker
+from feather.cli.env import env_group
 from feather.cli.dx import routes, shell, test
+from feather.cli.check import check
+from feather.cli.components import components
 from feather.cli.platform_admin import platform_admin
 from feather.cli.jobs import jobs
 from feather.cli.worker import worker
@@ -43,7 +46,10 @@ class FeatherGroup(click.Group):
         formatter.write_text(click.style("Deployment Commands:", bold=True))
         with formatter.indentation():
             formatter.write_dl([
-                ("deploy render", "Generate Dockerfile, render.yaml, .dockerignore for Render.com"),
+                ("docker init", "Write Dockerfile, compose files, Caddyfile and deploy scripts"),
+                ("docker init --domain D", "Set the public hostname in .env.example"),
+                ("docker init --force", "Overwrite deployment files that already exist"),
+                ("env check", "List the env keys config.py reads and report what is missing"),
             ])
 
         formatter.write_paragraph()
@@ -52,6 +58,11 @@ class FeatherGroup(click.Group):
             formatter.write_dl([
                 ("routes", "List all registered routes"),
                 ("shell", "Interactive Python shell with app context"),
+                ("check", "Check the project against Feather's conventions (exit 1 on error)"),
+                ("check --json", "Machine-readable findings"),
+                ("check --only GROUP", "One group: templates, javascript, routes, tenancy, imports, islands"),
+                ("components", "List every component macro with its signature"),
+                ("components --markdown -o FILE", "Write a component reference"),
             ])
 
         formatter.write_paragraph()
@@ -226,8 +237,11 @@ cli.add_command(db_group, name="db")
 cli.add_command(generate)
 cli.add_command(build)
 cli.add_command(start)
-cli.add_command(deploy)
+cli.add_command(docker)
+cli.add_command(env_group)
 cli.add_command(routes)
+cli.add_command(check)
+cli.add_command(components)
 cli.add_command(shell)
 cli.add_command(test)
 cli.add_command(jobs)

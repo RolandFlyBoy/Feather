@@ -6,7 +6,7 @@ Redis-compatible cache backend for production deployments.
 
 Supports any Redis-compatible server including:
 - Redis
-- Redis on Render
+- Valkey (what Feather's generated docker-compose.yml runs)
 - Upstash Redis
 - KeyDB
 - Dragonfly
@@ -21,8 +21,8 @@ Set in environment variables or config.py::
     # Or with authentication
     CACHE_URL=redis://:password@host:6379/0
 
-    # Or Render Redis
-    CACHE_URL=redis://red-xxx:6379
+    # Or a service on the compose network (hostname = service name)
+    CACHE_URL=redis://redis:6379/0
 
 Usage
 -----

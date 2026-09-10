@@ -108,7 +108,7 @@ For more information, see README.md and the docstrings of each module
 (feather.core.app, feather.services, feather.jobs, feather.events, ...).
 """
 
-__version__ = "0.9.6"
+__version__ = "0.9.7"
 
 # =============================================================================
 # Core Application

@@ -296,7 +296,7 @@ class Feather(Flask):
     def _setup_proxy_fix(self) -> None:
         """Enable ProxyFix for reverse proxy support (on by default).
 
-        Needed in production (Render, Heroku, AWS ALB, nginx) and in
+        Needed in production (Caddy, nginx, Traefik, AWS ALB) and in
         development behind a tunnel (ngrok, localtunnel): without it Flask
         doesn't see the real protocol and secure cookies/OAuth break.
 

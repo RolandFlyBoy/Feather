@@ -26,8 +26,14 @@ def _get_app():
 @click.argument("queues", nargs=-1)
 @click.option("--burst", is_flag=True, help="Run in burst mode (exit when queue is empty)")
 @click.option(
+    "--simple/--fork", "simple", default=None,
+    help="Worker class: SimpleWorker runs jobs in-process (no fork); "
+         "the forking Worker isolates each job in a child. "
+         "Default: simple on macOS, fork elsewhere.",
+)
+@click.option(
     "--simple-worker", "force_simple", is_flag=True,
-    help="Force SimpleWorker (no fork, default on macOS)",
+    help="Deprecated alias for --simple.",
 )
 @click.option("--no-scheduler", is_flag=True, help="Disable built-in scheduler (delayed jobs won't execute)")
 @click.option("--name", default=None, help="Worker name")
@@ -36,7 +42,7 @@ def _get_app():
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
     help="Logging level",
 )
-def worker(queues, burst, force_simple, no_scheduler, name, log_level):
+def worker(queues, burst, simple, force_simple, no_scheduler, name, log_level):
     """Start an RQ worker to process background jobs.
 
     Automatically provides Flask app context so jobs can access
@@ -47,7 +53,8 @@ def worker(queues, burst, force_simple, no_scheduler, name, log_level):
       feather worker                    Process 'default' queue
       feather worker high default low   Process specific queues (priority order)
       feather worker --burst            Exit when queue is empty
-      feather worker --simple-worker    Force SimpleWorker (no fork)
+      feather worker --simple            Force SimpleWorker (no fork)
+      feather worker --fork              Force the forking Worker (containers)
     """
     # Verify we're in a Feather project
     if not Path("app.py").exists():
@@ -70,11 +77,19 @@ def worker(queues, burst, force_simple, no_scheduler, name, log_level):
 
     # Get Redis URL from app config
     with app.app_context():
-        redis_url = app.config.get("REDIS_URL", os.environ.get("REDIS_URL"))
+        redis_url = app.config.get("REDIS_URL") or os.environ.get("REDIS_URL")
         from feather.jobs.rq import resolve_serializer
-        serializer = resolve_serializer(
-            app.config.get("JOB_SERIALIZER", os.environ.get("JOB_SERIALIZER", "pickle"))
+
+        # `or` rather than dict.get's default: a config.py that does
+        # JOB_SERIALIZER = os.environ.get("JOB_SERIALIZER") leaves the key
+        # present but None, which would have silently fallen back to pickle
+        # while the queue side used json - and then nothing runs.
+        serializer_name = (
+            app.config.get("JOB_SERIALIZER")
+            or os.environ.get("JOB_SERIALIZER")
+            or "pickle"
         )
+        serializer = resolve_serializer(serializer_name)
         if not redis_url:
             redis_url = "redis://localhost:6379/0"
             click.echo(click.style(
@@ -82,8 +97,12 @@ def worker(queues, burst, force_simple, no_scheduler, name, log_level):
                 fg="yellow",
             ))
 
-    # Choose Worker class (macOS fork() is not safe with Obj-C runtime)
-    use_simple = force_simple or sys.platform == "darwin"
+    # Choose the worker class. macOS fork() is not safe with the Obj-C
+    # runtime, so SimpleWorker is the default there; in a Linux container
+    # forking is right, because a job that leaks or segfaults dies with its
+    # child instead of taking the worker down.
+    explicit = simple if simple is not None else (True if force_simple else None)
+    use_simple = explicit if explicit is not None else (sys.platform == "darwin")
 
     if use_simple:
         from rq import SimpleWorker as WorkerClass
@@ -92,9 +111,16 @@ def worker(queues, burst, force_simple, no_scheduler, name, log_level):
         from rq import Worker as WorkerClass
         worker_type = "Worker"
 
-    if sys.platform == "darwin" and not force_simple:
+    if explicit is None and use_simple:
         click.echo(click.style(
-            "Note: Using SimpleWorker on macOS (fork() is not safe with Obj-C runtime)",
+            "Note: Using SimpleWorker on macOS (fork() is not safe with Obj-C "
+            "runtime). Pass --fork to override.",
+            fg="yellow",
+        ))
+    elif explicit is False and sys.platform == "darwin":
+        click.echo(click.style(
+            "Warning: --fork on macOS; fork() is not safe with the Obj-C runtime "
+            "and jobs may crash.",
             fg="yellow",
         ))
 

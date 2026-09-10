@@ -2,7 +2,7 @@
 
 ## Kanban Tutorial Series
 
-> This is part 2 of a 5-part series building a production Kanban app.
+> This is part 2 of a 6-part series building a production Kanban app.
 > [View series overview](index.md)
 
 | Part | Title | Status |
@@ -12,6 +12,7 @@
 | 3 | Drag-and-Drop | |
 | 4 | Personal Kanban | |
 | 5 | SaaS Kanban | |
+| 6 | Deploying | |
 
 ## This Tutorial
 
@@ -26,11 +27,36 @@
 
 ## Prerequisites
 
-**Option A: Continue from Tutorial 1**
+**Option A: Add a database to your Tutorial 1 app**
 
-Your app should have:
-- Static board UI with hardcoded columns
-- CSS classes for kanban styling
+Tutorial 1 was scaffolded with `Database: none`, so that app has no `models/`
+package, no `migrations/` directory and no `DATABASE_URL`. Add them:
+
+```bash
+cd kanban
+source venv/bin/activate
+
+# 1. Point the app at a database
+echo 'DATABASE_URL=sqlite:///kanban.db' >> .env
+
+# 2. Create the models package
+mkdir -p models
+cat > models/__init__.py <<'EOF'
+"""SQLAlchemy models - Auto-discovered by Feather."""
+
+from feather.db import db, Model
+EOF
+
+# 3. Create the migrations directory
+feather db init
+```
+
+`feather db init` is the one command you never run in a scaffolded app — apps
+created with a database already have `migrations/`. This is exactly the case it
+exists for.
+
+If any of that goes sideways, Option B is a two-minute reset and loses nothing
+but the CSS, which is reprinted below.
 
 **Option B: Start fresh**
 
@@ -38,25 +64,28 @@ Your app should have:
 feather new kanban
 ```
 
-You'll see interactive prompts:
+Answer the prompts like this:
 
 ```
 Project Configuration
 
 App Type
   Simple       - Static pages, no authentication
-  ...
-  Select type [simple]:
-```
+  Single-tenant - One organization, user accounts
+  Multi-tenant  - Multiple organizations (SaaS)
 
-Press Enter to accept `simple`.
+  Select type (simple, single-tenant, multi-tenant) [simple]:
 
-```
 Database
-  Type [none]:
+  Type (none, sqlite, postgresql) [none]: sqlite
+
+Background Jobs
+  Include background jobs? [Y/n]:
 ```
 
-Choose `sqlite` (or `postgresql` if you prefer).
+Press Enter for `simple`, choose `sqlite` (or `postgresql` if you prefer), and
+leave background jobs at the default — this tutorial doesn't use them either
+way.
 
 Then copy the Starting Point code below.
 
@@ -266,6 +295,22 @@ Add these kanban classes inside `@layer components`:
 ## Build Steps
 
 ### Step 1: Create Models
+
+> **Aside: `feather generate`.** You're going to type these files out, because
+> seeing them is the point. In your own projects the CLI writes the skeleton
+> for you:
+>
+> ```bash
+> feather generate model Column title:string
+> feather generate model Card title:string column_id:uuid
+> feather generate service ColumnService
+> ```
+>
+> That gives you a model with `UUIDMixin` and `TimestampMixin` already applied
+> and a service subclassing `Service`, ready to fill in. Add `--ordered` for
+> `OrderingMixin` (Tutorial 3 uses it) or `--soft-delete` for `SoftDeleteMixin`.
+> There's also `feather generate route`, `feather generate island` and
+> `feather generate serializer`. Run `feather generate --help` to see them all.
 
 Create `models/column.py`:
 
