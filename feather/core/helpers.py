@@ -1,6 +1,7 @@
 """Template helpers and context processors."""
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -140,18 +141,55 @@ def feather_island_scripts(content: str) -> Markup:
     if not islands:
         return Markup("")
 
+    use_vite = current_app.debug and _vite_enabled(current_app)
+    dev_server = _vite_dev_server(current_app)
+
     scripts = []
     for island in sorted(islands):
-        # In debug mode, use Vite dev server
-        if current_app.debug:
-            url = f"http://localhost:5173/static/islands/{island}.js"
-            scripts.append(f'<script type="module" src="{url}"></script>')
+        if use_vite:
+            # Debug mode with Vite running: load from the dev server (HMR).
+            url = f"{dev_server}/static/islands/{island}.js"
         else:
-            # Use built asset
+            # Built asset (production, or `feather dev --no-vite`).
             url = _resolve_asset(current_app, f"islands/{island}")
-            scripts.append(f'<script type="module" src="{url}"></script>')
+        scripts.append(f'<script type="module" src="{url}"></script>')
 
     return Markup("\n".join(scripts))
+
+
+#: Default Vite dev server used for island scripts in debug mode.
+DEFAULT_VITE_DEV_SERVER = "http://localhost:5173"
+
+
+def _vite_dev_server(app: "Flask") -> str:
+    """Base URL of the Vite dev server.
+
+    Reads VITE_DEV_SERVER from app config, then the environment, and falls
+    back to http://localhost:5173.
+    """
+    value = app.config.get("VITE_DEV_SERVER") or os.environ.get("VITE_DEV_SERVER")
+    return (value or DEFAULT_VITE_DEV_SERVER).rstrip("/")
+
+
+def _vite_enabled(app: "Flask") -> bool:
+    """Whether the Vite dev server is expected to be serving assets.
+
+    Disabled by FEATHER_VITE=0 (config or environment) or by FEATHER_NO_VITE=1,
+    which `feather dev --no-vite` sets for the Flask process. When disabled,
+    island scripts point at the built assets under /static instead of a dev
+    server that isn't listening.
+    """
+    if os.environ.get("FEATHER_NO_VITE", "").lower() in ("true", "1", "yes"):
+        return False
+
+    value = app.config.get("FEATHER_VITE", None)
+    if value is None:
+        value = os.environ.get("FEATHER_VITE")
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.lower() not in ("false", "0", "no", "")
+    return bool(value)
 
 
 def setup_template_helpers(app: "Flask") -> None:

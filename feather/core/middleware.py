@@ -3,6 +3,7 @@
 This module provides middleware for request tracking and logging.
 """
 
+import re
 import uuid
 import logging
 import json
@@ -15,6 +16,17 @@ from flask import Flask, g, request, has_request_context
 
 # Request ID header name (standard)
 REQUEST_ID_HEADER = "X-Request-ID"
+
+# Incoming request IDs are echoed back in a response header and written to
+# logs, so only a conservative character set is accepted. Anything else
+# (whitespace, CR/LF, markup, an over-long value) is replaced with a fresh
+# UUID rather than trusted.
+REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+
+def _is_valid_request_id(value) -> bool:
+    """Check that a client-supplied request ID is safe to echo and log."""
+    return isinstance(value, str) and bool(REQUEST_ID_PATTERN.match(value))
 
 
 def get_request_id() -> Optional[str]:
@@ -49,7 +61,8 @@ def init_request_id(app: Flask):
     - Correlating frontend errors with backend logs
 
     The request ID is:
-    - Extracted from incoming X-Request-ID header (if present)
+    - Extracted from incoming X-Request-ID header when it matches
+      ``^[A-Za-z0-9._-]{1,128}$``
     - Otherwise, a new UUID is generated
 
     Args:
@@ -69,9 +82,9 @@ def init_request_id(app: Flask):
     @app.before_request
     def set_request_id():
         """Set request ID from header or generate a new one."""
-        # Use existing request ID if provided, otherwise generate
+        # Use the incoming request ID when it looks sane, otherwise generate
         request_id = request.headers.get(REQUEST_ID_HEADER)
-        if not request_id:
+        if not _is_valid_request_id(request_id):
             request_id = str(uuid.uuid4())
         g.request_id = request_id
         g.request_start_time = datetime.now(timezone.utc)
@@ -232,6 +245,17 @@ def setup_logging(
     # Clear existing handlers and add ours
     root_logger.handlers = []
     root_logger.addHandler(handler)
+
+    # Flask attaches its own handler to app.logger. Leaving it in place means
+    # every line is emitted twice: once by Flask's handler and once by the
+    # framework handler on the root logger (app.logger propagates).
+    try:
+        from flask.logging import default_handler
+
+        if default_handler in app_logger.handlers:
+            app_logger.removeHandler(default_handler)
+    except Exception:  # pragma: no cover - never break startup over logging
+        pass
 
     # In debug mode, also write to file for easy tailing
     if os.environ.get("FLASK_DEBUG") == "1":

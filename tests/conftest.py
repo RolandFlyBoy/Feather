@@ -1,6 +1,7 @@
 """Shared fixtures for Feather framework tests."""
 
 import os
+import sys
 import pytest
 import shutil
 import tempfile
@@ -19,13 +20,20 @@ def set_testing_environment():
     This ensures Feather uses TestingConfig with in-memory SQLite,
     preventing creation of instance/app.db file artifacts.
     """
-    old_env = os.environ.get("FLASK_ENV")
+    saved = {k: os.environ.get(k) for k in ("FLASK_ENV", "DATABASE_URL")}
     os.environ["FLASK_ENV"] = "testing"
+    # A private database per test run. Anything that falls back to the default
+    # DATABASE_URL would otherwise land in the shared instance/app.db, so two
+    # pytest processes in the same working copy (or a stale file from an
+    # earlier run) produced "table already exists" and "readonly database"
+    # errors that had nothing to do with the test being run.
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
     yield
-    if old_env is None:
-        os.environ.pop("FLASK_ENV", None)
-    else:
-        os.environ["FLASK_ENV"] = old_env
+    for key, value in saved.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -183,6 +191,34 @@ class CsrfTestClient:
 # =============================================================================
 # Integration Test Fixtures
 # =============================================================================
+
+_MODULES_AT_START = frozenset(sys.modules)
+
+
+@pytest.fixture(autouse=True)
+def restore_environment():
+    """Undo any change a test makes to os.environ.
+
+    Building a Feather app loads `.env` from the current directory into the
+    process environment, so a test that scaffolds a project in a tmp dir
+    leaves that project's SECRET_KEY, TRUSTED_HOSTS and friends behind. The
+    next test then builds an app configured by another test's fixture data,
+    which showed up as unrelated contract tests returning 400.
+    """
+    saved = dict(os.environ)
+    yield
+    if os.environ != saved:
+        os.environ.clear()
+        os.environ.update(saved)
+    # Tests that scaffold a project also leave its `app`/`config` modules in
+    # sys.modules. load_config() imports `config` by name, so the next app
+    # built anywhere in the suite would silently adopt that project's
+    # settings (TRUSTED_HOSTS from one fixture made unrelated contract tests
+    # return 400).
+    for name in ("app", "config"):
+        if name in sys.modules and name not in _MODULES_AT_START:
+            del sys.modules[name]
+
 
 @pytest.fixture(autouse=True)
 def reset_csrf_endpoint_cache():

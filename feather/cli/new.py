@@ -54,9 +54,8 @@ def _extract_db_name(db_url: str) -> str | None:
 
 @click.command()
 @click.argument("name")
-@click.option("--template", default="default", help="Project template to use")
 @click.option("--no-prompt", is_flag=True, help="Skip prompts, use defaults (simple app, no database)")
-def new(name: str, template: str, no_prompt: bool):
+def new(name: str, no_prompt: bool):
     """Create a new Feather project.
 
     NAME is the name of the project directory to create.
@@ -1750,17 +1749,30 @@ island("counter", {
 (function() {
   "use strict";
 
-  // Custom confirm modal handler for hx-confirm
+  // Custom confirm modal handler for hx-confirm.
+  //
+  // The modal markup is rendered by base.html *after* this script, so the
+  // element is looked up when the event fires - never at load time, which
+  // would find nothing and let every hx-confirm fall through to the native
+  // browser dialog. Click handling is delegated to the document for the
+  // same reason. Admin pages reuse this handler (admin.js does not
+  // register its own).
   (function() {
-    const modal = document.getElementById("confirm-modal");
-    const message = document.getElementById("confirm-message");
-    if (!modal || !message) return;
-
     let issueRequest = null;
+
+    function closeConfirmModal() {
+      const modal = document.getElementById("confirm-modal");
+      if (modal) modal.classList.add("hidden");
+      issueRequest = null;
+    }
 
     document.body.addEventListener("htmx:confirm", (e) => {
       // Only intercept if there is an hx-confirm attribute with a message
       if (!e.detail.question) return;
+
+      const modal = document.getElementById("confirm-modal");
+      const message = document.getElementById("confirm-message");
+      if (!modal || !message) return;  // no modal on this page - native dialog
 
       e.preventDefault();
       message.textContent = e.detail.question;
@@ -1768,22 +1780,31 @@ island("counter", {
       modal.classList.remove("hidden");
     });
 
-    modal.addEventListener("click", (e) => {
-      const action = e.target.dataset.action;
+    document.addEventListener("click", (e) => {
+      const modal = document.getElementById("confirm-modal");
+      if (!modal || modal.classList.contains("hidden")) return;
+      if (!modal.contains(e.target)) return;
+
+      const trigger = e.target.closest("[data-action], #confirm-button");
+      if (!trigger) return;
+
+      const action = trigger.id === "confirm-button" ? "confirm" : trigger.dataset.action;
       if (action === "confirm") {
-        issueRequest(true);
-      }
-      if (action === "confirm" || action === "cancel") {
-        modal.classList.add("hidden");
+        const request = issueRequest;
+        closeConfirmModal();
+        if (request) request(true);
+      } else if (action === "cancel") {
+        closeConfirmModal();
       }
     });
 
     // Close on Escape key
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !modal.classList.contains("hidden")) {
-        modal.classList.add("hidden");
-      }
+      if (e.key === "Escape") closeConfirmModal();
     });
+
+    // Exposed so other scripts (e.g. admin.js) can dismiss the modal
+    window.closeConfirmModal = closeConfirmModal;
   })();
 
   /**
@@ -2689,6 +2710,30 @@ def test_home_page(client):
         )
     )
 
+    # Vendor JS - bundles htmx, echarts, idiomorph from npm (no CDN).
+    # Written for every app type: base.html loads it and vite.config.js builds it.
+    (project_path / "static/js/vendor.js").write_text(
+        '''// Vendor libraries - bundled to avoid external CDN dependencies
+import htmx from 'htmx.org';
+import * as echarts from 'echarts';
+
+// Expose to global scope FIRST (before extensions load)
+window.htmx = htmx;
+window.echarts = echarts;
+
+// Load htmx extensions AFTER htmx is global (they expect window.htmx)
+await import('idiomorph/dist/idiomorph-ext.min.js');
+
+// htmx processed the document as soon as it was imported, which was before the
+// extensions above registered themselves. Elements that were already on the page
+// with an hx-ext attribute never got wired up, and htmx.process() will not
+// re-initialise extensions - re-running node processing does.
+document.querySelectorAll("[hx-ext], [sse-connect]").forEach((el) => {
+  htmx.trigger(el, "htmx:afterProcessNode");
+});
+'''
+    )
+
     # Admin panel scaffolding (when auth enabled)
     if include_auth:
         # Admin routes
@@ -2711,21 +2756,6 @@ def test_home_page(client):
             (project_path / "services/email_service.py").write_text(
                 _build_email_service_content()
             )
-
-        # Vendor JS - bundles htmx, echarts, idiomorph from npm (no CDN)
-        (project_path / "static/js/vendor.js").write_text(
-            '''// Vendor libraries - bundled to avoid external CDN dependencies
-import htmx from 'htmx.org';
-import * as echarts from 'echarts';
-
-// Expose to global scope FIRST (before extensions load)
-window.htmx = htmx;
-window.echarts = echarts;
-
-// Load htmx extensions AFTER htmx is global (they expect window.htmx)
-await import('idiomorph/dist/idiomorph-ext.min.js');
-'''
-        )
 
         # Admin Chart JS - ECharts rendering for analytics
         (project_path / "static/js/admin-chart.js").write_text(
@@ -2868,50 +2898,18 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
     window._closeMobileSidebar = closeSidebar;
   }
 
-  // Custom confirm modal for admin
-  let confirmCallback = null;
-
-  function initConfirmModal() {
-    const modal = document.getElementById("confirm-modal");
-    const message = document.getElementById("confirm-message");
-    const confirmBtn = document.getElementById("confirm-button");
-    if (!modal || !message) return;
-
-    // Handle htmx:confirm events
-    document.body.addEventListener("htmx:confirm", (evt) => {
-      const question = evt.detail.question;
-      if (!question) return;
-
-      evt.preventDefault();
-      message.textContent = question;
-      modal.classList.remove("hidden");
-      confirmCallback = () => evt.detail.issueRequest(true);
-    });
-
-    // Confirm button click
-    if (confirmBtn) {
-      confirmBtn.addEventListener("click", () => {
-        if (confirmCallback) confirmCallback();
-        closeConfirmModal();
-      });
-    }
-
-    // Modal backdrop and cancel clicks
-    modal.addEventListener("click", (e) => {
-      const action = e.target.dataset.action;
-      if (action === "cancel") {
-        closeConfirmModal();
-      }
-    });
-  }
-
+  // The hx-confirm modal is handled once, in app.js (base.html renders the
+  // modal after the scripts, so it is resolved at event time). Registering a
+  // second htmx:confirm listener here would show the modal twice and issue the
+  // request twice, so admin pages just reuse window.closeConfirmModal.
   function closeConfirmModal() {
+    if (typeof window.closeConfirmModal === "function" && window.closeConfirmModal !== closeConfirmModal) {
+      window.closeConfirmModal();
+      return;
+    }
     const modal = document.getElementById("confirm-modal");
     if (modal) modal.classList.add("hidden");
-    confirmCallback = null;
   }
-
-  window.closeConfirmModal = closeConfirmModal;
 
   // Handle escape key
   document.addEventListener("keydown", (e) => {
@@ -2996,7 +2994,6 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       initMobileSidebar();
-      initConfirmModal();
       initPendingToast();
       initEmailSelector();
       initClickableRows();
@@ -3004,7 +3001,6 @@ await import('idiomorph/dist/idiomorph-ext.min.js');
     });
   } else {
     initMobileSidebar();
-    initConfirmModal();
     initPendingToast();
     initEmailSelector();
     initClickableRows();
@@ -3622,15 +3618,24 @@ def _build_config_content(
     """
     has_database = database != "none"
 
-    config = '''"""Application configuration."""
+    imports = "import os"
+    if include_jobs:
+        # urlparse + logging are used by the production RQ/Redis startup guard
+        imports = "import logging\nimport os\nfrom urllib.parse import urlparse"
 
-import os
+    config = f'''"""Application configuration."""
+
+{imports}
 
 
 class Config:
     """Base configuration."""
 
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
+
+    # CSRF tokens live as long as the session (the 1-hour default expires forms
+    # that are left open, e.g. a long text entry, with a generic CSRF error)
+    WTF_CSRF_TIME_LIMIT = None
 '''
 
     # Database config - only if we have a database
@@ -3651,6 +3656,11 @@ class Config:
     # Session cookie settings (required for OAuth through Vite proxy)
     SESSION_COOKIE_SAMESITE = "Lax"   # Allow redirects from Google OAuth
     SESSION_COOKIE_HTTPONLY = True     # Prevent JS access (security)
+
+    # "Remember me" cookie - Flask-Login sets none of these flags by default,
+    # so they have to be spelled out alongside the session cookie flags
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = "Lax"
 '''
 
     # Multi-tenancy config - based on tenant_mode
@@ -3698,8 +3708,15 @@ class Config:
     if include_jobs:
         config += '''
     # Background Jobs (thread pool for background execution)
+    # Note: the thread backend needs FLASK_DEBUG=0 - the Flask reloader restarts
+    # the process on every file change and kills running jobs. Use JOB_BACKEND=sync
+    # if you want the reloader while developing.
     JOB_BACKEND = os.environ.get("JOB_BACKEND", "thread")
     JOB_MAX_WORKERS = int(os.environ.get("JOB_MAX_WORKERS", "2"))
+
+    # RQ payload serializer: json refuses to unpickle arbitrary objects off the
+    # queue. Only change to "pickle" if a job argument cannot be JSON-encoded.
+    JOB_SERIALIZER = os.environ.get("JOB_SERIALIZER", "json")
 '''
     else:
         config += '''
@@ -3736,7 +3753,8 @@ class DevelopmentConfig(Config):
 
     if include_auth:
         config += '''    SESSION_COOKIE_SECURE = False      # Allow HTTP in development
-    SESSION_PROTECTION = None          # Disabled for Vite proxy (prevents session invalidation during OAuth)
+    REMEMBER_COOKIE_SECURE = False     # Allow HTTP in development
+    SESSION_PROTECTION = "basic"       # Marks session non-fresh on IP/UA change (does not destroy it)
 '''
 
     config += '''
@@ -3750,7 +3768,37 @@ class ProductionConfig(Config):
 
     if include_auth:
         config += '''    SESSION_COOKIE_SECURE = True       # HTTPS only
+    REMEMBER_COOKIE_SECURE = True      # HTTPS only
     SESSION_PROTECTION = "basic"       # Marks session non-fresh on IP/UA change (doesn't destroy session)
+'''
+
+    if include_jobs:
+        config += '''
+    @staticmethod
+    def check_job_backend():
+        """Warn about an RQ queue on a remote Redis with no password.
+
+        A queue reachable without credentials lets anyone enqueue work that the
+        workers will execute. Warning only - some deployments keep Redis on a
+        private network instead of using a password.
+        """
+        if os.environ.get("JOB_BACKEND", "thread") != "rq":
+            return
+
+        redis_url = os.environ.get("REDIS_URL", "")
+        if not redis_url:
+            return
+
+        parsed = urlparse(redis_url)
+        host = (parsed.hostname or "").lower()
+        if parsed.password or host in ("", "localhost", "127.0.0.1", "::1"):
+            return
+
+        logging.getLogger(__name__).warning(
+            "JOB_BACKEND=rq points at remote Redis %s with no password - "
+            "anyone who can reach it can enqueue jobs for your workers.",
+            host,
+        )
 '''
 
     config += '''
@@ -3761,6 +3809,13 @@ config = {
     "production": ProductionConfig,
     "default": DevelopmentConfig,
 }
+'''
+
+    if include_jobs:
+        config += '''
+# Startup guard - runs when this module is imported in production
+if os.environ.get("FLASK_ENV") == "production":
+    ProductionConfig.check_job_backend()
 '''
 
     return config
@@ -3794,14 +3849,24 @@ def _build_env_content(
     """
     has_database = database != "none"
 
+    if include_jobs:
+        # The default JOB_BACKEND is "thread"; Flask's auto-reloader restarts the
+        # process on every file change and kills running background threads, so
+        # debug mode has to be off (README: "Background Jobs").
+        debug_setting = """# Debug is off because JOB_BACKEND=thread runs jobs in background threads and
+# Flask's auto-reloader kills them on every file change.
+# For the reloader while developing, set FLASK_DEBUG=1 *and* JOB_BACKEND=sync.
+FLASK_DEBUG=0
+"""
+    else:
+        debug_setting = """FLASK_DEBUG=1
+"""
+
     env = f"""# {name} Environment Variables
 
 # Core
 SECRET_KEY=dev-secret-key-change-in-production
-# Set FLASK_DEBUG=0 when using the thread job backend
-# Or use JOB_BACKEND=sync during development if you need debug mode
-FLASK_DEBUG=1
-"""
+{debug_setting}"""
 
     # Database URL - only if we have a database
     if has_database:
@@ -3836,6 +3901,10 @@ GCS_CREDENTIALS_JSON=
 JOB_BACKEND=thread
 JOB_MAX_WORKERS=2              # Max concurrent background jobs
 # JOB_ENABLE_MONITORING=true   # Uncomment for memory/CPU tracking on failures
+
+# RQ payload format (JOB_BACKEND=rq). json refuses to unpickle arbitrary objects
+# off the queue; only switch to pickle if a job argument cannot be JSON-encoded.
+JOB_SERIALIZER=json
 """
 
     # Redis - for caching and/or RQ job backend
@@ -4538,8 +4607,11 @@ from feather.db import db, Model
 class Log(Model):
     """Log model for tracking application events and errors.
 
-    Logs are scoped by tenant_id so admins only see logs from their tenant.
-    Platform admins can see all logs across tenants.
+    Rows carry the tenant_id of the user whose request produced them, and it is
+    NULL when there was no authenticated user (an unhandled 5xx on a public
+    page, for example). Nothing on the model enforces scoping: AdminService
+    filters log queries by the current admin's tenant, and platform admins see
+    every row, NULL tenant_id included.
 
     Attributes:
         id: UUID primary key
@@ -5201,6 +5273,13 @@ def logs_page():
 
     # Add email routes when email support is enabled
     if include_email:
+        if tenant_mode == "multi":
+            recipient_error = (
+                "Recipient must be an existing user in your organization."
+            )
+        else:
+            recipient_error = "Recipient must be an existing user."
+
         base_routes += '''
 
 # =============================================================================
@@ -5211,7 +5290,12 @@ def logs_page():
 @page.route("/tools/send-email", methods=["POST"])
 @admin_required
 def send_email():
-    """Send email to a user."""
+    """Send email to a user.
+
+    The admin tool is a way to contact users, not an open relay: the recipient
+    has to be a user this admin can see (their own tenant, in multi-tenant
+    apps), otherwise the form is rejected.
+    """
     to = request.form.get("to", "").strip()
     subject = request.form.get("subject", "").strip()
     body = request.form.get("body", "").strip()
@@ -5223,9 +5307,18 @@ def send_email():
             message="All fields are required.",
         )
 
+    service = AdminService()
+    recipient = service.find_user_by_email(to)
+    if recipient is None:
+        return render_template(
+            "partials/admin/email_result.html",
+            success=False,
+            message="__RECIPIENT_ERROR__",
+        )
+
     from services.email_service import EmailService
     email_service = EmailService()
-    result = email_service.send(to, subject, body)
+    result = email_service.send(recipient.email, subject, body)
 
     return render_template(
         "partials/admin/email_result.html",
@@ -5275,6 +5368,8 @@ def search_users_dropdown():
     html += '</div>'
     return html
 '''
+
+        base_routes = base_routes.replace("__RECIPIENT_ERROR__", recipient_error)
 
     # Add tenant routes for multi-tenant mode
     if tenant_mode == "multi":
@@ -5581,6 +5676,12 @@ class AdminService(Service):
             current += timedelta(days=1)
 
         return filled_data
+
+    def find_user_by_email(self, email: str) -> Optional[Any]:
+        """Find a user by exact email address (case-insensitive)."""
+        if not email:
+            return None
+        return User.query.filter(func.lower(User.email) == email.strip().lower()).first()
 
     # =========================================================================
     # Logs
@@ -5901,6 +6002,59 @@ class AdminService(Service):
             "active_users": active_users,
             "new_this_month": new_this_month,
         }'''
+        )
+
+        # Scope logs to the admin's tenant (platform admins keep seeing all
+        # rows, including the NULL tenant_id ones from unauthenticated errors)
+        base_service = base_service.replace(
+            '''        query = Log.query
+
+        # Filter by event type category''',
+            '''        query = Log.query
+
+        # Tenant isolation: tenant admins only see their own tenant's logs.
+        # Platform admins get no filter, so they also see rows with a NULL
+        # tenant_id (errors raised on unauthenticated requests).
+        tenant_id = self._get_tenant_id()
+        if tenant_id:
+            query = query.filter(Log.tenant_id == tenant_id)
+
+        # Filter by event type category'''
+        )
+
+        base_service = base_service.replace(
+            '''        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        base_query = Log.query.filter(Log.created_at >= start_date)''',
+            '''        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        base_query = Log.query.filter(Log.created_at >= start_date)
+
+        # Tenant isolation: tenant admins only see their own tenant's logs.
+        # Platform admins get no filter (NULL tenant_id rows included).
+        tenant_id = self._get_tenant_id()
+        if tenant_id:
+            base_query = base_query.filter(Log.tenant_id == tenant_id)'''
+        )
+
+        # Restrict recipient lookups to the admin's own tenant
+        base_service = base_service.replace(
+            '''    def find_user_by_email(self, email: str) -> Optional[Any]:
+        """Find a user by exact email address (case-insensitive)."""
+        if not email:
+            return None
+        return User.query.filter(func.lower(User.email) == email.strip().lower()).first()''',
+            '''    def find_user_by_email(self, email: str) -> Optional[Any]:
+        """Find a user by exact email address (case-insensitive, tenant-scoped)."""
+        if not email:
+            return None
+
+        query = User.query.filter(func.lower(User.email) == email.strip().lower())
+
+        # Tenant isolation: non-platform-admins only reach their tenant's users
+        tenant_id = self._get_tenant_id()
+        if tenant_id:
+            query = query.filter(User.tenant_id == tenant_id)
+
+        return query.first()'''
         )
 
         # Replace get_user_growth with tenant-aware version
@@ -6287,24 +6441,7 @@ def _build_admin_base_template(tenant_mode: str) -> str:
     </div>
 </div>
 
-<!-- Confirm Modal -->
-<div id="confirm-modal" class="confirm-modal-overlay hidden">
-    <div class="confirm-modal-backdrop" data-action="cancel"></div>
-    <div class="confirm-modal">
-        <button type="button" class="confirm-modal-close" data-action="cancel">
-            {{ icon("close", size="sm") }}
-        </button>
-        <div class="confirm-modal-icon confirm-modal-icon-question">
-            {{ icon("help", size="lg") }}
-        </div>
-        <h3 class="confirm-modal-title">Confirm</h3>
-        <p id="confirm-message" class="confirm-modal-message">Are you sure?</p>
-        <div class="confirm-modal-actions">
-            <button data-action="cancel" class="admin-btn admin-btn-secondary">Cancel</button>
-            <button id="confirm-button" class="admin-btn admin-btn-primary">Confirm</button>
-        </div>
-    </div>
-</div>
+<!-- Confirm modal is rendered by base.html (confirm_modal component) -->
 
 <!-- Toast Container -->
 <div id="toast-container"></div>

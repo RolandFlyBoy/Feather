@@ -5,10 +5,57 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from flask import jsonify, redirect, render_template, request, url_for
+from flask import g, jsonify, redirect, render_template, request, url_for
+from werkzeug.exceptions import HTTPException
 
 if TYPE_CHECKING:
     from flask import Flask
+
+
+#: Error codes for plain werkzeug HTTPExceptions (abort(403), 405, ...).
+#: Feather's own exceptions carry their own error_code and never reach these.
+HTTP_ERROR_CODES = {
+    400: "BAD_REQUEST",
+    401: "AUTHENTICATION_ERROR",
+    403: "FORBIDDEN",
+    404: "NOT_FOUND",
+    405: "METHOD_NOT_ALLOWED",
+    406: "NOT_ACCEPTABLE",
+    408: "REQUEST_TIMEOUT",
+    409: "CONFLICT",
+    410: "GONE",
+    413: "PAYLOAD_TOO_LARGE",
+    415: "UNSUPPORTED_MEDIA_TYPE",
+    422: "UNPROCESSABLE_ENTITY",
+    429: "RATE_LIMIT_ERROR",
+    500: "INTERNAL_ERROR",
+    501: "NOT_IMPLEMENTED",
+    502: "BAD_GATEWAY",
+    503: "SERVICE_UNAVAILABLE",
+    504: "GATEWAY_TIMEOUT",
+}
+
+
+def _http_error_code(error: HTTPException) -> str:
+    """Map an HTTPException to a stable machine-readable error code."""
+    # Flask-WTF's CSRFError is a BadRequest; clients need to tell it apart so
+    # they can refresh the token instead of re-showing a generic 400.
+    if type(error).__name__ == "CSRFError":
+        return "CSRF_ERROR"
+
+    status = error.code or 500
+    return HTTP_ERROR_CODES.get(status, f"HTTP_{status}")
+
+
+def get_current_request_id() -> str:
+    """Return the request ID set by the request-ID middleware.
+
+    Falls back to a fresh UUID outside a request context so error responses
+    always carry an ID. Reusing g.request_id keeps the body's meta.request_id
+    identical to the X-Request-ID response header and to the log lines.
+    """
+    request_id = getattr(g, "request_id", None)
+    return request_id or str(uuid.uuid4())
 
 
 def _log_error_to_db(
@@ -139,7 +186,7 @@ def register_error_handlers(app: "Flask") -> None:
     @app.errorhandler(FeatherException)
     def handle_feather_exception(error: FeatherException):
         """Handle Feather exceptions."""
-        request_id = str(uuid.uuid4())
+        request_id = get_current_request_id()
 
         # Log the error
         if error.status_code >= 500:
@@ -215,11 +262,12 @@ def register_error_handlers(app: "Flask") -> None:
         # Log to database (WARNING level, filtered to authenticated users only)
         _log_error_to_db(app, "NotFoundError", f"Not found: {request.path}", level="WARNING")
 
-        if request.path.startswith("/api/"):
+        if _is_api_request():
             response = build_error_response(
                 code="NOT_FOUND",
                 message="Resource not found",
                 status_code=404,
+                request_id=get_current_request_id(),
             )
             return jsonify(response), 404
 
@@ -239,14 +287,14 @@ def register_error_handlers(app: "Flask") -> None:
     @app.errorhandler(500)
     def handle_server_error(error):
         """Handle 500 errors."""
-        request_id = str(uuid.uuid4())
+        request_id = get_current_request_id()
         app.logger.error(f"[{request_id}] Internal Server Error: {error}")
         app.logger.error(traceback.format_exc())
 
         # Log to database (ERROR level, always logged regardless of auth)
         _log_error_to_db(app, "InternalError", str(error), level="ERROR", include_trace=True, skip_auth_filter=True)
 
-        if request.path.startswith("/api/"):
+        if _is_api_request():
             response = build_error_response(
                 code="INTERNAL_ERROR",
                 message="An unexpected error occurred",
@@ -267,6 +315,34 @@ def register_error_handlers(app: "Flask") -> None:
             ), 500
         except Exception:
             return "Internal Server Error", 500
+
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(error: HTTPException):
+        """Handle plain werkzeug HTTPExceptions (abort(403), 405, CSRF 400...).
+
+        Without this, an aborted API request would fall through to werkzeug's
+        HTML error page. The 404 and 500 handlers above are more specific and
+        still win for those codes.
+        """
+        status_code = error.code or 500
+        request_id = get_current_request_id()
+
+        if status_code >= 500:
+            app.logger.error(f"[{request_id}] {type(error).__name__}: {error}")
+        else:
+            app.logger.warning(f"[{request_id}] {type(error).__name__}: {error}")
+
+        if not _is_api_request():
+            # Let Flask render its normal HTML page for browsers.
+            return error
+
+        response = build_error_response(
+            code=_http_error_code(error),
+            message=error.description or error.name,
+            status_code=status_code,
+            request_id=request_id,
+        )
+        return jsonify(response), status_code
 
 
 def build_success_response(

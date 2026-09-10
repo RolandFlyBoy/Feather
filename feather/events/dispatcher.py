@@ -98,7 +98,7 @@ class EventDispatcher:
         """Initialize an empty dispatcher with no listeners."""
         #: Synchronous listeners - called immediately when event is dispatched
         self._listeners: Dict[Type[Event], List[Callable]] = {}
-        #: Async listeners - marked for background processing (not yet implemented)
+        #: Async listeners - run in the module's background thread pool
         self._async_listeners: Dict[Type[Event], List[Callable]] = {}
 
     def listen(
@@ -223,7 +223,7 @@ def listen(event_class: Type[Event], async_: bool = False) -> Callable:
 
     Args:
         event_class: The Event subclass to listen for.
-        async_: If True, marks for background processing (not yet implemented).
+        async_: If True, the listener runs in a background thread pool.
 
     Returns:
         Decorator that registers the function as a listener.
@@ -249,11 +249,13 @@ def listen(event_class: Type[Event], async_: bool = False) -> Callable:
             def track_in_analytics(event):
                 analytics.track('signup', user_id=event.user_id)
 
-        Async listener (for future background processing)::
+        Async listener (runs in a background thread)::
 
             @listen(UserCreatedEvent, async_=True)
             def send_welcome_email(event):
-                # This will run in background when implemented
+                # Runs in the event thread pool, off the request path.
+                # There is no Flask app/request context in that thread - push
+                # one yourself if the listener needs the database.
                 send_email(event.email, 'Welcome!')
 
     Note:

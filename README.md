@@ -72,7 +72,7 @@ The mental model: start with Components for everything static, reach for HTMX wh
 
 **Core requirements (all apps):**
 
-- **Python 3.10+** — the runtime
+- **Python 3.11+** — the runtime
 - **Node.js 22+** — for Vite 7 (build tooling) and Tailwind CSS
 - **pipx** — for installing the Feather CLI globally
 
@@ -1795,6 +1795,38 @@ Custom directives are merged with defaults — you only need to specify the ones
 FEATHER_SECURITY_HEADERS = False
 ```
 
+### Security Check
+
+`feather security-check` audits an app the way a reviewer would, and exits
+non-zero if anything fails. Run it in CI and before every deploy.
+
+```bash
+feather security-check                     # audit the current project
+feather security-check --json              # machine-readable, for CI
+feather security-check --env-file prod.env # audit an env file without importing the app
+```
+
+It checks the secret key's strength and that it is not the development
+default, that an environment is explicitly selected and debug is off, session
+and remember-me cookie flags, CSRF, the RQ job serializer, Redis URLs without
+a password, `OAUTH_CALLBACK_URL` and `TRUSTED_HOSTS`, security headers, that
+`.env` is gitignored, and that installed dependencies meet the framework's
+minimum versions.
+
+**What to set in production**, beyond a strong `SECRET_KEY`:
+
+- `TRUSTED_HOSTS` to the hostnames you serve. Without it a client-supplied
+  `Host` header determines your OAuth redirect URI and every external URL.
+- `OAUTH_CALLBACK_URL` to the exact callback you registered with Google.
+- `JOB_SERIALIZER=json` if you use RQ. Pickle payloads are code execution for
+  anyone who can write to your Redis.
+- A password on Redis, and `rediss://` if it crosses a network.
+
+**Uploads.** `LocalStorage` serves files from `static/`, where the browser
+takes the content type from the extension. Script-capable extensions are
+refused by default, so an uploaded page cannot run on your origin. To accept
+SVG, set `STORAGE_ALLOWED_EXTENSIONS` to the list you do want.
+
 ### Interactive Shell
 
 The `feather shell` command launches an interactive Python shell with your Flask application context pre-loaded. This is invaluable for debugging, data exploration, and administrative tasks—especially in production environments.
@@ -1829,7 +1861,7 @@ Available variables:
 
 **Production use cases:**
 
-The shell is particularly valuable in production environments like **Render Web Shell**, **Heroku console**, or any SSH access to your server:
+The shell is particularly valuable in production, whether you reach it through `docker compose exec web feather shell` or plain SSH access to your server:
 
 | Task | Example |
 |------|---------|
@@ -1854,8 +1886,9 @@ When you run `feather new myapp`, you get:
 ```
 tests/
 ├── conftest.py          # Fixtures: client, csrf_client, db setup
-├── test_health.py       # Health endpoint tests (working example)
-└── test_auth.py         # Auth flow tests (if auth enabled)
+├── test_home.py         # Page route tests (working example)
+├── test_auth.py         # Auth flow tests (if auth enabled)
+└── test_admin.py        # Admin panel tests (if auth enabled)
 ```
 
 These aren't placeholder files—they're real tests that pass out of the box. Use them as patterns for your own tests.
@@ -1976,9 +2009,25 @@ def sample_items(app):
 Tests run against a separate test database (automatically configured). Each test gets a fresh database state:
 
 1. **Before each test:** Tables are created
-2. **After each test:** Transaction is rolled back (fast cleanup)
+2. **After each test:** Tables are dropped and the engine is disposed
 
 This means tests are isolated—one test can't affect another.
+
+**A fixture gotcha worth knowing.** Flask-Login caches the current user on
+`g` for the lifetime of an application context. A fixture that holds one
+`app.app_context()` open across requests from several test clients will
+resolve every request to the first user loaded. Seed your data inside a
+context, then make requests outside it:
+
+```python
+@pytest.fixture
+def seeded(app):
+    with app.app_context():
+        db.session.add(User(email='a@example.com'))
+        db.session.commit()
+    # context closed before the test makes any request
+    return app
+```
 
 ### Framework Tests (Contributors)
 
@@ -2023,6 +2072,11 @@ feather start --worker-class gevent  # Async workers
 # Development Commands
 feather routes                  # List all registered routes
 feather shell                   # Python shell with app context
+
+# Security
+feather security-check          # Audit config, cookies, secrets, dependencies
+feather security-check --json   # Machine-readable output for CI
+feather security-check --env-file prod.env  # Audit an env file alone
 
 # Testing (App)
 feather test                    # Run project tests
@@ -2139,6 +2193,67 @@ REDIS_URL=redis://localhost:6379/0  # Required for rq backend
 LOG_LEVEL=INFO                    # DEBUG, INFO, WARNING, ERROR
 LOG_FORMAT=json                   # Enable JSON logs (auto in production)
 ```
+
+#### Configuration Reference
+
+Every key Feather reads, with its default. Set them in `config.py` or the
+environment; `config.py` wins.
+
+**Core**
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `SECRET_KEY` | dev key | Signs sessions. Refused outside debug if left at the default. |
+| `DATABASE_URL` | sqlite | SQLAlchemy connection string. |
+| `FLASK_CONFIG` / `FLASK_ENV` | development | Which config class to load. Accepts `production`, `prod`, `development`, `dev`, `testing`, `test`. Leaving both unset logs a warning and selects development. |
+| `SESSION_LIFETIME_DAYS` | `7` | Session expiry. |
+| `REMEMBER_COOKIE_DAYS` | `365` | Remember-me cookie lifetime. |
+| `WTF_CSRF_TIME_LIMIT` | `None` | Token lifetime. `None` means the session bounds it. |
+| `LOG_LEVEL`, `LOG_FORMAT` | `INFO`, plain | Logging. JSON is automatic in production. |
+
+**Hosting and proxies**
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `TRUSTED_HOSTS` | unset | Hostnames this app answers to, comma-separated or a list. A request with any other `Host` gets 400. Set this in production. |
+| `FEATHER_PROXY_FIX` | `True` | Install ProxyFix so forwarded headers are honoured. Turn it off when nothing in front of the app normalises them. |
+| `FEATHER_PROXY_FIX_NUM` | `1` | Number of trusted proxy hops. |
+| `OAUTH_CALLBACK_URL` | unset | Pins the OAuth redirect URI. Without it the URI comes from the request Host header. |
+| `FEATHER_SECURITY_HEADERS` | `True` | Send CSP, HSTS and friends in production. |
+| `FEATHER_PERMISSIONS_POLICY` | camera and microphone denied | Permissions-Policy header value. |
+
+**Authentication and tenancy**
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Google OAuth credentials. |
+| `FEATHER_MULTI_TENANT` | `False` | Enable multi-tenant mode. |
+| `FEATHER_ALLOW_PUBLIC_EMAILS` | `False` | Allow Gmail, Outlook and similar domains. |
+| `FEATHER_PRE_REGISTER_CALLBACK`, `FEATHER_POST_LOGIN_CALLBACK` | unset | Dotted paths to hooks run around sign-up and login. |
+| `SESSION_PROTECTION` | `basic` | Flask-Login session protection. |
+
+**Storage, cache and jobs**
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `STORAGE_BACKEND` | `local` | `local` or `gcs`. |
+| `GCS_BUCKET` | unset | Required for the `gcs` backend. |
+| `STORAGE_BLOCKED_EXTENSIONS` | `html, htm, svg, xhtml, xml, js, mjs, php, phtml` | Extensions `LocalStorage.upload` refuses, because `static/` serves them with script-capable content types on your own origin. Setting this replaces the list. |
+| `STORAGE_ALLOWED_EXTENSIONS` | unset | Allow-list. Wins over the block list, so this is how you permit SVG. |
+| `CACHE_BACKEND`, `CACHE_URL` | `memory` | `memory` or `redis`. |
+| `JOB_BACKEND` | `thread` | `sync`, `thread` or `rq`. |
+| `JOB_MAX_WORKERS` | `4` | Thread pool size for the thread backend. |
+| `JOB_SERIALIZER` | pickle | Set to `json` for RQ. Pickle payloads are code execution for anyone who can write to Redis. |
+| `REDIS_URL` | unset | Required for the `rq` backend. |
+
+**Development**
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `VITE_DEV_SERVER` | `http://localhost:5173` | Where debug-mode island scripts are loaded from. |
+| `FEATHER_NO_VITE` | unset | Serve built island assets instead. `feather dev --no-vite` sets it. |
+| `FEATHER_LENIENT_DISCOVERY` | `False` | Warn and continue when a `models/`, `services/` or `routes/` module fails to import, instead of failing startup. |
+| `FEATHER_NO_UPDATE_CHECK` | unset | Skip the CLI's PyPI version check. |
 
 ---
 

@@ -53,6 +53,7 @@ See feather.core.config for details.
 """
 
 import importlib
+import importlib.util
 import os
 from pathlib import Path
 from typing import Optional
@@ -62,7 +63,7 @@ from dotenv import find_dotenv, load_dotenv
 from flask_wtf.csrf import CSRFProtect
 from jinja2 import ChoiceLoader, FileSystemLoader
 
-from feather.core.config import load_config
+from feather.core.config import load_config, parse_trusted_hosts
 from feather.core.discovery import discover_models, discover_routes, discover_services
 from feather.core.decorators import api, page
 from feather.core.helpers import setup_template_helpers
@@ -180,18 +181,24 @@ class Feather(Flask):
                     'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
                 )
 
-        # Step 2.6: Enable ProxyFix for reverse proxy support
-        # Needed for both production (Render, Heroku, AWS ALB, nginx) and development (ngrok, localtunnel).
-        # Without ProxyFix, Flask doesn't see the true protocol and secure cookies/OAuth break.
-        # Safe to enable unconditionally - only reads X-Forwarded-* headers if they exist.
-        from werkzeug.middleware.proxy_fix import ProxyFix
-        self.wsgi_app = ProxyFix(self.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+        # Step 2.6: Host allow-list and reverse proxy support
+        self._setup_trusted_hosts()
+        self._setup_proxy_fix()
 
         # Step 3: Initialize database and migrations
         self._setup_database()
 
         # Step 4: Initialize CSRF protection
         # Token is available in templates via {{ csrf_token() }}
+        #
+        # Flask-WTF expires CSRF tokens after one hour by default, on top of
+        # the session lifetime, so a form left open long enough fails with a
+        # generic error. The session already bounds the token, so Feather
+        # defaults to no separate expiry. An app that sets WTF_CSRF_TIME_LIMIT
+        # itself (in config.py or app.config) keeps its own value.
+        if "WTF_CSRF_TIME_LIMIT" not in self.config:
+            self.config["WTF_CSRF_TIME_LIMIT"] = None
+
         csrf = CSRFProtect()
         csrf.init_app(self)
 
@@ -249,6 +256,82 @@ class Feather(Flask):
         # Disable SQLAlchemy modification tracking for performance
         self.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
+        self._warn_if_defaulting_to_development(config, config_class)
+
+    def _warn_if_defaulting_to_development(self, config, config_class) -> None:
+        """Warn once at startup when the development config was picked by default.
+
+        Silence it by being explicit: FLASK_ENV=production (or
+        FLASK_CONFIG=production), or by passing config_class to Feather().
+        """
+        if config_class or os.environ.get("FLASK_CONFIG") or os.environ.get("FLASK_ENV"):
+            return
+        if self.config.get("TESTING"):
+            return
+
+        name = getattr(config, "__name__", str(config))
+        is_development = name.startswith("Development") or bool(getattr(config, "DEBUG", False))
+        if not is_development:
+            return
+
+        self.logger.warning(
+            f"No FLASK_ENV or FLASK_CONFIG set - using {name} "
+            "(debug defaults, insecure SECRET_KEY fallback). "
+            "For production set FLASK_ENV=production (or FLASK_CONFIG=production) "
+            "and a real SECRET_KEY."
+        )
+
+    def _setup_trusted_hosts(self) -> None:
+        """Normalize TRUSTED_HOSTS so Flask 3.1 can enforce it.
+
+        Accepts a list in config.py or a comma-separated TRUSTED_HOSTS
+        environment variable. When set, Flask rejects requests whose Host
+        header is not in the list with a 400.
+        """
+        hosts = self.config.get("TRUSTED_HOSTS", None)
+        if hosts is None:
+            hosts = os.environ.get("TRUSTED_HOSTS")
+        self.config["TRUSTED_HOSTS"] = parse_trusted_hosts(hosts)
+
+    def _setup_proxy_fix(self) -> None:
+        """Enable ProxyFix for reverse proxy support (on by default).
+
+        Needed in production (Render, Heroku, AWS ALB, nginx) and in
+        development behind a tunnel (ngrok, localtunnel): without it Flask
+        doesn't see the real protocol and secure cookies/OAuth break.
+
+        Configuration:
+            FEATHER_PROXY_FIX: set to false/0/no to skip the middleware
+                entirely (e.g. when the WSGI server already applies it).
+            FEATHER_PROXY_FIX_NUM: number of proxy hops to trust (default 1).
+        """
+        enabled = self.config.get("FEATHER_PROXY_FIX", None)
+        if enabled is None:
+            enabled = os.environ.get("FEATHER_PROXY_FIX", "true")
+        if isinstance(enabled, str):
+            enabled = enabled.lower() not in ("false", "0", "no", "")
+        if not enabled:
+            self.logger.debug("ProxyFix disabled (FEATHER_PROXY_FIX is false)")
+            return
+
+        hops = self.config.get("FEATHER_PROXY_FIX_NUM", None)
+        if hops is None:
+            hops = os.environ.get("FEATHER_PROXY_FIX_NUM", 1)
+        try:
+            hops = int(hops)
+        except (TypeError, ValueError):
+            hops = 1
+        hops = max(1, hops)
+
+        self.config["FEATHER_PROXY_FIX"] = True
+        self.config["FEATHER_PROXY_FIX_NUM"] = hops
+
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        self.wsgi_app = ProxyFix(
+            self.wsgi_app, x_for=hops, x_proto=hops, x_host=hops, x_prefix=hops
+        )
+
     def _setup_database(self):
         """Initialize SQLAlchemy and Flask-Migrate.
 
@@ -288,12 +371,12 @@ class Feather(Flask):
         # Discover models - imports all Model subclasses from models/
         models_path = app_root / "models"
         if models_path.exists():
-            discover_models(models_path)
+            discover_models(models_path, app=self)
 
         # Discover services - imports all Service subclasses from services/
         services_path = app_root / "services"
         if services_path.exists():
-            discover_services(services_path)
+            discover_services(services_path, app=self)
 
         # Discover routes - imports and registers all route modules
         routes_path = app_root / "routes"
@@ -408,9 +491,25 @@ class Feather(Flask):
             init_google_oauth(self)
 
         except ImportError as e:
-            # No User model found - authentication not enabled
-            # This is normal for apps that don't need auth
-            self.logger.debug(f"Auth not initialized: {e}")
+            # No User model found - authentication not enabled.
+            # That is normal for apps that don't need auth, but a models
+            # package that exists and fails to import is a bug worth seeing:
+            # auth would otherwise be silently disabled.
+            models_exists = False
+            try:
+                models_exists = importlib.util.find_spec("models") is not None
+            except (ImportError, ValueError):
+                models_exists = False
+
+            if models_exists and "cannot import name" not in str(e):
+                import traceback
+
+                self.logger.error(
+                    f"Auth not initialized - the models package failed to import: {e}\n"
+                    f"{traceback.format_exc()}"
+                )
+            else:
+                self.logger.debug(f"Auth not initialized: {e}")
         except Exception as e:
             # Log the full exception with traceback for debugging
             import traceback

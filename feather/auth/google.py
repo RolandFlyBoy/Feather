@@ -78,6 +78,7 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlsplit
 
 from flask import Blueprint, current_app, redirect, render_template, url_for, session
 from authlib.integrations.flask_client import OAuth
@@ -91,6 +92,10 @@ google_bp = Blueprint("google_auth", __name__, url_prefix="/auth/google")
 
 # Session key for storing Google OAuth token
 _TOKEN_SESSION_KEY = "google_oauth_token"
+
+# Seconds to wait on outbound calls to Google (token refresh, userinfo).
+# Without a timeout a stalled connection pins a worker for good.
+_HTTP_TIMEOUT = 10
 
 
 def _set_toast(message: str, toast_type: str = "error") -> None:
@@ -116,15 +121,46 @@ def _safe_next(value: Optional[str]) -> Optional[str]:
 
     Accepts "/dashboard?tab=1"; rejects "https://evil.example", "//evil",
     "javascript:..." and anything with a scheme or host.
+
+    Control characters and whitespace are rejected anywhere in the value:
+    browsers strip them before resolving the URL, so "/\t/evil.com" (the
+    decoded form of "/%09/evil.com") would become "//evil.com" and leave the
+    site. The value is also parsed with urlsplit and must come back with no
+    scheme and no host, so that any parser disagreement fails closed.
     """
     if not value or not isinstance(value, str):
         return None
     value = value.strip()
     if not value.startswith("/") or value.startswith("//") or value.startswith("/\\"):
         return None
-    if "\n" in value or "\r" in value:
+    for c in value:
+        if c.isspace() or ord(c) < 0x20 or ord(c) == 0x7F:
+            return None
+    parts = urlsplit(value)
+    if parts.scheme or parts.netloc:
         return None
     return value
+
+
+def _warn_callback_url_unset_once() -> None:
+    """Warn, once per app, that the OAuth redirect URI comes from the Host header.
+
+    Outside debug mode the redirect URI should be pinned with
+    OAUTH_CALLBACK_URL; otherwise whatever Host (or X-Forwarded-Host) a
+    client sends ends up in the authorization request, and TRUSTED_HOSTS is
+    the only thing standing between that and a spoofed callback.
+    """
+    if current_app.debug:
+        return
+    state = current_app.extensions.setdefault("feather_google_oauth", {})
+    if state.get("callback_url_warned"):
+        return
+    state["callback_url_warned"] = True
+    current_app.logger.warning(
+        "OAUTH_CALLBACK_URL is not set: the Google OAuth redirect URI is derived "
+        "from the request Host header. Set OAUTH_CALLBACK_URL to the public "
+        "callback URL and TRUSTED_HOSTS to the hostnames this app serves."
+    )
 
 
 def _call_post_login_callback(user, token: dict) -> Optional[str]:
@@ -314,6 +350,7 @@ def login():
     # Build redirect URI from request host (preserves Vite proxy port)
     redirect_uri = current_app.config.get("OAUTH_CALLBACK_URL") or os.environ.get("OAUTH_CALLBACK_URL")
     if not redirect_uri:
+        _warn_callback_url_unset_once()
         # X-Forwarded headers are set by Vite proxy to preserve original host
         scheme = request.headers.get("X-Forwarded-Proto", request.scheme)
         host = request.headers.get("X-Forwarded-Host") or request.headers.get("Host", request.host)
@@ -357,7 +394,8 @@ def callback():
         user_info = token.get("userinfo")
         if not user_info:
             user_info = oauth.google.get(
-                "https://openidconnect.googleapis.com/v1/userinfo"
+                "https://openidconnect.googleapis.com/v1/userinfo",
+                timeout=_HTTP_TIMEOUT,
             ).json()
 
         # Get or create user
@@ -502,7 +540,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             )
             session["_auth_error_handled"] = True
             current_app.logger.warning(
-                f"Blocked signup from public email domain: {email}"
+                f"Blocked signup from public email domain: {mask_email(email)}"
             )
             return None
 
@@ -530,7 +568,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             session["next"] = "/"  # Override to redirect to home
             session["_auth_silent_redirect"] = True  # Signal to callback: no error flash
             current_app.logger.info(
-                f"Blocked new user creation via admin login: {email}"
+                f"Blocked new user creation via admin login: {mask_email(email)}"
             )
             return None  # No flash message, just redirect
 
@@ -555,7 +593,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
                     )
                     session["_auth_error_handled"] = True
                     current_app.logger.warning(
-                        f"Blocked signup - no tenant for domain: {email}"
+                        f"Blocked signup - no tenant for domain: {mask_email(email)}"
                     )
                     return None
 
@@ -567,7 +605,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
                     )
                     session["_auth_error_handled"] = True
                     current_app.logger.warning(
-                        f"Blocked signup - tenant not active: {email} (tenant: {tenant.slug})"
+                        f"Blocked signup - tenant not active: {mask_email(email)} (tenant: {tenant.slug})"
                     )
                     return None
 
@@ -608,7 +646,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             _set_toast(block_message, "error")
             session["_auth_error_handled"] = True
             current_app.logger.warning(
-                f"Blocked signup via pre-register callback: {email}"
+                f"Blocked signup via pre-register callback: {mask_email(email)}"
             )
             return None
 
@@ -621,12 +659,12 @@ def _get_or_create_user(user_info: dict, token: dict = None):
 
         if auto_approve:
             current_app.logger.info(
-                f"Created new user from Google: {email} (auto-approved)"
+                f"Created new user from Google: {mask_email(email)} (auto-approved)"
             )
             _set_toast("Welcome! Your account has been created.", "success")
         elif tenant:
             current_app.logger.info(
-                f"Created new user from Google: {email} (tenant: {tenant.slug}, suspended)"
+                f"Created new user from Google: {mask_email(email)} (tenant: {tenant.slug}, suspended)"
             )
             _set_toast(
                 "Your account has been created but requires approval from an administrator.",
@@ -634,7 +672,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             )
         else:
             current_app.logger.info(
-                f"Created new user from Google: {email} (no tenant, suspended)"
+                f"Created new user from Google: {mask_email(email)} (no tenant, suspended)"
             )
             _set_toast(
                 "Your account has been created and is pending setup.",
@@ -655,19 +693,53 @@ def _get_or_create_user(user_info: dict, token: dict = None):
 
 
 def _store_token(token: dict) -> None:
-    """Store OAuth token in session.
+    """Store the short-lived parts of an OAuth token in the session.
+
+    The refresh token is deliberately NOT stored here. The Flask session
+    cookie is signed, not encrypted, so anything in it is readable by whoever
+    holds the cookie; a refresh token is a long-lived credential and belongs
+    in the database (the User model's ``google_refresh_token`` column, which
+    ``_get_or_create_user`` fills when the model has it).
 
     Args:
-        token: OAuth token dict with access_token, refresh_token, expires_at, etc.
+        token: OAuth token dict with access_token, expires_at, etc.
     """
-    # Store token data we need
     token_data = {
         "access_token": token.get("access_token"),
-        "refresh_token": token.get("refresh_token"),
         "expires_at": token.get("expires_at"),
         "token_type": token.get("token_type", "Bearer"),
     }
     session[_TOKEN_SESSION_KEY] = token_data
+
+
+def _pop_legacy_refresh_token(token: dict) -> Optional[str]:
+    """Remove a refresh token left in the session by Feather <= 0.9.5.
+
+    Returns the value so the caller can use it one last time; the session
+    copy is dropped either way.
+    """
+    if "refresh_token" not in token:
+        return None
+    legacy = token.pop("refresh_token", None)
+    session[_TOKEN_SESSION_KEY] = token
+    session.modified = True
+    return legacy
+
+
+def _user_refresh_token() -> Optional[str]:
+    """The current user's stored refresh token, or None.
+
+    Reads the ``google_refresh_token`` column when the User model has one.
+    Apps without Flask-Login or without the column simply get None, which
+    means "cannot refresh".
+    """
+    try:
+        if not current_user.is_authenticated:
+            return None
+    except Exception:
+        # No login manager on this app: nothing to read.
+        return None
+    return getattr(current_user, "google_refresh_token", None) or None
 
 
 def get_google_token() -> Optional[dict]:
@@ -699,29 +771,30 @@ def get_google_token() -> Optional[dict]:
             return response.json()
 
     Note:
-        - Token is stored in the user's session
-        - If the token is expired and no refresh_token is available, returns None
+        - The access token is stored in the user's session; the refresh
+          token lives on the User model (``google_refresh_token`` column)
+          and is never written to the session cookie
+        - If the token is expired and no refresh token is available, returns None
         - To get a refresh_token, request offline access (access_type='offline')
     """
     token = session.get(_TOKEN_SESSION_KEY)
     if not token:
         return None
 
+    # Sessions issued before 0.9.6 carried the refresh token; drop it.
+    legacy_refresh_token = _pop_legacy_refresh_token(token)
+
     # Check if token is expired
     expires_at = token.get("expires_at")
     if expires_at and time.time() > expires_at - 60:  # 60 second buffer
-        # Token is expired, try to refresh
-        refresh_token = token.get("refresh_token")
-
-        # Also check User model for stored refresh token
-        if not refresh_token and current_user.is_authenticated:
-            refresh_token = getattr(current_user, "google_refresh_token", None)
+        # Token is expired, try to refresh from the stored credential
+        refresh_token = _user_refresh_token() or legacy_refresh_token
 
         if refresh_token:
             new_token = _refresh_google_token(refresh_token)
             if new_token:
                 _store_token(new_token)
-                return new_token
+                return session[_TOKEN_SESSION_KEY]
             else:
                 # Refresh failed, clear token
                 session.pop(_TOKEN_SESSION_KEY, None)
@@ -756,6 +829,7 @@ def _refresh_google_token(refresh_token: str) -> Optional[dict]:
                 "refresh_token": refresh_token,
                 "grant_type": "refresh_token",
             },
+            timeout=_HTTP_TIMEOUT,
         )
 
         if response.status_code == 200:

@@ -1,0 +1,61 @@
+# Run the framework test suite.
+#
+# Two jobs:
+#   test - every push and pull request to main, on each supported Python.
+#          Skips e2e and scaffolding (they create venvs and run npm, which is
+#          minutes per app), so a PR gets an answer quickly.
+#   full - the whole suite, nightly and on demand. Needs Node for the
+#          scaffolding tests that run `npm install` and `vite build`.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * *" # nightly, 04:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # The nightly schedule only needs the `full` job below
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Test (unit, integration, contracts)
+        run: python -m pytest -q -m "not e2e and not scaffolding" -p no:cacheprovider
+
+  full:
+    # Nightly and manual runs only: scaffolding and e2e build venvs and npm
+    # trees per generated app, which is far too slow for every push.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22" # scaffolded package.json requires >=22
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Test (everything)
+        run: python -m pytest -q -p no:cacheprovider

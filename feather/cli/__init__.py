@@ -1,7 +1,12 @@
 """Feather CLI - Command line interface for Feather framework."""
 
+import json
+import os
+import urllib.request
+
 import click
 
+from feather import __version__
 from feather.cli.new import new
 from feather.cli.dev import dev
 from feather.cli.db import db_group
@@ -12,6 +17,7 @@ from feather.cli.dx import routes, shell, test
 from feather.cli.platform_admin import platform_admin
 from feather.cli.jobs import jobs
 from feather.cli.worker import worker
+from feather.cli.security_check import security_check
 
 
 class FeatherGroup(click.Group):
@@ -59,6 +65,16 @@ class FeatherGroup(click.Group):
                 ("test --framework --fast", "Skip slow tests (e2e, scaffolding)"),
                 ("test --framework --clean", "Remove test artifacts (venv, cache, etc.)"),
                 ("test --list-markers", "Show available test markers"),
+            ])
+
+        formatter.write_paragraph()
+        formatter.write_text(click.style("Security:", bold=True))
+        with formatter.indentation():
+            formatter.write_dl([
+                ("security-check", "Audit production security settings (exit 1 on any FAIL)"),
+                ("security-check --json", "Machine-readable audit output"),
+                ("security-check --env-file FILE", "Audit an env file without importing the app"),
+                ("security-check --production", "Apply production rules regardless of FLASK_ENV"),
             ])
 
         formatter.write_paragraph()
@@ -123,10 +139,84 @@ class FeatherGroup(click.Group):
             ])
 
 
+PYPI_JSON_URL = "https://pypi.org/pypi/feather-framework/json"
+UPDATE_CHECK_TIMEOUT = 2.0
+
+#: Commands that check PyPI for a newer release before running.
+UPDATE_CHECK_COMMANDS = {"new"}
+
+
+def _fetch_latest_version() -> str:
+    """Return the latest feather-framework version published on PyPI.
+
+    A single short GET; callers must handle any exception (offline, DNS
+    failure, PyPI outage) themselves.
+    """
+    with urllib.request.urlopen(PYPI_JSON_URL, timeout=UPDATE_CHECK_TIMEOUT) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    return payload["info"]["version"]
+
+
+def _version_tuple(text: str) -> tuple:
+    """Comparable tuple of leading integers ('1.2.3rc1' -> (1, 2, 3))."""
+    import re
+
+    parts = []
+    for chunk in re.split(r"[.\-+]", str(text)):
+        match = re.match(r"^(\d+)", chunk)
+        if not match:
+            break
+        parts.append(int(match.group(1)))
+    return tuple(parts) or (0,)
+
+
+def _warn_if_outdated() -> None:
+    """Print a one-line notice when a newer release exists on PyPI.
+
+    Never raises and never blocks for long: skipped entirely when
+    ``FEATHER_NO_UPDATE_CHECK=1`` is set, and any network failure is
+    swallowed so offline use is unaffected.
+    """
+    if os.environ.get("FEATHER_NO_UPDATE_CHECK", "").strip().lower() in ("1", "true", "yes", "on"):
+        return
+
+    try:
+        latest = _fetch_latest_version()
+        if _version_tuple(latest) > _version_tuple(__version__):
+            click.echo(
+                click.style(
+                    f"A newer Feather is available: {__version__} -> {latest}. "
+                    f"Upgrade with: pip install --upgrade feather-framework=={latest}",
+                    fg="yellow",
+                ),
+                err=True,
+            )
+    except Exception:  # noqa: BLE001 - an update check must never break the CLI
+        pass
+
+
+def _print_version(ctx, param, value):
+    """--version callback that also reports newer releases."""
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo(f"feather-framework, version {__version__}")
+    _warn_if_outdated()
+    ctx.exit()
+
+
 @click.group(cls=FeatherGroup)
-@click.version_option(package_name="feather-framework")
-def cli():
-    pass
+@click.option(
+    "--version",
+    is_flag=True,
+    expose_value=False,
+    is_eager=True,
+    callback=_print_version,
+    help="Show the version and exit.",
+)
+@click.pass_context
+def cli(ctx):
+    if ctx.invoked_subcommand in UPDATE_CHECK_COMMANDS:
+        _warn_if_outdated()
 
 
 # Register commands
@@ -143,6 +233,7 @@ cli.add_command(test)
 cli.add_command(jobs)
 cli.add_command(worker)
 cli.add_command(platform_admin)
+cli.add_command(security_check)
 
 
 def main():

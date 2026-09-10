@@ -49,7 +49,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
-from feather.jobs.base import JobQueue, JobResult, JobStatus
+from feather.jobs.base import JobQueue, JobResult, JobStatus, strip_framework_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +216,10 @@ class ThreadPoolQueue(JobQueue):
         Returns:
             JobResult with job_id and QUEUED status.
         """
+        # Any other queue-level options (e.g. result_ttl) never belong to the
+        # job function; the named ones above are already captured.
+        _framework_kwargs, kwargs = strip_framework_kwargs(kwargs)
+
         job_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
 
@@ -285,23 +289,34 @@ class ThreadPoolQueue(JobQueue):
         - Resource monitoring on failure
         """
         try:
-            # Handle delay
+            # Handle delay. The job stays SCHEDULED (or QUEUED) throughout so
+            # cancel_job() can still stop it before it runs.
             if delay and delay > 0:
                 time.sleep(delay)
 
-            # Update status to started
-            with self._jobs_lock:
-                if job_id in self._jobs:
-                    self._jobs[job_id].status = JobStatus.STARTED
-                    self._jobs[job_id].started_at = datetime.now(timezone.utc)
+            if self._is_canceled(job_id):
+                logger.debug(f"Job {job_id} was canceled before it started")
+                return
 
-            # Acquire semaphore if concurrency limited
+            # Acquire semaphore if concurrency limited. Still QUEUED here:
+            # a job waiting for a slot has not started and remains cancelable.
             if semaphore is not None:
                 logger.debug(f"Job {job_id} waiting for semaphore ({task_name})")
                 semaphore.acquire()
                 logger.debug(f"Job {job_id} acquired semaphore ({task_name})")
 
             try:
+                # Cancellation may have happened while we waited for the slot.
+                if self._is_canceled(job_id):
+                    logger.debug(f"Job {job_id} was canceled while queued")
+                    return
+
+                # Only now is the job actually running.
+                with self._jobs_lock:
+                    if job_id in self._jobs:
+                        self._jobs[job_id].status = JobStatus.STARTED
+                        self._jobs[job_id].started_at = datetime.now(timezone.utc)
+
                 # Execute with retry logic
                 result = self._execute_with_retry(
                     job_id=job_id,
@@ -452,25 +467,40 @@ class ThreadPoolQueue(JobQueue):
             TimeoutError if execution exceeds timeout.
             Exception if function raises an exception.
         """
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+        # A dedicated daemon thread, not a ThreadPoolExecutor: leaving the
+        # executor's `with` block joins the worker, which would make the
+        # timeout wait for the very job it is supposed to abandon. A daemon
+        # thread can simply be left behind (Python cannot kill threads) while
+        # the job is marked TIMEOUT immediately.
+        outcome: dict = {}
 
-        # Create a wrapper that handles Flask app context
         def wrapper():
-            if self._app is not None:
-                with self._app.app_context():
-                    return func(*args, **kwargs)
-            else:
-                return func(*args, **kwargs)
-
-        # Use a single-thread executor for timeout control
-        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="feather-timeout-") as executor:
-            future = executor.submit(wrapper)
             try:
-                return future.result(timeout=timeout)
-            except FuturesTimeoutError:
-                # Cancel the future (won't stop running thread, but marks it)
-                future.cancel()
-                raise TimeoutError(f"Job timed out after {timeout} seconds")
+                if self._app is not None:
+                    with self._app.app_context():
+                        outcome["value"] = func(*args, **kwargs)
+                else:
+                    outcome["value"] = func(*args, **kwargs)
+            except BaseException as exc:  # noqa: BLE001 - re-raised below
+                outcome["error"] = exc
+
+        worker = threading.Thread(
+            target=wrapper,
+            name=f"feather-timeout-{getattr(func, '__name__', 'job')}",
+            daemon=True,
+        )
+        worker.start()
+        worker.join(timeout)
+
+        if worker.is_alive():
+            # The thread keeps running (and is abandoned), but the job is
+            # reported as timed out right now.
+            raise TimeoutError(f"Job timed out after {timeout} seconds")
+
+        if "error" in outcome:
+            raise outcome["error"]
+
+        return outcome.get("value")
 
     def _capture_resource_metrics(self) -> str:
         """Capture current resource metrics for debugging.
@@ -504,7 +534,8 @@ class ThreadPoolQueue(JobQueue):
     def cancel_job(self, job_id: str) -> bool:
         """Cancel a queued job.
 
-        Note: Only cancels jobs that haven't started yet.
+        Note: Only cancels jobs that haven't started yet - queued,
+        delayed/scheduled, or waiting for a concurrency slot.
         Jobs already running cannot be canceled.
 
         Args:
@@ -515,11 +546,17 @@ class ThreadPoolQueue(JobQueue):
         """
         with self._jobs_lock:
             job = self._jobs.get(job_id)
-            if job and job.status == JobStatus.QUEUED:
+            if job and job.status in (JobStatus.QUEUED, JobStatus.SCHEDULED, JobStatus.DEFERRED):
                 job.status = JobStatus.CANCELED
                 job.ended_at = datetime.now(timezone.utc)
                 return True
         return False
+
+    def _is_canceled(self, job_id: str) -> bool:
+        """Check whether a job was canceled while it waited to run."""
+        with self._jobs_lock:
+            job = self._jobs.get(job_id)
+            return job is not None and job.status == JobStatus.CANCELED
 
     def get_queue_length(self, queue_name: str = "default") -> int:
         """Get the number of pending jobs.

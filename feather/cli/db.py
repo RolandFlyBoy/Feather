@@ -7,6 +7,36 @@ from pathlib import Path
 import click
 
 
+def _run_streaming(cmd: list, failure_message: str) -> int:
+    """Run a subprocess with its output streamed to the terminal.
+
+    Alembic/Flask-Migrate print progress as they work; capturing it would hide
+    everything until the command finished (and hide it entirely on success).
+
+    Args:
+        cmd: Command to run.
+        failure_message: Message for the ClickException raised on failure.
+
+    Returns:
+        The process exit code (0 on success).
+
+    Raises:
+        click.ClickException: If the command exits non-zero.
+    """
+    result = subprocess.run(cmd)
+
+    if result.returncode != 0:
+        click.echo(
+            click.style(
+                f"Command failed (exit code {result.returncode}): {' '.join(str(c) for c in cmd)}",
+                fg="red",
+            )
+        )
+        raise click.ClickException(failure_message)
+
+    return result.returncode
+
+
 @click.group(name="db")
 def db_group():
     """Database management commands."""
@@ -21,20 +51,12 @@ def init():
 
     click.echo("Initializing migrations...")
 
-    result = subprocess.run(
+    _run_streaming(
         [sys.executable, "-m", "flask", "db", "init"],
-        capture_output=True,
-        text=True,
+        "Failed to initialize migrations",
     )
 
-    if result.returncode == 0:
-        click.echo(click.style("Migrations initialized!", fg="green"))
-    else:
-        if result.stdout:
-            click.echo(result.stdout)
-        if result.stderr:
-            click.echo(result.stderr)
-        raise click.ClickException("Failed to initialize migrations")
+    click.echo(click.style("Migrations initialized!", fg="green"))
 
 
 @db_group.command()
@@ -50,18 +72,10 @@ def migrate(message: str):
     if message:
         cmd.extend(["-m", message])
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    _run_streaming(cmd, "Failed to generate migration")
 
-    if result.returncode == 0:
-        click.echo(result.stdout)
-        click.echo(click.style("Migration generated!", fg="green"))
-        click.echo("Run 'feather db upgrade' to apply it.")
-    else:
-        if result.stdout:
-            click.echo(result.stdout)
-        if result.stderr:
-            click.echo(result.stderr)
-        raise click.ClickException("Failed to generate migration")
+    click.echo(click.style("Migration generated!", fg="green"))
+    click.echo("Run 'feather db upgrade' to apply it.")
 
 
 @db_group.command()
@@ -72,21 +86,12 @@ def upgrade():
 
     click.echo("Applying migrations...")
 
-    result = subprocess.run(
+    _run_streaming(
         [sys.executable, "-m", "flask", "db", "upgrade"],
-        capture_output=True,
-        text=True,
+        "Failed to apply migrations",
     )
 
-    if result.returncode == 0:
-        click.echo(result.stdout)
-        click.echo(click.style("Migrations applied!", fg="green"))
-    else:
-        if result.stdout:
-            click.echo(result.stdout)
-        if result.stderr:
-            click.echo(result.stderr)
-        raise click.ClickException("Failed to apply migrations")
+    click.echo(click.style("Migrations applied!", fg="green"))
 
 
 @db_group.command()
@@ -97,21 +102,12 @@ def downgrade():
 
     click.echo("Rolling back migration...")
 
-    result = subprocess.run(
+    _run_streaming(
         [sys.executable, "-m", "flask", "db", "downgrade"],
-        capture_output=True,
-        text=True,
+        "Failed to rollback migration",
     )
 
-    if result.returncode == 0:
-        click.echo(result.stdout)
-        click.echo(click.style("Migration rolled back!", fg="green"))
-    else:
-        if result.stdout:
-            click.echo(result.stdout)
-        if result.stderr:
-            click.echo(result.stderr)
-        raise click.ClickException("Failed to rollback migration")
+    click.echo(click.style("Migration rolled back!", fg="green"))
 
 
 @db_group.command()
@@ -137,18 +133,7 @@ def seed(extra_only):
     if seed_file.exists() and not extra_only:
         click.echo("Running seeds.py...")
 
-        result = subprocess.run(
-            [sys.executable, "seeds.py"],
-            capture_output=True,
-            text=True,
-        )
-
-        if result.stdout:
-            click.echo(result.stdout)
-        if result.returncode != 0:
-            if result.stderr:
-                click.echo(result.stderr)
-            raise click.ClickException("Failed to run seeds.py")
+        _run_streaming([sys.executable, "seeds.py"], "Failed to run seeds.py")
 
     # Run extra seed files from seeds/ directory
     if seeds_dir.exists():
@@ -158,17 +143,6 @@ def seed(extra_only):
         for sf in seed_files:
             click.echo(f"Running {sf}...")
 
-            result = subprocess.run(
-                [sys.executable, str(sf)],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.stdout:
-                click.echo(result.stdout)
-            if result.returncode != 0:
-                if result.stderr:
-                    click.echo(result.stderr)
-                raise click.ClickException(f"Failed to run {sf}")
+            _run_streaming([sys.executable, str(sf)], f"Failed to run {sf}")
 
     click.echo(click.style("Seed data applied!", fg="green"))

@@ -12,7 +12,8 @@ Create a new project and start developing in seconds::
     $ cd myapp
     $ feather dev
 
-Then open http://localhost:5000 in your browser.
+Then open http://localhost:5173 in your browser (Vite serves the app and
+proxies to Flask; `feather dev --no-vite` runs Flask alone on port 5000).
 
 Basic Usage
 -----------
@@ -103,10 +104,11 @@ Dispatch events for loose coupling::
     # In your service:
     dispatch(UserCreatedEvent(user_id=user.id))
 
-For more information, see the full documentation in feather_framework.md.
+For more information, see README.md and the docstrings of each module
+(feather.core.app, feather.services, feather.jobs, feather.events, ...).
 """
 
-__version__ = "0.9.5"
+__version__ = "0.9.6"
 
 # =============================================================================
 # Core Application
@@ -122,6 +124,10 @@ from feather.core.app import Feather
 # - auth_required: Decorator to require authentication
 # - csrf_exempt: Decorator to exempt webhook routes from CSRF protection
 from feather.core.decorators import api, page, inject, auth_required, csrf_exempt
+
+# HTMX response helpers - redirect the full page or trigger other elements
+# from a fragment response.
+from feather.core.helpers import htmx_redirect, htmx_refresh, with_trigger
 
 # =============================================================================
 # Services Layer
@@ -207,14 +213,17 @@ from feather.core.middleware import get_request_id
 # They are automatically converted to proper JSON API responses with appropriate
 # HTTP status codes.
 from feather.exceptions import (
-    FeatherException,     # Base exception - 500 Internal Server Error
-    ValidationError,      # Invalid input - 400 Bad Request
-    AuthenticationError,  # Not logged in - 401 Unauthorized
-    AuthorizationError,   # No permission - 403 Forbidden
-    NotFoundError,        # Resource not found - 404 Not Found
-    ConflictError,        # Already exists - 409 Conflict
-    StorageError,         # File storage failed - 500 Internal Server Error
-    DatabaseError,        # Database operation failed - 500 Internal Server Error
+    FeatherException,       # Base exception - 500 Internal Server Error
+    ValidationError,        # Invalid input - 400 Bad Request
+    AuthenticationError,    # Not logged in - 401 Unauthorized
+    AuthorizationError,     # No permission - 403 Forbidden
+    AccountPendingError,    # Awaiting approval - 403 Forbidden
+    AccountSuspendedError,  # Account suspended - 403 Forbidden
+    NotFoundError,          # Resource not found - 404 Not Found
+    ConflictError,          # Already exists - 409 Conflict
+    RateLimitError,         # Too many requests - 429 Too Many Requests
+    StorageError,           # File storage failed - 500 Internal Server Error
+    DatabaseError,          # Database operation failed - 500 Internal Server Error
 )
 
 # =============================================================================
@@ -233,6 +242,10 @@ __all__ = [
     "inject",
     "auth_required",
     "csrf_exempt",
+    # HTMX response helpers
+    "htmx_redirect",
+    "htmx_refresh",
+    "with_trigger",
     # Services - Business logic layer
     "Service",
     "transactional",
@@ -279,8 +292,11 @@ __all__ = [
     "ValidationError",
     "AuthenticationError",
     "AuthorizationError",
+    "AccountPendingError",
+    "AccountSuspendedError",
     "NotFoundError",
     "ConflictError",
+    "RateLimitError",
     "StorageError",
     "DatabaseError",
 ]

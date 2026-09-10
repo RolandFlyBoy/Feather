@@ -51,15 +51,34 @@ const ApiUtility = {
   },
 
   /**
+   * Is this URL on our own origin?
+   * The CSRF token is a credential for THIS site; sending it to a third
+   * party (an absolute URL, or a protocol-relative //host one) would hand
+   * that site a token it can replay against us.
+   *
+   * @param {string} url - Request URL, relative or absolute
+   * @returns {boolean} true when the request stays on window.location.origin
+   */
+  isSameOrigin(url) {
+    try {
+      const origin = window.location.origin;
+      return new URL(url, window.location.href).origin === origin;
+    } catch (e) {
+      // Unparseable URL: treat as cross-origin and send no token.
+      return false;
+    }
+  },
+
+  /**
    * Helper to add CSRF token to fetch options
    * Use for direct fetch() calls: fetch(url, ApiUtility.withCsrf({ method: 'POST' }))
    *
    * @param {Object} options - Fetch options
    * @returns {Object} Options with CSRF header added
    */
-  withCsrf(options = {}) {
+  withCsrf(options = {}, url = window.location.href) {
     const method = (options.method || 'GET').toUpperCase();
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && this.isSameOrigin(url)) {
       return {
         ...options,
         headers: {
@@ -91,9 +110,9 @@ const ApiUtility = {
       ...options.headers
     };
 
-    // Add CSRF token for state-changing requests
+    // Add CSRF token for state-changing requests to our own origin only
     const method = (options.method || 'GET').toUpperCase();
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && this.isSameOrigin(url)) {
       options.headers = {
         ...options.headers,
         'X-CSRFToken': this.getCsrfToken()
@@ -304,7 +323,9 @@ const ApiUtility = {
         });
 
         xhr.open(requestOptions.method || 'POST', url);
-        xhr.setRequestHeader('X-CSRFToken', this.getCsrfToken());
+        if (this.isSameOrigin(url)) {
+          xhr.setRequestHeader('X-CSRFToken', this.getCsrfToken());
+        }
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.send(formData);
       });

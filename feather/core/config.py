@@ -5,6 +5,30 @@ import os
 from datetime import timedelta
 from typing import Optional, Type
 
+from dotenv import find_dotenv, load_dotenv
+
+
+def _ensure_dotenv_loaded() -> None:
+    """Load the project's .env file if it has not been loaded yet.
+
+    The built-in Config below reads os.environ, so the .env file has to be in
+    the environment *before* those reads happen. Feather also calls
+    load_dotenv() from Feather.__init__, but that runs after this module is
+    imported - without this call a project with a .env and no config.py would
+    silently get stale defaults.
+
+    Idempotent and non-destructive: override=False means real environment
+    variables always win over .env, and usecwd searches from the project
+    directory rather than the (possibly editable) framework checkout.
+    """
+    try:
+        load_dotenv(find_dotenv(usecwd=True), override=False)
+    except Exception:  # pragma: no cover - dotenv must never break startup
+        pass
+
+
+_ensure_dotenv_loaded()
+
 # Shorthand names for config classes
 # Allows FLASK_CONFIG=production instead of FLASK_CONFIG=ProductionConfig
 CONFIG_SHORTCUTS = {
@@ -17,21 +41,105 @@ CONFIG_SHORTCUTS = {
 }
 
 
-class Config:
-    """Base configuration class."""
+def _env_config_values() -> dict:
+    """Read every environment-derived setting fresh from os.environ.
 
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
-    DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///app.db")
+    Called at import time and again from load_config(), so values picked up
+    from a .env file loaded later are never stale.
+    """
+    return {
+        "SECRET_KEY": os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production"),
+        "DATABASE_URL": os.environ.get("DATABASE_URL", "sqlite:///app.db"),
+        # Session configuration
+        "PERMANENT_SESSION_LIFETIME": timedelta(
+            days=int(os.environ.get("SESSION_LIFETIME_DAYS", "7"))
+        ),
+        "REMEMBER_COOKIE_DURATION": timedelta(
+            days=int(os.environ.get("REMEMBER_COOKIE_DAYS", "365"))
+        ),
+        "SESSION_PROTECTION": os.environ.get("SESSION_PROTECTION", "basic"),
+        # Google OAuth (optional)
+        "GOOGLE_CLIENT_ID": os.environ.get("GOOGLE_CLIENT_ID"),
+        "GOOGLE_CLIENT_SECRET": os.environ.get("GOOGLE_CLIENT_SECRET"),
+        "OAUTH_CALLBACK_URL": os.environ.get("OAUTH_CALLBACK_URL"),
+        # Multi-tenant settings
+        "FEATHER_MULTI_TENANT": os.environ.get("FEATHER_MULTI_TENANT", "").lower()
+        in ("true", "1", "yes"),
+        "FEATHER_ALLOW_PUBLIC_EMAILS": os.environ.get(
+            "FEATHER_ALLOW_PUBLIC_EMAILS", ""
+        ).lower()
+        in ("true", "1", "yes"),
+        "FEATHER_POST_LOGIN_CALLBACK": os.environ.get("FEATHER_POST_LOGIN_CALLBACK"),
+        # Proxy / host hardening
+        "FEATHER_PROXY_FIX": os.environ.get("FEATHER_PROXY_FIX", "true").lower()
+        not in ("false", "0", "no"),
+        "FEATHER_PROXY_FIX_NUM": int(os.environ.get("FEATHER_PROXY_FIX_NUM", "1")),
+        "TRUSTED_HOSTS": parse_trusted_hosts(os.environ.get("TRUSTED_HOSTS")),
+        # Discovery
+        "FEATHER_LENIENT_DISCOVERY": os.environ.get(
+            "FEATHER_LENIENT_DISCOVERY", ""
+        ).lower()
+        in ("true", "1", "yes"),
+        # Vite dev server (used for island scripts in debug mode)
+        "VITE_DEV_SERVER": os.environ.get("VITE_DEV_SERVER", "http://localhost:5173"),
+        # Storage (optional)
+        "STORAGE_BACKEND": os.environ.get("STORAGE_BACKEND", "local"),
+        "GCS_BUCKET": os.environ.get("GCS_BUCKET"),
+        # Cache (optional)
+        "CACHE_BACKEND": os.environ.get("CACHE_BACKEND", "memory"),
+        "CACHE_URL": os.environ.get("CACHE_URL"),
+        "CACHE_DEFAULT_TTL": int(os.environ.get("CACHE_DEFAULT_TTL", "300")),
+        # Background Jobs (optional)
+        "JOB_BACKEND": os.environ.get("JOB_BACKEND", "sync"),
+        "REDIS_URL": os.environ.get("REDIS_URL"),
+        "JOB_MAX_WORKERS": int(os.environ.get("JOB_MAX_WORKERS", "4")),
+        "JOB_ENABLE_MONITORING": os.environ.get("JOB_ENABLE_MONITORING", "").lower()
+        in ("true", "1", "yes"),
+    }
+
+
+def parse_trusted_hosts(value):
+    """Parse TRUSTED_HOSTS from a comma-separated string or a list.
+
+    Returns None when unset, so Flask keeps its "any host" default.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, (list, tuple, set)):
+        hosts = [str(host).strip() for host in value]
+    else:
+        hosts = [host.strip() for host in str(value).split(",")]
+    hosts = [host for host in hosts if host]
+    return hosts or None
+
+
+#: Backwards-compatible private alias.
+_parse_trusted_hosts = parse_trusted_hosts
+
+
+class Config:
+    """Base configuration class.
+
+    Environment-derived values (SECRET_KEY, DATABASE_URL, ...) are applied by
+    reload_from_env() at import time and re-applied by load_config() after the
+    project's .env file has been loaded.
+    """
+
+    @classmethod
+    def reload_from_env(cls) -> None:
+        """Re-read environment-derived settings from os.environ."""
+        for key, value in _env_config_values().items():
+            setattr(cls, key, value)
 
     # SQLAlchemy
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # Session configuration
-    # How long before the session expires (browser close = session end if not permanent)
-    PERMANENT_SESSION_LIFETIME = timedelta(days=int(os.environ.get("SESSION_LIFETIME_DAYS", "7")))
-
-    # How long "remember me" cookies last
-    REMEMBER_COOKIE_DURATION = timedelta(days=int(os.environ.get("REMEMBER_COOKIE_DAYS", "365")))
+    # CSRF token lifetime.
+    # Flask-WTF expires tokens after one hour by default, on top of the session
+    # lifetime. A form left open (a long write-up, a slow interview) then fails
+    # with a confusing generic error. The session already bounds the token, so
+    # None is the safer default; apps can still set their own limit.
+    WTF_CSRF_TIME_LIMIT = None
 
     # Cookie hardening. Secure is set per environment (ProductionConfig);
     # HttpOnly and SameSite=Lax are safe everywhere. Flask-Login sets none
@@ -41,53 +149,12 @@ class Config:
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = "Lax"
 
-    # Session protection: None, 'basic', or 'strong'
-    # 'basic' marks session non-fresh on IP/user-agent change (fresh_login_required still works)
-    # 'strong' destroys session entirely — too aggressive behind reverse proxies or for mobile users
-    SESSION_PROTECTION = os.environ.get("SESSION_PROTECTION", "basic")
+    # Session protection ('basic'), Google OAuth, multi-tenant, storage, cache,
+    # job and proxy settings all come from _env_config_values() above.
 
-    # Google OAuth (optional)
-    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
-    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
-    OAUTH_CALLBACK_URL = os.environ.get("OAUTH_CALLBACK_URL")  # Override OAuth redirect URI
 
-    # Multi-tenant settings
-    # Enable multi-tenant mode with domain-based tenant assignment
-    FEATHER_MULTI_TENANT = os.environ.get("FEATHER_MULTI_TENANT", "").lower() in ("true", "1", "yes")
-
-    # Allow public email domains (Gmail, Outlook, etc.) in multi-tenant mode
-    # When True, users with public emails can sign up; app handles account creation via callback
-    FEATHER_ALLOW_PUBLIC_EMAILS = os.environ.get("FEATHER_ALLOW_PUBLIC_EMAILS", "").lower() in (
-        "true",
-        "1",
-        "yes",
-    )
-
-    # Post-login callback (optional)
-    # Dotted path to function called after OAuth login: "myapp.auth:handle_login"
-    # Receives (user, token) and can return redirect URL or None for default behavior
-    FEATHER_POST_LOGIN_CALLBACK = os.environ.get("FEATHER_POST_LOGIN_CALLBACK")
-
-    # Storage (optional)
-    STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
-    GCS_BUCKET = os.environ.get("GCS_BUCKET")
-
-    # Cache (optional)
-    CACHE_BACKEND = os.environ.get("CACHE_BACKEND", "memory")  # 'memory' or 'redis'
-    CACHE_URL = os.environ.get("CACHE_URL")  # Redis URL for cache
-    CACHE_DEFAULT_TTL = int(os.environ.get("CACHE_DEFAULT_TTL", "300"))
-
-    # Background Jobs (optional)
-    JOB_BACKEND = os.environ.get("JOB_BACKEND", "sync")  # 'sync', 'thread', or 'rq'
-    REDIS_URL = os.environ.get("REDIS_URL")  # Redis URL for jobs and cache
-
-    # Thread pool job settings (JOB_BACKEND=thread)
-    JOB_MAX_WORKERS = int(os.environ.get("JOB_MAX_WORKERS", "4"))  # Thread pool size
-    JOB_ENABLE_MONITORING = os.environ.get("JOB_ENABLE_MONITORING", "").lower() in (
-        "true",
-        "1",
-        "yes",
-    )  # Enable psutil resource tracking
+# Populate the environment-derived settings for the first time.
+Config.reload_from_env()
 
 
 class DevelopmentConfig(Config):
@@ -126,6 +193,11 @@ def load_config(config_class: Optional[str] = None) -> Type[Config]:
     Returns:
         Configuration class.
     """
+    # Make sure a project .env has been applied, then refresh the built-in
+    # config values so they reflect it (they were read at import time).
+    _ensure_dotenv_loaded()
+    Config.reload_from_env()
+
     # If explicit config class provided
     if config_class:
         return _import_config_class(config_class)
@@ -161,13 +233,23 @@ def load_config(config_class: Optional[str] = None) -> Type[Config]:
     except ImportError:
         pass
 
-    # Fall back to default
-    env = os.environ.get("FLASK_ENV", "development")
-    if env == "production":
-        return ProductionConfig
-    elif env == "testing":
-        return TestingConfig
-    return DevelopmentConfig
+    # Fall back to the built-in config for this environment
+    return _builtin_config_for(os.environ.get("FLASK_ENV", "development"))
+
+
+def _builtin_config_for(name: str) -> Type[Config]:
+    """Resolve an environment or class name to a built-in config class.
+
+    Accepts both shorthands ('production', 'prod') and class names
+    ('ProductionConfig'). Unknown names fall back to DevelopmentConfig.
+    """
+    class_name = CONFIG_SHORTCUTS.get((name or "").lower(), name)
+    return {
+        "ProductionConfig": ProductionConfig,
+        "TestingConfig": TestingConfig,
+        "DevelopmentConfig": DevelopmentConfig,
+        "Config": Config,
+    }.get(class_name, DevelopmentConfig)
 
 
 def _import_config_class(path: str) -> Type[Config]:
@@ -188,9 +270,20 @@ def _import_config_class(path: str) -> Type[Config]:
         module = importlib.import_module(module_path)
         return getattr(module, class_name)
     else:
-        # Assume it's in the default config module
+        # Assume it's in the project's config module
         try:
             config_module = importlib.import_module("config")
             return getattr(config_module, path)
         except (ImportError, AttributeError):
+            # No project config.py (or it doesn't define this class): fall back
+            # to the framework's own config classes so FLASK_CONFIG=production
+            # works in a project without a config.py.
+            builtin = {
+                "ProductionConfig": ProductionConfig,
+                "TestingConfig": TestingConfig,
+                "DevelopmentConfig": DevelopmentConfig,
+                "Config": Config,
+            }.get(path)
+            if builtin is not None:
+                return builtin
             raise ValueError(f"Could not load config class: {path}")

@@ -134,9 +134,11 @@ def csrf_exempt(view: Callable) -> Callable:
     # Build the view location string that Flask-WTF uses
     view_location = f"{view.__module__}.{view.__name__}"
 
-    # Get the CSRFProtect instance and register exemption
-    # Note: This works because Flask-WTF stores itself in app.extensions["csrf"]
-    # The actual exemption happens at request time via current_app
+    # Get the CSRFProtect instance and register exemption.
+    # Feather._register_csrf_exemptions() covers every view registered during
+    # app init (the common case). This request-time registration is the safety
+    # net for views registered *after* init (e.g. @app.route in app.py), which
+    # that pass never sees; it is idempotent and cheap.
     @wraps(view)
     def decorated_function(*args, **kwargs):
         # Ensure this view is exempt (idempotent)
@@ -401,33 +403,7 @@ _add_route_methods(page)
 # These are re-exported here for convenience so users can do:
 # from feather import auth_required, admin_required, role_required
 
-try:
-    from feather.auth.decorators import admin_required, role_required
-except ImportError:
-    # Auth module not available - provide stub decorators that raise
-    def admin_required(f: Callable) -> Callable:
-        """Stub decorator - auth module not initialized."""
-
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            raise RuntimeError(
-                "Authentication not initialized. "
-                "Create a User model with flask_login.UserMixin to enable auth."
-            )
-
-        return decorated
-
-    def role_required(roles):
-        """Stub decorator - auth module not initialized."""
-
-        def decorator(f: Callable) -> Callable:
-            @wraps(f)
-            def decorated(*args, **kwargs):
-                raise RuntimeError(
-                    "Authentication not initialized. "
-                    "Create a User model with flask_login.UserMixin to enable auth."
-                )
-
-            return decorated
-
-        return decorator
+# feather.auth.decorators only needs Flask, Flask-Login and feather.exceptions
+# (all hard dependencies, no import cycle back to this module), so this import
+# always succeeds. The old try/except stub fallback was unreachable.
+from feather.auth.decorators import admin_required, role_required  # noqa: E402

@@ -37,9 +37,44 @@ Usage
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
+
+
+#: Keyword arguments that belong to the queue itself, never to the job
+#: function. The @job decorator forwards some of these (job_timeout in
+#: particular) on every enqueue, so backends must strip them instead of
+#: passing them through to the user function.
+FRAMEWORK_ENQUEUE_KWARGS = frozenset(
+    {
+        "queue_name",
+        "delay",
+        "job_timeout",
+        "timeout",
+        "retry",
+        "concurrency",
+        "result_ttl",
+        "at_front",
+        "depends_on",
+        "job_id",
+        "description",
+    }
+)
+
+
+def strip_framework_kwargs(kwargs: dict) -> tuple[dict, dict]:
+    """Split enqueue kwargs into framework options and function kwargs.
+
+    Args:
+        kwargs: The keyword arguments passed to ``enqueue()``.
+
+    Returns:
+        ``(framework_kwargs, func_kwargs)``.
+    """
+    framework = {k: v for k, v in kwargs.items() if k in FRAMEWORK_ENQUEUE_KWARGS}
+    func_kwargs = {k: v for k, v in kwargs.items() if k not in FRAMEWORK_ENQUEUE_KWARGS}
+    return framework, func_kwargs
 
 
 class JobStatus(Enum):
@@ -175,8 +210,14 @@ class JobQueue(ABC):
         Returns:
             JobResult with job_id and SCHEDULED status.
         """
-        # Default implementation using delay
-        delay = int((scheduled_time - datetime.now()).total_seconds())
+        # Default implementation using delay.
+        # Compare like with like: an aware scheduled_time needs an aware "now",
+        # a naive one needs a naive "now" (subtracting the two raises).
+        if scheduled_time.tzinfo is not None:
+            now = datetime.now(scheduled_time.tzinfo)
+        else:
+            now = datetime.now()
+        delay = int((scheduled_time - now).total_seconds())
         if delay < 0:
             delay = 0
         return self.enqueue(func, *args, queue_name=queue_name, delay=delay, **kwargs)

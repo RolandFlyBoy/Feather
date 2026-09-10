@@ -47,6 +47,7 @@ Quick Example
 
 import re
 from datetime import datetime
+import fnmatch
 from typing import Any, Dict, List, Type, Optional, Union
 
 
@@ -369,19 +370,46 @@ class Serializer:
         """
         return [self.serialize(obj, **context) for obj in objs]
 
+    #: Column-name patterns (``fnmatch`` style, case-insensitive) that
+    #: auto-discovery skips when ``Meta.fields`` is not set. Extend on a
+    #: subclass to hide more; list a field in ``Meta.fields`` to expose it.
+    sensitive_field_patterns: List[str] = [
+        "*token*",
+        "*secret*",
+        "password*",
+        "*api_key*",
+        "*private_key*",
+    ]
+
+    def _is_sensitive_field(self, name: str) -> bool:
+        """Return True if ``name`` matches a pattern in ``sensitive_field_patterns``."""
+        lowered = name.lower()
+        return any(fnmatch.fnmatchcase(lowered, pattern.lower()) for pattern in self.sensitive_field_patterns)
+
     def _get_fields(self) -> List[str]:
         """Get the list of fields to serialize.
 
-        Returns fields from Meta.fields, or auto-discovers from model.
+        Returns fields from Meta.fields, or auto-discovers from model. When
+        auto-discovering, columns that look like credentials (tokens,
+        secrets, password hashes, API or private keys) are skipped; list
+        them in ``Meta.fields`` explicitly if you really want them.
         """
         meta = getattr(self, "Meta", None)
+        # getattr with defaults: an inner Meta that doesn't inherit from
+        # Serializer.Meta may define only some of these attributes.
+        meta_fields = getattr(meta, "fields", None) if meta else None
+        meta_model = getattr(meta, "model", None) if meta else None
 
-        if meta and meta.fields:
-            return meta.fields
+        if meta_fields:
+            return meta_fields
 
-        if meta and meta.model:
-            # Auto-discover fields from model columns
-            return [col.name for col in meta.model.__table__.columns]
+        if meta_model:
+            # Auto-discover fields from model columns, minus secrets
+            return [
+                col.name
+                for col in meta_model.__table__.columns
+                if not self._is_sensitive_field(col.name)
+            ]
 
         return []
 

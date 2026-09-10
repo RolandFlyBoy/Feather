@@ -73,14 +73,29 @@ import threading
 from collections import defaultdict
 from functools import wraps
 from typing import Callable, List, Union, Optional, Set
+from urllib.parse import quote
 
 from flask import current_app, g, render_template, request
 from flask_login import current_user
 
 from feather.exceptions import AuthenticationError, AuthorizationError, RateLimitError
-from feather.auth.tenancy import tenant_required, get_current_tenant_id
+from feather.auth.tenancy import tenant_required, get_current_tenant_id, require_active_user
 from feather.auth.roles import effective_roles
 from feather.auth.permissions_logic import effective_permissions
+
+
+def login_next_value() -> str:
+    """The current request's site-relative URL, encoded for a ``?next=`` param.
+
+    Path plus query string (plus the script root when the app is mounted
+    under a prefix), percent-encoded so that the destination's own ``?``
+    and ``&`` do not get parsed as parameters of the login URL. The login
+    route decodes it once and ``_safe_next`` checks it is still a site path.
+    """
+    target = request.script_root + request.full_path
+    if target.endswith("?"):
+        target = target[:-1]
+    return quote(target, safe="")
 
 
 def auth_required(f: Callable) -> Callable:
@@ -174,7 +189,7 @@ def login_only(f: Callable) -> Callable:
                 # Redirect to login for page routes
                 from flask import redirect
                 login_url = current_app.config.get('LOGIN_URL', '/auth/google/login')
-                return redirect(f"{login_url}?next={request.path}")
+                return redirect(f"{login_url}?next={login_next_value()}")
 
         return f(*args, **kwargs)
 
@@ -363,6 +378,8 @@ def platform_admin_required(f: Callable) -> Callable:
 
     Raises:
         AuthenticationError: If user is not logged in (401).
+        AccountPendingError: If the account was never approved (403).
+        AccountSuspendedError: If the account has been suspended (403).
         AuthorizationError: If user is not a platform admin (403).
 
     Example::
@@ -384,8 +401,16 @@ def platform_admin_required(f: Callable) -> Callable:
     """
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if not current_user.is_authenticated:
+        # is_anonymous rather than is_authenticated: Flask-Login's UserMixin
+        # derives is_authenticated from is_active, so a suspended user would
+        # otherwise look logged-out and get a 401 instead of the 403 below.
+        # Same check as get_current_tenant_id().
+        if current_user.is_anonymous:
             raise AuthenticationError("Login required")
+
+        # A suspended platform admin is still suspended: same check, same
+        # errors as @auth_required / @tenant_required.
+        require_active_user(current_user)
 
         if not getattr(current_user, "is_platform_admin", False):
             raise AuthorizationError("Platform admin required")
@@ -406,11 +431,21 @@ class _RateLimiter:
     Thread-safe implementation for single-process deployments.
     For multi-process deployments (Gunicorn with multiple workers),
     use Redis-based rate limiting instead.
+
+    The store is pruned opportunistically from ``is_allowed``: every
+    ``cleanup_every`` calls, or as soon as it holds ``max_keys`` keys,
+    entries whose newest timestamp is outside their own window are dropped.
+    Without that, one key per client address per endpoint accumulates for
+    the life of the process.
     """
 
-    def __init__(self):
+    def __init__(self, cleanup_every: int = 1000, max_keys: int = 10_000):
         self._requests: dict = defaultdict(list)
+        self._periods: dict = {}
         self._lock = threading.Lock()
+        self._cleanup_every = cleanup_every
+        self._max_keys = max_keys
+        self._calls_since_cleanup = 0
 
     def is_allowed(self, key: str, limit: int, period: int) -> tuple[bool, int]:
         """Check if a request is allowed under the rate limit.
@@ -427,6 +462,14 @@ class _RateLimiter:
         window_start = now - period
 
         with self._lock:
+            self._periods[key] = period
+            self._calls_since_cleanup += 1
+            if (
+                self._calls_since_cleanup >= self._cleanup_every
+                or len(self._requests) >= self._max_keys
+            ):
+                self._prune_locked(now)
+
             # Remove expired timestamps
             self._requests[key] = [
                 ts for ts in self._requests[key] if ts > window_start
@@ -441,6 +484,18 @@ class _RateLimiter:
             self._requests[key].append(now)
             return True, limit - current_count - 1
 
+    def _prune_locked(self, now: float) -> None:
+        """Drop keys whose newest hit is outside their own window. Lock held."""
+        stale = [
+            key for key, timestamps in self._requests.items()
+            if not timestamps
+            or timestamps[-1] <= now - self._periods.get(key, 3600)
+        ]
+        for key in stale:
+            del self._requests[key]
+            self._periods.pop(key, None)
+        self._calls_since_cleanup = 0
+
     def cleanup(self, max_age: int = 3600) -> None:
         """Remove stale entries older than max_age seconds."""
         cutoff = time.time() - max_age
@@ -451,6 +506,8 @@ class _RateLimiter:
                     keys_to_remove.append(key)
             for key in keys_to_remove:
                 del self._requests[key]
+                self._periods.pop(key, None)
+            self._calls_since_cleanup = 0
 
 
 # Global rate limiter instance
@@ -466,7 +523,19 @@ def rate_limit(
     """Rate limit requests by IP address or user.
 
     Uses a sliding window algorithm. Thread-safe for single-process deployments.
-    For multi-process (e.g., Gunicorn workers), consider Redis-based rate limiting.
+
+    The counters live in a per-process, in-memory store. With several
+    workers (Gunicorn ``--workers N``, multiple containers) each process
+    keeps its own counts, so a client gets roughly N times the configured
+    limit and a restart resets everything. That is fine for slowing down a
+    login form on a single box; for anything that must hold across workers
+    use Flask-Limiter with a Redis storage backend instead (the scaffold
+    adopts Flask-Limiter in 0.9.7).
+
+    The client address comes from ``request.remote_addr``. Feather wraps the
+    app in ProxyFix, which rewrites ``remote_addr`` from ``X-Forwarded-For``
+    for the trusted proxy hop only; reading the raw header here would let
+    any client pick its own bucket by sending the header itself.
 
     Args:
         limit: Maximum number of requests allowed in the period.
@@ -515,7 +584,8 @@ def rate_limit(
     Note:
         - In development with debug mode, rate limiting still applies
         - Rate limits reset after the period passes
-        - For production with multiple workers, use Redis-based limiting
+        - The store is per-process; for production with multiple workers
+          use Flask-Limiter with Redis
     """
 
     def decorator(f: Callable) -> Callable:
@@ -524,11 +594,11 @@ def rate_limit(
             # Build rate limit key based on configuration
             parts = []
 
+            # ProxyFix has already folded the trusted X-Forwarded-For hop
+            # into remote_addr; the raw headers are client-controlled.
+            client_ip = request.remote_addr or "unknown"
+
             if "ip" in key:
-                # Get real IP (handle proxies)
-                client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-                if not client_ip:
-                    client_ip = request.headers.get("X-Real-IP", request.remote_addr)
                 parts.append(f"ip:{client_ip}")
 
             if "user" in key:
@@ -536,9 +606,6 @@ def rate_limit(
                     parts.append(f"user:{current_user.id}")
                 else:
                     # Fall back to IP for unauthenticated users
-                    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-                    if not client_ip:
-                        client_ip = request.headers.get("X-Real-IP", request.remote_addr)
                     parts.append(f"ip:{client_ip}")
 
             # Add endpoint to make limits per-endpoint

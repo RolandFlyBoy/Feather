@@ -187,7 +187,12 @@ class TestTokenStorage:
     """Test token storage functions."""
 
     def test_store_token_saves_to_session(self):
-        """_store_token saves token data to session."""
+        """_store_token saves the short-lived token data to the session.
+
+        Since 0.9.6 the refresh token is deliberately left out: the session
+        cookie is signed, not encrypted. See
+        tests/unit/test_security_google_oauth.py.
+        """
         from flask import Flask, session
         from feather.auth.google import _store_token, _TOKEN_SESSION_KEY
 
@@ -205,7 +210,7 @@ class TestTokenStorage:
 
             stored = session.get(_TOKEN_SESSION_KEY)
             assert stored["access_token"] == "test-access-token"
-            assert stored["refresh_token"] == "test-refresh-token"
+            assert "refresh_token" not in stored
             assert stored["expires_at"] == 1234567890
             assert stored["token_type"] == "Bearer"
 
@@ -303,9 +308,13 @@ class TestGetGoogleToken:
             assert token is None
 
     def test_refreshes_expired_token(self):
-        """get_google_token refreshes expired token with refresh_token."""
-        from flask import Flask
-        from feather.auth.google import get_google_token, _store_token
+        """get_google_token refreshes an expired token with a refresh token.
+
+        Since 0.9.6 the refresh token comes from the User model, not from
+        the session; a session written by 0.9.5 is still honoured once.
+        """
+        from flask import Flask, session
+        from feather.auth.google import get_google_token, _TOKEN_SESSION_KEY
 
         app = Flask(__name__)
         app.config["SECRET_KEY"] = "test-secret"
@@ -313,16 +322,14 @@ class TestGetGoogleToken:
         app.config["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
 
         with app.test_request_context():
-            # Store an expired token with refresh token
+            # A legacy (0.9.5) session: expired token plus refresh token
             past_time = time.time() - 3600  # 1 hour ago
-            _store_token(
-                {
-                    "access_token": "expired-token",
-                    "expires_at": past_time,
-                    "refresh_token": "test-refresh-token",
-                    "token_type": "Bearer",
-                }
-            )
+            session[_TOKEN_SESSION_KEY] = {
+                "access_token": "expired-token",
+                "expires_at": past_time,
+                "refresh_token": "test-refresh-token",
+                "token_type": "Bearer",
+            }
 
             # Mock the refresh endpoint
             with patch("feather.auth.google._refresh_google_token") as mock_refresh:

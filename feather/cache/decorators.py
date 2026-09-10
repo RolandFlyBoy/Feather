@@ -140,6 +140,7 @@ def cache_response(
     key_prefix: str = "response",
     vary_on: Optional[list[str]] = None,
     unless: Optional[Callable[[], bool]] = None,
+    vary_on_user: bool = True,
 ) -> Callable:
     """Cache API response.
 
@@ -152,9 +153,16 @@ def cache_response(
             Example: 'user:{user_id}' uses the user_id URL parameter.
         key_prefix: Prefix for auto-generated keys (default: 'response').
         vary_on: List of request attributes to include in cache key.
-            Options: 'query', 'user', 'headers'. Default varies on query string.
+            Options: 'query', 'user', 'headers'. Defaults to
+            ``['query', 'user']``. The current user and the ``HX-Request``
+            header are always part of the key unless ``vary_on_user`` is
+            False, so an authenticated response is never served to another
+            user and an htmx fragment never collides with the full page.
         unless: Callable that returns True to skip caching.
             Example: lambda: current_user.is_admin
+        vary_on_user: Include the logged-in user's id in the key
+            (default: True). Set False only for responses that are
+            identical for every visitor.
 
     Returns:
         Decorator function.
@@ -183,6 +191,12 @@ def cache_response(
         @cache_response(ttl=300, unless=lambda: current_user.is_admin)
         def dashboard():
             return {'stats': {...}}
+
+        # Truly public page - one cache entry for everyone
+        @page.get('/pricing')
+        @cache_response(ttl=600, vary_on_user=False)
+        def pricing():
+            return render_template('pages/pricing.html')
     """
 
     def decorator(f: Callable) -> Callable:
@@ -198,7 +212,7 @@ def cache_response(
 
             cache = _get_cache()
             cache_key = _build_response_cache_key(
-                key, key_prefix, f, vary_on, kwargs
+                key, key_prefix, f, vary_on, kwargs, vary_on_user
             )
 
             # Try to get from cache
@@ -229,12 +243,38 @@ def cache_response(
     return decorator
 
 
+def _current_user_key() -> str:
+    """Return a cache-key fragment identifying the logged-in user.
+
+    Returns ``'anon'`` when nobody is logged in, flask_login is not
+    installed, or no login manager is configured for this app.
+    """
+    try:
+        from flask_login import current_user
+
+        if not current_user.is_authenticated:
+            return "anon"
+    except Exception:
+        # No flask_login, no login manager, or no user context: treat as anon
+        return "anon"
+
+    try:
+        user_id = current_user.get_id()
+    except Exception:
+        user_id = None
+    if user_id is None:
+        user_id = getattr(current_user, "id", None)
+
+    return str(user_id) if user_id is not None else "anon"
+
+
 def _build_response_cache_key(
     key_template: Optional[str],
     prefix: str,
     func: Callable,
     vary_on: Optional[list[str]],
     url_params: dict,
+    vary_on_user: bool = True,
 ) -> str:
     """Build cache key for response caching."""
     if key_template:
@@ -248,8 +288,11 @@ def _build_response_cache_key(
         # Auto-generate from path
         cache_key = f"{prefix}:{func.__name__}:{request.path}"
 
-    # Add variations
-    vary_on = vary_on or ["query"]
+    # Add variations. The user is included by default: without it the first
+    # authenticated visitor's response is served to everyone else.
+    vary_on = list(vary_on) if vary_on else ["query"]
+    if vary_on_user and "user" not in vary_on:
+        vary_on.append("user")
     vary_parts = []
 
     if "query" in vary_on and request.query_string:
@@ -257,15 +300,12 @@ def _build_response_cache_key(
         vary_parts.append(f"q:{query_hash}")
 
     if "user" in vary_on:
-        try:
-            from flask_login import current_user
+        vary_parts.append(f"u:{_current_user_key()}")
 
-            if current_user.is_authenticated:
-                vary_parts.append(f"u:{current_user.id}")
-            else:
-                vary_parts.append("u:anon")
-        except ImportError:
-            pass
+    # htmx requests get a fragment where a normal request gets a full page.
+    # Keep the two apart so a fragment is never served as a whole document.
+    if request.headers.get("HX-Request"):
+        vary_parts.append("hx:1")
 
     if "headers" in vary_on:
         # Include Accept and Accept-Language headers

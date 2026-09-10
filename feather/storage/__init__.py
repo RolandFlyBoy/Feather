@@ -52,6 +52,12 @@ def get_storage(app: Optional["Flask"] = None) -> StorageBackend:
     Configuration:
         STORAGE_BACKEND: 'local' or 'gcs' (default: 'local')
         GCS_BUCKET: Required if STORAGE_BACKEND='gcs'
+        STORAGE_ALLOWED_EXTENSIONS: Optional allow-list for local uploads
+            (comma-separated string or list). When set, only these
+            extensions are accepted.
+        STORAGE_BLOCKED_EXTENSIONS: Extensions refused by local uploads.
+            Default: html, htm, svg, xhtml, xml, js, mjs, php, phtml.
+            Setting it replaces the default list.
 
     Example::
 
@@ -83,7 +89,11 @@ def get_storage(app: Optional["Flask"] = None) -> StorageBackend:
 
     else:
         # Default to local storage
-        return LocalStorage(app.static_folder)
+        return LocalStorage(
+            app.static_folder,
+            allowed_extensions=app.config.get("STORAGE_ALLOWED_EXTENSIONS"),
+            blocked_extensions=app.config.get("STORAGE_BLOCKED_EXTENSIONS"),
+        )
 
 
 __all__ = [

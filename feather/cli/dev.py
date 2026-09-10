@@ -41,7 +41,10 @@ def dev(port: int, host: str, no_vite: bool):
 
     try:
         if no_vite or not Path("package.json").exists():
-            # No Vite mode - Flask runs directly in foreground
+            # No Vite mode - Flask runs directly in foreground.
+            # Tell the app so island/asset URLs point at built files instead
+            # of a Vite dev server that isn't running.
+            env["FEATHER_NO_VITE"] = "1"
             click.echo(click.style(f"  Server running at http://{host}:{port}", fg="green", bold=True))
             click.echo("  Press Ctrl+C to stop")
             click.echo()

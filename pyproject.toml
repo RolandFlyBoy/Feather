@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feather-framework"
-version = "0.9.5"
+version = "0.9.6"
 description = "An opinionated, batteries-included web framework for building production applications with AI."
 readme = "README.md"
 license = "MIT"
@@ -36,7 +36,7 @@ classifiers = [
 
 dependencies = [
     # Core web framework
-    "flask>=3.1.0",
+    "flask>=3.1.3",
     "flask-sqlalchemy>=3.1.0",
     "flask-migrate>=4.1.0",
     "flask-login>=0.6.0",
@@ -45,16 +45,18 @@ dependencies = [
     "alembic>=1.17.0",
     "click>=8.1.0",
     "python-dotenv>=1.0.0",
-    "werkzeug>=3.1.0",
+    "werkzeug>=3.1.5",
+    "jinja2>=3.1.6",
+    "urllib3>=2.5.0",
     # Authentication
-    "authlib>=1.6.0",
-    "requests>=2.32.0",
+    "authlib>=1.6.5",
+    "requests>=2.32.4",
     # Database drivers
     "psycopg2-binary>=2.9.0",
     # Cloud storage
     "google-cloud-storage>=3.0.0",
     # PDF generation
-    "weasyprint>=63.0",
+    "weasyprint>=70",
     # Caching and background jobs
     "redis>=7.0.0",
     "rq>=2.0.0",

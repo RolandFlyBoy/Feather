@@ -130,8 +130,12 @@ def init_auth(app: Flask, user_model=None) -> LoginManager:
         if request.is_json or request.path.startswith("/api/"):
             raise AuthenticationError("Authentication required")
 
-        # Page requests get redirected to login
-        next_url = request.url
+        # Page requests get redirected to login. The destination is the
+        # site-relative path plus query, percent-encoded: an absolute URL
+        # here would be rejected by the login route's open-redirect check
+        # and the destination lost.
+        from feather.auth.decorators import login_next_value
+        next_url = login_next_value()
 
         # Try to find a working login route
         login_routes = [

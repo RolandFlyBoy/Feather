@@ -56,6 +56,31 @@ from feather.exceptions import (
 )
 
 
+def require_active_user(user) -> None:
+    """Raise if ``user`` (an authenticated user) is pending or suspended.
+
+    Shared by every decorator that gates on account status so they all
+    answer the same way: ``AccountPendingError`` when the account was never
+    approved (``approved_at`` is None), ``AccountSuspendedError`` when it was
+    approved and later deactivated. Both are 403s.
+
+    Args:
+        user: The current user object. ``is_active`` may be a property or a
+            method; a model without it is treated as active.
+    """
+    is_active = getattr(user, "is_active", True)
+    if callable(is_active):
+        is_active = is_active()
+    if not is_active:
+        # Check if user was ever approved to distinguish pending vs suspended
+        # approved_at is set when admin first activates the account
+        approved_at = getattr(user, "approved_at", None)
+        if approved_at is None:
+            raise AccountPendingError("Your account is pending approval")
+        else:
+            raise AccountSuspendedError("Your account has been suspended")
+
+
 def get_current_tenant_id() -> str:
     """Get the current user's tenant ID.
 
@@ -82,18 +107,7 @@ def get_current_tenant_id() -> str:
         raise AuthenticationError("Authentication required")
 
     # User is in session - now check if they're active
-    # is_active should be a property, not a method
-    is_active = getattr(current_user, "is_active", True)
-    if callable(is_active):
-        is_active = is_active()
-    if not is_active:
-        # Check if user was ever approved to distinguish pending vs suspended
-        # approved_at is set when admin first activates the account
-        approved_at = getattr(current_user, "approved_at", None)
-        if approved_at is None:
-            raise AccountPendingError("Your account is pending approval")
-        else:
-            raise AccountSuspendedError("Your account has been suspended")
+    require_active_user(current_user)
 
     # Platform admins can operate without a tenant
     if getattr(current_user, "is_platform_admin", False):

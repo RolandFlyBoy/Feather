@@ -27,7 +27,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
-from feather.jobs.base import JobQueue, JobResult, JobStatus
+from feather.jobs.base import JobQueue, JobResult, JobStatus, strip_framework_kwargs
 
 
 class SyncQueue(JobQueue):
@@ -73,11 +73,17 @@ class SyncQueue(JobQueue):
             *args: Positional arguments for the function.
             queue_name: Ignored in sync mode.
             delay: Ignored in sync mode (job runs immediately).
-            **kwargs: Keyword arguments for the function.
+            **kwargs: Keyword arguments for the function. Framework options
+                (``job_timeout``, ``retry``, ``concurrency``, ...) are accepted
+                and ignored - the @job decorator forwards them on every
+                enqueue and they must never reach the function.
 
         Returns:
             JobResult with execution result or error.
         """
+        # Drop queue-level options so they don't leak into the call below.
+        _framework_kwargs, kwargs = strip_framework_kwargs(kwargs)
+
         job_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
 
