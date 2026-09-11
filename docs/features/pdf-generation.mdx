@@ -1,0 +1,88 @@
+---
+title: "PDF generation"
+description: "WeasyPrint turns HTML and CSS into PDFs, so document layout uses the same skills as the rest of your app."
+icon: "file-text"
+---
+
+WeasyPrint ships with the `pdf` extra. It converts HTML and CSS to PDF, letting you use
+familiar web technologies for document layout.
+
+```bash
+pip install "feather-framework[pdf]"
+```
+
+## Basic usage
+
+```python
+from io import BytesIO
+from weasyprint import HTML
+
+def generate_report(title, data):
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: sans-serif; margin: 40px; }}
+            h1 {{ color: #1f2937; }}
+            table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
+            td, th {{ border: 1px solid #d1d5db; padding: 8px; text-align: left; }}
+            th {{ background-color: #f3f4f6; }}
+        </style>
+    </head>
+    <body>
+        <h1>{title}</h1>
+        <table>
+            <tr><th>Item</th></tr>
+            {''.join(f'<tr><td>{row}</td></tr>' for row in data)}
+        </table>
+    </body>
+    </html>
+    """
+
+    buffer = BytesIO()
+    HTML(string=html_content).write_pdf(buffer)
+    buffer.seek(0)
+    return buffer
+```
+
+<Tip>
+  Render the HTML with a Jinja2 template instead of an f-string once the document grows
+  past a few elements. You get the same escaping and partials as the rest of your views.
+</Tip>
+
+## Saving to storage
+
+```python
+from feather.storage import get_storage
+
+@api.get('/reports/<id>/pdf')
+@auth_required
+def download_report(id):
+    pdf_buffer = generate_report("Report", get_data(id))
+
+    storage = get_storage()
+    filename = f'reports/{id}.pdf'
+    storage.upload(pdf_buffer, filename, content_type='application/pdf')
+
+    url = storage.get_url(filename, expires_in=3600)
+    return {'url': url}
+```
+
+## Generating in the background
+
+PDF rendering is slow enough to be worth moving off the request.
+
+```python
+from feather import job
+
+@job
+def generate_report_async(report_id, user_id):
+    pdf_buffer = generate_report("Report", get_data(report_id))
+    storage = get_storage()
+    filename = f'reports/{user_id}/{report_id}.pdf'
+    storage.upload(pdf_buffer, filename, content_type='application/pdf')
+    return {'filename': filename}
+
+result = generate_report_async.enqueue(report_id, user_id)
+```

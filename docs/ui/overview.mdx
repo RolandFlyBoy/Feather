@@ -1,0 +1,58 @@
+---
+title: "How the frontend works"
+sidebarTitle: "Overview"
+description: "Three layers, each solving a different problem: server-rendered components, HTMX for server interactions, and JavaScript islands for genuine client state."
+icon: "layers"
+---
+
+Feather uses a three-layer approach to building UIs. Each layer solves a different
+problem, and the boundaries between them are what keep an app simple as it grows.
+
+<CardGroup cols={3}>
+  <Card title="Components" icon="box" href="/ui/components">
+    **Server-rendered Jinja2 macros** — similar to Rails view components, Laravel Blade
+    components or React Server Components. Reusable pieces of UI that render to HTML on
+    the server. No JavaScript, no hydration.
+  </Card>
+  <Card title="HTMX" icon="arrow-left-right" href="/ui/htmx">
+    **Server interactions without page reloads** — the same idea as Hotwire/Turbo in
+    Rails or Livewire in Laravel. Click a button, the server returns HTML, HTMX swaps it
+    into the page.
+  </Card>
+  <Card title="Islands" icon="component" href="/ui/islands">
+    **Small JavaScript components** for genuinely interactive UI that needs client-side
+    state. The name comes from Astro's Islands Architecture.
+  </Card>
+</CardGroup>
+
+## The mental model
+
+Start with **Components** for everything static. Reach for **HTMX** when you need server
+data without a page reload. Only use **Islands** when you genuinely need client-side
+state.
+
+In practice, 90% of features can be built with just Components and HTMX.
+
+<AccordionGroup>
+  <Accordion title="When to use Components" icon="box">
+    Buttons, cards, modals, form inputs — anything reusable that renders to HTML. You use
+    them like `{{ button("Save", variant="primary") }}`. No JavaScript, no hydration,
+    just HTML and CSS.
+  </Accordion>
+  <Accordion title="When to use HTMX" icon="arrow-left-right">
+    Forms, search, pagination, like buttons. HTMX replaces most of what you would use
+    React and `fetch` for, without writing JavaScript. Think of it as server-side
+    rendering with surgical DOM updates.
+  </Accordion>
+  <Accordion title="When to use Islands" icon="component">
+    Drag-and-drop, audio players, real-time updates — anywhere round-tripping to the
+    server would feel sluggish. Similar to writing a small React component, but without
+    React's runtime overhead.
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  Dark mode is wired into every scaffolded app and every framework component. See
+  [Dark mode](/ui/dark-mode) for the `dark:` variant conventions your own CSS should
+  follow.
+</Tip>

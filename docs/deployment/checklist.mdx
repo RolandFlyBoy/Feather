@@ -1,0 +1,80 @@
+---
+title: "Production checklist"
+description: "What to confirm before the first real user."
+icon: "list-checks"
+---
+
+<Check>
+  **`feather security-check` passes.** Run it on the server against the live file:
+  `feather security-check --env-file .env`
+</Check>
+
+<Check>
+  **`SECRET_KEY` is a real random value**, not the scaffolded placeholder.
+</Check>
+
+<Check>
+  **`FLASK_CONFIG=production`** — set by compose. Confirm with
+  `docker compose exec web printenv FLASK_CONFIG`
+</Check>
+
+<Check>
+  **`TRUSTED_HOSTS` lists the hostnames you serve**, so Host-header spoofing cannot forge
+  absolute URLs in emails and redirects.
+</Check>
+
+<Check>
+  **`OAUTH_CALLBACK_URL` uses `https://` and the exact hostname**, `www` included — and
+  matches the redirect URI in the Google Cloud Console.
+</Check>
+
+<Check>
+  **`JOB_SERIALIZER=json`** — the default in the generated compose file. `pickle` will
+  unpickle arbitrary objects off Redis. Only switch if a job argument genuinely cannot be
+  JSON-encoded.
+</Check>
+
+<Check>
+  **`.env` on the server is `chmod 600`** and not in git.
+</Check>
+
+<Check>
+  **`feather env check` reports no missing keys.**
+</Check>
+
+<Check>
+  **A database that is not SQLite**, with `deploy/backup.sh` in cron and one restore
+  actually tested.
+</Check>
+
+<Check>
+  **An external uptime monitor** pointed at `https://<domain>/health`
+</Check>
+
+<Check>
+  **`docker compose logs` capped.** The generated file sets `max-size: 20m` and
+  `max-file: 3`. Docker's default grows until the disk fills.
+</Check>
+
+<Check>
+  **Server backups or snapshots enabled** at the provider as well.
+</Check>
+
+## Upgrading from `feather deploy render`
+
+0.9.7 removed `feather deploy render`. Your existing `Dockerfile` and `render.yaml` are
+your files and keep working — nothing was deleted from your repo. To adopt the new
+layout, run `feather docker init`; it will not overwrite anything without `--force`.
+
+<Warning>
+  One change matters even if you stay where you are. Replace the absolute `@source` line
+  in `static/css/app.css` with:
+
+  ```css
+  @source "../../.feather-templates/**/*.html";
+  ```
+
+  and add `.feather-templates` to `.gitignore`. Older scaffolds baked the absolute path
+  of the installed Feather package into that file, so images built anywhere but the
+  machine that ran `feather new` silently lack every framework component style.
+</Warning>

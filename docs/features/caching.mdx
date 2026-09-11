@@ -1,0 +1,76 @@
+---
+title: "Caching"
+description: "Function and response caching with argument-keyed invalidation, backed by memory or Redis."
+icon: "zap"
+---
+
+```bash .env
+CACHE_BACKEND=memory       # in-memory: single process, resets on restart
+# or
+CACHE_BACKEND=redis        # shared across processes, persistent
+CACHE_URL=redis://localhost:6379/0
+CACHE_DEFAULT_TTL=300      # seconds
+```
+
+## Caching function results
+
+Results are cached by the function's arguments, so each distinct call gets its own entry.
+
+```python
+from feather import cached
+
+@cached(ttl=60)
+def get_user_stats(user_id):
+    return calculate_stats(user_id)
+
+stats = get_user_stats(123)   # first call: executes
+stats = get_user_stats(123)   # second call: cached
+
+get_user_stats.invalidate(user_id=123)   # invalidate when data changes
+```
+
+## Caching route responses
+
+```python
+from feather import cache_response
+
+@api.get('/products')
+@cache_response(ttl=300)
+def list_products():
+    return {'products': Product.query.all()}
+
+# custom cache key from URL params
+@api.get('/users/<user_id>')
+@cache_response(ttl=60, key='user:{user_id}')
+def get_user(user_id):
+    return {'user': User.query.get(user_id)}
+
+# skip the cache conditionally
+@api.get('/dashboard')
+@cache_response(ttl=300, unless=lambda: current_user.is_admin)
+def dashboard():
+    return {'stats': get_stats()}
+```
+
+<Warning>
+  `cache_response` varies on the current user by default. On a genuinely public page
+  pass `vary_on_user=False`, or every visitor gets their own copy of an identical
+  response.
+</Warning>
+
+## Direct access
+
+```python
+from feather import get_cache
+
+cache = get_cache()
+cache.set('key', {'data': 'value'}, ttl=60)
+value = cache.get('key')      # None if expired or missing
+cache.delete('key')
+```
+
+<Note>
+  The `memory` backend is per-process. Under `gunicorn --workers 4` each worker keeps its
+  own cache, so a hit rate looks worse than it is and invalidation reaches only one
+  worker. Use `redis` whenever you run more than one process.
+</Note>

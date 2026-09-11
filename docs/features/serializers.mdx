@@ -1,0 +1,68 @@
+---
+title: "Serializers"
+description: "Turn models into JSON with camelCase conversion, typed fields, computed values and nesting."
+icon: "braces"
+---
+
+```python
+from feather.serializers import Serializer
+from models import User
+
+class UserSerializer(Serializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'created_at']
+        camel_case = True
+
+user = User.query.first()
+data = UserSerializer().serialize(user)
+# {'id': '...', 'email': '...', 'createdAt': '2024-01-15T10:30:00Z'}
+
+users = User.query.all()
+data = UserSerializer().serialize_many(users)
+```
+
+`camel_case` defaults to `True`, so `created_at` serializes as `createdAt`. Set it to
+`False` in `Meta` to keep the Python names.
+
+## Field types
+
+```python
+from feather.serializers import (
+    Serializer, StringField, IntegerField, FloatField,
+    BooleanField, DateTimeField, MethodField, NestedField
+)
+
+class UserSerializer(Serializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'status', 'balance', 'created_at', 'full_name', 'posts']
+
+    status = StringField()                          # coerce to string
+    balance = FloatField()                          # coerce to float
+    created_at = DateTimeField(format='%Y-%m-%d')   # custom date format
+    full_name = MethodField()                       # computed field
+    posts = NestedField(PostSerializer, many=True)  # nested objects
+
+    def get_full_name(self, obj, **context):
+        return f"{obj.first_name} {obj.last_name}"
+```
+
+| Field | Description |
+| --- | --- |
+| `StringField()` | Coerce to string |
+| `IntegerField()` | Coerce to integer |
+| `FloatField()` | Coerce to float |
+| `BooleanField()` | Coerce to boolean |
+| `DateTimeField(format=None)` | Format datetime, default ISO 8601 |
+| `NestedField(serializer, many=False)` | Nested object or collection |
+| `MethodField()` | Computed via a `get_<field_name>()` method |
+
+## Generating one
+
+```bash
+feather generate serializer UserSerializer id email created_at
+```
+
+This writes exactly the shape above, including the `Meta` block and a commented example
+of a computed field.

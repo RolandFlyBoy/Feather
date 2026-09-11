@@ -1,0 +1,101 @@
+---
+title: "Admin panel"
+description: "User management, approvals, roles, analytics and error logs — scaffolded into your app as code you own."
+icon: "shield-user"
+---
+
+Most frameworks leave you to build your own admin interface. That is typically days of
+work before you ship any actual features. Feather includes a production-ready admin
+panel out of the box.
+
+Enable it by choosing `single-tenant` or `multi-tenant` when you run `feather new`.
+Access it at `/admin/`, which requires `role="admin"` or `is_platform_admin=True`.
+
+## What's included
+
+| Feature | Description |
+| --- | --- |
+| **User management** | List, search and paginate users with an HTMX-powered UI |
+| **User approval** | Approve pending signups, suspend bad actors |
+| **Role assignment** | Change user roles (user → editor → admin) |
+| **Analytics dashboard** | User growth charts with Apache ECharts and time range filters |
+| **Error logging** | Database-backed error logs with stack traces, tenant-scoped |
+| **Tenant management** | Create and manage tenants, assign admins (multi-tenant only) |
+
+## Pages
+
+| Page | Route | Description |
+| --- | --- | --- |
+| Users | `/admin/users` | Searchable user list with pagination |
+| User detail | `/admin/users/<id>` | Profile card, role dropdown, approve and suspend buttons |
+| Analytics | `/admin/analytics` | User growth chart with 7d/30d/90d/1y filters |
+| Error logs | `/admin/logs` | Filterable error list (4xx/5xx, searchable) |
+| Tenants | `/admin/tenants` | Tenant list with status filters (multi-tenant only) |
+
+## User states
+
+| State | Meaning | Fields |
+| --- | --- | --- |
+| **Pending approval** | New signup, never approved | `active=False`, `approved_at=None` |
+| **Active** | Approved and can access the app | `active=True` |
+| **Suspended** | Was active, now blocked | `active=False`, `approved_at` set |
+
+## Extending it
+
+The admin is scaffolded into your app as regular routes and templates, not hidden in the
+framework. You own the code and can modify it freely.
+
+```text Files you can customize
+routes/pages/admin.py           # admin routes and HTMX endpoints
+services/admin_service.py       # user queries, analytics data
+templates/pages/admin/          # full page templates
+templates/partials/admin/       # HTMX response fragments
+static/css/app.css              # admin CSS classes (admin-header, etc.)
+```
+
+<Steps>
+  <Step title="Add a route">
+    ```python routes/pages/admin.py
+    @page.get('/admin/reports')
+    @admin_required
+    def admin_reports():
+        reports = ReportService().get_recent()
+        return render_template('pages/admin/reports.html', reports=reports)
+    ```
+  </Step>
+  <Step title="Create the template">
+    ```jinja2 templates/pages/admin/reports.html
+    {% extends "pages/admin/base.html" %}
+    {% block admin_content %}
+    <h1>Reports</h1>
+    {% endblock %}
+    ```
+  </Step>
+  <Step title="Add navigation">
+    ```jinja2 templates/pages/admin/base.html
+    <a href="{{ url_for('page.admin_reports') }}"
+       class="admin-nav-item {{ 'active' if active_page == 'reports' }}">
+        Reports
+    </a>
+    ```
+  </Step>
+</Steps>
+
+### Adding HTMX interactions
+
+The same pattern as the built-in user search:
+
+```python
+@page.get('/admin/htmx/reports/filter')
+@admin_required
+def htmx_filter_reports():
+    status = request.args.get('status')
+    reports = ReportService().filter_by_status(status)
+    return render_template('partials/admin/reports_table.html', reports=reports)
+```
+
+<Note>
+  The admin uses the same three-layer architecture as the rest of your app:
+  server-rendered templates, HTMX for interactions, and islands only where needed — the
+  analytics chart being the one place.
+</Note>

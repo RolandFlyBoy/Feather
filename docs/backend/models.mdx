@@ -1,0 +1,74 @@
+---
+title: "Models"
+description: "SQLAlchemy models with mixins for UUIDs, timestamps, soft deletes, manual ordering and tenant scoping."
+icon: "database"
+---
+
+Models define your database schema using SQLAlchemy. Feather adds mixins for the columns
+and behaviour most models need.
+
+```python models/post.py
+from feather.db import db, Model
+from feather.db.mixins import UUIDMixin, TimestampMixin, SoftDeleteMixin
+
+class Post(UUIDMixin, TimestampMixin, SoftDeleteMixin, Model):
+    __tablename__ = 'posts'
+
+    title = db.Column(db.String(255), nullable=False)
+    content = db.Column(db.Text)
+    author_id = db.Column(db.String(36), db.ForeignKey('users.id'))
+```
+
+## Mixins
+
+| Mixin | Provides |
+| --- | --- |
+| `UUIDMixin` | `id` (auto-generated UUID) |
+| `TimestampMixin` | `created_at`, `updated_at` |
+| `SoftDeleteMixin` | `soft_delete()`, `restore()`, `query_active()` |
+| `OrderingMixin` | `move_to()`, `move_above()`, `query_ordered()` |
+| `TenantScopedMixin` | `tenant_id`, `for_tenant()` |
+
+## Ordering for drag-and-drop
+
+`OrderingMixin` maintains a position column. `__ordering_scope__` makes positions
+relative to a parent, so cards are ordered within their own column rather than globally.
+
+```python models/card.py
+class Card(UUIDMixin, TimestampMixin, OrderingMixin, Model):
+    __tablename__ = 'cards'
+    __ordering_scope__ = ['column_id']   # position is per-column
+
+    title = db.Column(db.String(200))
+    column_id = db.Column(db.String(36), db.ForeignKey('columns.id'))
+```
+
+```python Reordering
+card.move_to(0)           # move to top
+card.move_above(other)    # move above another card
+Card.query_ordered(column_id=col.id).all()
+```
+
+<Tip>
+  Pair this with an [island](/ui/islands) using the `draggable` config and optimistic
+  updates, so the card moves instantly and the server call reconciles behind it.
+</Tip>
+
+## Generating a model
+
+```bash
+feather generate model Post title:string content:text
+feather generate model Post --soft-delete   # adds SoftDeleteMixin
+feather generate model Card --ordered       # adds OrderingMixin
+```
+
+Migrations stay manual so you can review the model first:
+
+```bash
+feather db migrate -m "Add posts table"
+feather db upgrade
+```
+
+<Card title="Next: how to lay out users, accounts and billing" icon="sitemap" href="/backend/schema-design" horizontal>
+  The schema mistake that makes team plans and profile switching impossible later.
+</Card>

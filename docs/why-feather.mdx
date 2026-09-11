@@ -1,0 +1,66 @@
+---
+title: "Why Feather"
+description: "Python had Flask and Django, then the SPA revolution split the stack. Feather closes the gap the way Rails and Laravel did."
+icon: "lightbulb"
+---
+
+Python has a long history in web development. Flask and Django powered countless
+applications through the 2010s. Then the SPA revolution happened — React, Vue, Angular —
+and suddenly "modern" web development meant writing Python APIs that served JSON to
+JavaScript frontends.
+
+That split created a gap. Python developers who wanted full-stack productivity had two
+choices: adopt the JavaScript ecosystem entirely, or stick with Django's monolithic
+approach that hadn't evolved much for the new era. Meanwhile Ruby developers had Rails
+with Hotwire, and PHP developers had Laravel with Livewire — both frameworks that
+embraced server-rendering while adding modern interactivity.
+
+Feather fills that gap for Python. It is a full-stack framework that gives you
+authentication, admin panels, file storage, background jobs and a component system out
+of the box. The frontend uses server-rendered HTML enhanced with HTMX and small
+JavaScript islands. No virtual DOM, no hydration, no "use client" confusion.
+
+## How other frameworks approach this
+
+<AccordionGroup>
+  <Accordion title="Rails and Laravel" icon="gem">
+    They pioneered the batteries-included philosophy, handling auth, database
+    migrations, background jobs and asset compilation in one cohesive package. Feather
+    takes the same approach but uses Python and modern tooling: Vite 7, Tailwind CSS
+    and HTMX.
+  </Accordion>
+  <Accordion title="Next.js" icon="triangle">
+    It brought React to the server with excellent developer experience. But you are
+    still managing React's complexity — state management, hydration mismatches, deciding
+    what runs where. Feather sidesteps this by keeping JavaScript minimal and optional.
+  </Accordion>
+  <Accordion title="Django" icon="leaf">
+    It remains powerful but feels heavyweight for many projects. Its template language
+    is limiting, the admin is rigid, and adding modern frontend tooling requires
+    significant configuration.
+  </Accordion>
+</AccordionGroup>
+
+## The AI unlock
+
+The real unlock is combining good conventions with AI assistance. Feather's predictable
+patterns — where files go, how services work, what components look like — mean you can
+describe what you want and get working code. A feature that might take a day of wiring
+up authentication, writing migrations, building UI and handling edge cases can be done
+in a focused session.
+
+<Tip>
+  Conventions only help an assistant if they are checkable. See
+  [AI assistants](/ai-assistants) for the four commands that let an assistant verify its
+  own work.
+</Tip>
+
+## Opinionated, but extensible
+
+Feather is opinionated about its defaults: Google OAuth for auth, Tailwind for styling,
+PostgreSQL for production data. These choices reduce decision fatigue and let you ship
+faster.
+
+That said, the abstractions are designed to be extensible. The storage backend interface
+works with local files or Google Cloud Storage, the job queue can run in-process or on
+Redis, and you can swap in other providers as your needs evolve.

@@ -1,0 +1,67 @@
+---
+title: "Islands"
+description: "Small JavaScript components for UI that genuinely needs client-side state — with optimistic updates and drag-and-drop built in."
+icon: "component"
+---
+
+An island is declared in JavaScript and mounted by a `data-island` attribute. State
+changes re-render only the selectors you name.
+
+<CodeGroup>
+
+```javascript static/islands/counter.js
+island("counter", {
+  persist: true,
+  state: { count: 0 },
+  actions: {
+    increment() { this.state.count++; },
+    decrement() { this.state.count--; }
+  },
+  render(state) {
+    return { ".count": state.count };
+  }
+});
+```
+
+```html Template
+<div data-island="counter">
+    <button data-action="decrement">-</button>
+    <span class="count">0</span>
+    <button data-action="increment">+</button>
+</div>
+```
+
+</CodeGroup>
+
+## Optimistic updates
+
+Update the UI instantly, then reconcile with the server. The first callback runs
+immediately; if the second fails, the first is rolled back.
+
+```javascript
+await this.optimistic(
+  () => { this.state.liked = true; },              // instant UI update
+  () => api.post(`/posts/${this.data.id}/like`)    // rolls back on failure
+);
+```
+
+<Note>
+  Use `ApiUtility` (`api.js`) rather than raw `fetch` — it handles CSRF tokens and
+  retries, and raw `fetch` is a [`feather check`](/tooling/check) error.
+</Note>
+
+## Drag and drop
+
+Built in via the `draggable` config. The full API is documented in the `CLAUDE.md` that
+ships with every project. Pair it with
+[`OrderingMixin`](/backend/models) on the model so positions persist.
+
+## Generating an island
+
+```bash
+feather generate island like-button
+```
+
+This writes the island file and wires it into the build. `feather check` reports an
+island no template mounts (`orphan-island`) and a template mounting an island that does
+not exist (`missing-island`).

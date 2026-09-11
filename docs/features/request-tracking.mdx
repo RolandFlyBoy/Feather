@@ -1,0 +1,46 @@
+---
+title: "Request tracking"
+description: "A unique ID on every request and structured JSON logging, so a production incident is greppable."
+icon: "scan-search"
+---
+
+```bash .env
+LOG_LEVEL=INFO        # DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_FORMAT=json       # auto-enabled when FLASK_ENV=production
+```
+
+## Usage
+
+```python
+from feather import get_request_id
+
+@api.get('/users')
+def list_users():
+    app.logger.info(f"Listing users [{get_request_id()}]")
+    return {'users': [...]}
+```
+
+## How it works
+
+- A unique UUID per request
+- The incoming `X-Request-ID` header is used if present, for distributed tracing
+- The ID is added to response headers automatically
+- Available via `get_request_id()` or `g.request_id`
+
+## JSON log format
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "level": "INFO",
+  "message": "Listing users",
+  "request_id": "abc-123-def",
+  "logger": "myapp.routes"
+}
+```
+
+<Tip>
+  Because the request ID travels in both the response header and every log line, a user
+  reporting a failure can hand you the header value and you can find every log line for
+  that request.
+</Tip>

@@ -1,0 +1,68 @@
+---
+title: "Routes"
+description: "Auto-discovered route modules, dependency injection into handlers, and the prefix each directory maps to."
+icon: "route"
+---
+
+Routes handle HTTP requests. Feather auto-discovers modules in `routes/api/` and
+`routes/pages/`.
+
+```python routes/api/users.py
+from feather import api, auth_required, inject
+from services import UserService
+
+@api.get('/users')
+@inject(UserService)
+def list_users(user_service):
+    return {'users': user_service.list_all()}
+
+@api.post('/users')
+@auth_required
+@inject(UserService)
+def create_user(user_service, email: str, username: str):
+    user = user_service.create(email=email, username=username)
+    return {'user': user}, 201
+```
+
+## Prefixes
+
+| Directory | Mounted at |
+| --- | --- |
+| `routes/api/*.py` | `/api/*` |
+| `routes/pages/*.py` | `/*` |
+
+## Keep routes thin
+
+A route handler that does work belonging in a service is reported by
+[`feather check`](/tooling/check) as the `fat-route` warning. Parse the request, call a
+service, return a response.
+
+<CardGroup cols={2}>
+  <Card title="Services" icon="cog" href="/backend/services">
+    Where the business logic goes, with transactions handled for you.
+  </Card>
+  <Card title="Exceptions" icon="triangle-alert" href="/backend/exceptions">
+    Raise a typed exception and it becomes the right JSON response.
+  </Card>
+</CardGroup>
+
+## Auth decorators
+
+Every route should carry one, or declare itself public. A route with no auth decorator
+is reported as the `unprotected-route` warning; a deliberately public one is exempted
+with a `# feather: public` comment in its module.
+
+See [Authentication](/features/authentication) for the full decorator set.
+
+## Seeing what is registered
+
+```bash
+feather routes
+```
+
+Generate CRUD scaffolding with:
+
+```bash
+feather generate route users --model User     # API CRUD routes
+feather generate route dashboard --page       # page route with template
+```

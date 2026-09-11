@@ -1,0 +1,39 @@
+---
+title: "Test database"
+description: "Every test gets a fresh database, plus the Flask-Login fixture gotcha that makes every request resolve to the same user."
+icon: "database"
+---
+
+Tests run against a separate test database, configured automatically. Each test gets a
+fresh state:
+
+<Steps>
+  <Step title="Before each test">Tables are created.</Step>
+  <Step title="After each test">Tables are dropped and the engine is disposed.</Step>
+</Steps>
+
+This means tests are isolated — one test cannot affect another.
+
+## A fixture gotcha worth knowing
+
+Flask-Login caches the current user on `g` for the lifetime of an application context. A
+fixture that holds one `app.app_context()` open across requests from several test clients
+will resolve every request to the first user loaded.
+
+Seed your data inside a context, then make requests outside it:
+
+```python
+@pytest.fixture
+def seeded(app):
+    with app.app_context():
+        db.session.add(User(email='a@example.com'))
+        db.session.commit()
+    # context closed before the test makes any request
+    return app
+```
+
+<Warning>
+  This one is easy to misdiagnose. The symptom is an authorization test that passes for
+  the first user and inexplicably fails for the second, with no obvious difference
+  between them.
+</Warning>

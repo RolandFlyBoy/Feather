@@ -1,0 +1,59 @@
+---
+title: "Security headers"
+description: "CSP, HSTS and the rest applied automatically in production, with per-directive overrides."
+icon: "shield"
+---
+
+Feather adds security headers to all responses in production (`DEBUG=False`). No
+configuration needed — they are applied by default and skipped in development.
+
+| Header | Value | Purpose |
+| --- | --- | --- |
+| `Content-Security-Policy` | Configurable directives | Controls resource loading |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | Forces HTTPS |
+| `X-Content-Type-Options` | `nosniff` | Prevents MIME-type sniffing |
+| `X-Frame-Options` | `DENY` | Prevents clickjacking |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Controls referrer info |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | Restricts browser APIs |
+
+## Default CSP
+
+```text
+default-src 'self'
+script-src  'self'
+style-src   'self' 'unsafe-inline' https://fonts.googleapis.com
+font-src    'self' https://fonts.gstatic.com
+img-src     'self' data: https://*.googleusercontent.com
+connect-src 'self'
+frame-ancestors 'none'
+```
+
+## Extending it
+
+Custom directives are merged with the defaults, so you only specify what you are
+changing. For Stripe:
+
+```python config.py
+class ProductionConfig(Config):
+    FEATHER_CSP_DIRECTIVES = {
+        "script-src": "'self' https://js.stripe.com",
+        "frame-src": "'self' https://js.stripe.com",
+    }
+```
+
+## Disabling
+
+```python
+FEATHER_SECURITY_HEADERS = False
+```
+
+<Warning>
+  Not recommended. If a third-party script is being blocked, add its origin to the
+  relevant directive rather than turning the whole header off.
+</Warning>
+
+<Note>
+  The strict `script-src 'self'` is why inline `<script>` blocks and `onclick=` handlers
+  are [`feather check`](/tooling/check) errors. Code that works in development would be
+  silently blocked by CSP in production.
+</Note>

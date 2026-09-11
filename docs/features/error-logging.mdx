@@ -1,0 +1,40 @@
+---
+title: "Error logging"
+description: "Errors captured to the database with stack traces, scoped to the tenant that hit them."
+icon: "bug"
+---
+
+Errors are automatically logged to the database with stack traces. Each error is
+associated with the current user and tenant.
+
+- Tenant admins see only their tenant's errors
+- Platform admins see all errors
+
+View them at `/admin/logs` in the [admin panel](/features/admin-panel), filterable by
+4xx/5xx and searchable.
+
+## The ErrorLog model
+
+```python
+class ErrorLog(Model):
+    error_type    # NotFoundError, ValidationError, etc.
+    message       # error message
+    path          # request path
+    method        # HTTP method
+    user_id       # user who triggered it, if authenticated
+    tenant_id     # tenant scope
+    stack_trace   # full traceback, for 500 errors
+    created_at    # when it occurred
+```
+
+<Tip>
+  Pair this with [request tracking](/features/request-tracking). The request ID in your
+  application logs matches the request that produced the error record, so you can move
+  between the two.
+</Tip>
+
+<Note>
+  Failed [background jobs](/features/background-jobs) write here too. With
+  `JOB_ENABLE_MONITORING=true` the record also carries memory, CPU and thread counts from
+  the moment of failure.
+</Note>

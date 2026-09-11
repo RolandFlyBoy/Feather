@@ -1,0 +1,169 @@
+---
+title: "Multi-tenancy"
+description: "Domain-based tenant isolation, a two-axis authority model, and enforcement at the route, service and model layers."
+icon: "building-2"
+---
+
+Multi-tenancy is one of the hardest problems in SaaS development. You need to isolate
+data so Company A never sees Company B's, handle authentication across organizational
+boundaries, manage two levels of admin, scope every query to the current tenant, and
+prevent cross-tenant access even from buggy or malicious code.
+
+Most teams spend weeks building this. Feather provides it out of the box — choose
+`multi-tenant` when you run `feather new`.
+
+## How it works
+
+Feather uses **domain-based tenant isolation**. When a user signs in with
+`bob@acme.com`:
+
+<Steps>
+  <Step title="Extract the domain">Feather reads `acme.com` from the email.</Step>
+  <Step title="Match a tenant">It looks up the tenant registered to that domain.</Step>
+  <Step title="Assign the user">The user is attached to that tenant.</Step>
+  <Step title="Scope every query">All subsequent queries are scoped to it.</Step>
+</Steps>
+
+### Public email domains
+
+By default Gmail, Outlook, Yahoo and other consumer providers are blocked — users must
+sign in with their work email. For B2B and B2C apps that support both:
+
+```bash .env
+FEATHER_ALLOW_PUBLIC_EMAILS=true
+```
+
+Users with public emails are then created with `tenant_id=None`. Use the
+[post-login callback](/features/authentication) to handle account and tenant creation
+for them.
+
+## The two-axis authority model
+
+Feather separates **tenant authority** — what you can do within your organization — from
+**platform authority**, cross-organization operator power.
+
+| Axis | Field | Scope | Example |
+| --- | --- | --- | --- |
+| **Tenant role** | `user.role` | Within one tenant | "admin", "editor", "user" |
+| **Platform authority** | `user.is_platform_admin` | Across all tenants | True/False |
+
+<Warning>
+  **Tenant admins do not bypass tenant isolation.** An admin at Acme Corp cannot access
+  data from Beta Inc. That requires explicit platform admin privileges.
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="Tenant admin" icon="building">
+    Approves and suspends users in their tenant, changes roles within it, views error
+    logs scoped to it. Cannot see other tenants or their data.
+  </Card>
+  <Card title="Platform admin" icon="globe">
+    Creates tenants and assigns domains, approves and suspends tenants, views all users
+    and platform-wide analytics. Granted only via CLI, never the web UI.
+  </Card>
+</CardGroup>
+
+```bash Granting platform admin
+feather platform-admin admin@example.com            # grant
+feather platform-admin admin@example.com --revoke   # revoke
+```
+
+## Admin pages in multi-tenant mode
+
+| Page | Route | Who can access |
+| --- | --- | --- |
+| Users | `/admin/users` | Tenant admin — users in the current tenant |
+| User detail | `/admin/users/<id>` | Tenant admin — approve, suspend, change roles |
+| Error logs | `/admin/logs` | Tenant admin — errors scoped to the tenant |
+| **Tenants** | `/admin/tenants` | Platform admin only — all tenants, create new |
+| **Tenant detail** | `/admin/tenants/<id>` | Platform admin only — info, users, approve, suspend |
+
+## Data isolation, enforced at three layers
+
+<Tabs>
+  <Tab title="Route layer">
+    `get_current_tenant_id()` returns the authenticated user's tenant.
+
+    ```python
+    from feather import get_current_tenant_id
+
+    @api.get('/projects')
+    @auth_required
+    def list_projects():
+        tenant_id = get_current_tenant_id()
+        return Project.query.filter_by(tenant_id=tenant_id).all()
+    ```
+  </Tab>
+  <Tab title="Service layer">
+    `require_same_tenant()` guards against cross-tenant access.
+
+    ```python
+    from feather.auth import require_same_tenant
+
+    def get_project_or_404(project_id):
+        project = Project.query.get_or_404(project_id)
+        require_same_tenant(project.tenant_id)  # raises 403 on mismatch
+        return project
+    ```
+  </Tab>
+  <Tab title="Model layer">
+    `TenantScopedMixin` adds `tenant_id` and scoped queries.
+
+    ```python
+    from feather.db.mixins import TenantScopedMixin
+
+    class Project(UUIDMixin, TenantScopedMixin, Model):
+        __tablename__ = 'projects'
+        name = db.Column(db.String(100))
+
+    projects = Project.for_tenant(tenant_id).all()
+    ```
+  </Tab>
+</Tabs>
+
+`require_same_tenant()` is a hard stop — even tenant admins cannot bypass it.
+Cross-tenant operations require platform admin routes with explicit
+`@platform_admin_required` decorators.
+
+<Tip>
+  [`feather check`](/tooling/check) reports a query on a tenant-scoped model with no
+  tenant filter as the `tenant-isolation` error, so a missed filter fails CI rather than
+  leaking data.
+</Tip>
+
+## The Tenant model
+
+The scaffolded model supports both B2B (domain-based) and B2C (individual) patterns.
+
+```python
+class Tenant(Model):
+    slug = db.Column(db.String(64), unique=True, nullable=False)
+    domain = db.Column(db.String(255), nullable=True)   # nullable for B2C
+    name = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=True)      # "company", "individual", etc.
+    status = db.Column(db.String(20), default="pending")
+```
+
+- **B2B tenants** — set `domain` to auto-assign users by email
+- **B2C tenants** — leave `domain` as `None` and create individually via the post-login callback
+- **type** — classify tenants for billing, features or reporting
+
+## Tenant lifecycle
+
+<Steps>
+  <Step title="Platform admin creates the tenant">
+    Via `/admin/tenants`. Sets name, slug and optionally an email domain, creates the
+    initial tenant admin (auto-approved). The tenant starts pending.
+  </Step>
+  <Step title="Platform admin approves the tenant">
+    The tenant becomes active.
+  </Step>
+  <Step title="Users sign up with a matching email domain">
+    They are auto-assigned to the tenant and created in a suspended state.
+  </Step>
+  <Step title="Tenant admin approves the users">
+    Via `/admin/users`.
+  </Step>
+</Steps>
+
+This flow gives you both a platform-level and a tenant-level approval gate.

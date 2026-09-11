@@ -1,0 +1,69 @@
+---
+title: "feather check"
+description: "The conventions are enforced, not just documented. Every finding names a file, a line and a remedy."
+icon: "circle-check"
+---
+
+The rules in `CLAUDE.md` are not only advice. `feather check` enforces the ones that can
+be enforced, and reports a file, a line and a remedy for each problem it finds.
+
+```bash
+feather check                   # everything
+feather check --only templates  # one group
+feather check --strict          # warnings fail too
+feather check --json            # for tooling
+```
+
+It exits non-zero on any error, so it works as a pre-commit hook or a CI step.
+
+## Rules
+
+| Rule | Severity | What it catches |
+| --- | --- | --- |
+| `inline-script` | error | A `<script>` block in a template rather than a file under `static/` |
+| `inline-handler` | error | `onclick=` and friends instead of an `hx-*` attribute or an island |
+| `inline-style` | error | A `style=` attribute instead of a class |
+| `inline-tailwind` | warning | Utility classes in markup instead of `@apply` in `app.css` |
+| `native-dialog` | error | `alert()`, `confirm()` or `prompt()` |
+| `raw-fetch` | error | `fetch()` instead of `ApiUtility`, which handles CSRF and retries |
+| `google-image-referrer` | error | A Google avatar without `referrerpolicy="no-referrer"` |
+| `unprotected-route` | warning | A route with no auth decorator |
+| `fat-route` | warning | A route handler doing work that belongs in a service |
+| `tenant-isolation` | error | A query on a tenant-scoped model with no tenant filter |
+| `orphan-island` | warning | An island no template mounts |
+| `missing-island` | error | A template mounting an island that does not exist |
+| `syntax-error` | error | A module Feather's discovery would fail to import |
+
+## Declaring a public route
+
+A route that is deliberately public is exempted with a comment in its module, which
+records the decision rather than hiding it:
+
+```python
+# feather: public
+```
+
+## When a rule is wrong about a line
+
+Say so on that line or the one above it, in whatever comment syntax the file already
+uses:
+
+```html
+{# feather: allow inline-style — width comes from per-row data #}
+<div class="campaign-bar-fill" style="width: {{ pct }}%"></div>
+```
+
+The marker takes a comma-separated list of rules and applies to that line only, so the
+rest of the file stays covered.
+
+<Note>
+  A rule with no way to say "not here" is one people turn off altogether, and a blanket
+  disable costs far more than the exception it was reaching for. The bar above is the
+  honest case: a width that is data cannot move to a stylesheet, and setting it from
+  JavaScript trades a lint error for a flash of empty bar on every render.
+</Note>
+
+<Tip>
+  Write the reason after a dash. The marker is a decision, and the next person should be
+  able to see what it was.
+</Tip>

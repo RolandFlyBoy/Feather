@@ -1,0 +1,96 @@
+---
+title: "Continuous deployment"
+description: "Test on a runner with real service containers, then SSH in and run the same deploy script you would run by hand."
+icon: "git-branch"
+---
+
+The shape that works: test on a runner with real service containers, then SSH in and run
+the same `deploy/deploy.sh` you would run by hand. The server builds its own images, so
+CI needs no registry and holds no application secrets — two repository secrets total,
+`SSH_KEY` (the private key for `deploy@`) and `SSH_HOST`.
+
+```yaml .github/workflows/deploy.yml
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+
+# Never cancel a deploy in flight: a half-applied migration is worse
+# than a queued release.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: myapp_ci
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ["5432:5432"]
+      redis:
+        image: valkey/valkey:8
+        options: >-
+          --health-cmd "valkey-cli ping" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/myapp_ci
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-not-a-real-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: pip install -r requirements.txt
+      - run: npm ci --ignore-scripts && npm run build
+      - run: feather db upgrade      # proves migrations apply from scratch
+      - run: feather test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Load the deploy key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+      - name: Build, migrate and restart
+        run: ssh deploy@${{ secrets.SSH_HOST }} 'cd /opt/myapp && ./deploy/deploy.sh --pull'
+```
+
+<Tip>
+  Running `feather db upgrade` against an empty Postgres in CI is the cheapest migration
+  test there is. It catches a migration chain that no longer applies before the chain
+  reaches production.
+</Tip>
+
+## Hardening the CI key
+
+A key that can run any command is a key that can read your `.env`. Lock it to one command
+with a forced command in the server's `~deploy/.ssh/authorized_keys`:
+
+```text
+command="/opt/myapp/deploy/deploy.sh --pull",no-agent-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA... github-actions
+```
+
+The workflow's `ssh` argument is then ignored and the key cannot open a shell.
+
+<Note>
+  Add `feather check` and `feather security-check` to the test job. Both exit non-zero on
+  failure, so a convention violation or a weak secret stops the deploy rather than
+  shipping.
+</Note>

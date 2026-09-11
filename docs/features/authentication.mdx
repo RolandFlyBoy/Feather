@@ -1,0 +1,267 @@
+---
+title: "Authentication"
+description: "Google OAuth with no passwords to store, approval workflows, roles, permissions and callbacks for custom onboarding."
+icon: "key-round"
+---
+
+Feather uses **Google OAuth** — no passwords to store, no signup forms to build. The
+same flow handles login and registration: users click "Sign in with Google", authorize
+the app, and Feather creates their account if it does not exist. This eliminates the
+entire signup, login and forgot-password complexity that traditional auth requires.
+
+<Note>
+  Google OAuth is the default, but the architecture extends to other OAuth providers
+  (GitHub, Microsoft) by adding additional blueprints.
+</Note>
+
+## Setup
+
+<Steps>
+  <Step title="Create OAuth credentials">
+    Create them at the
+    [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+  </Step>
+  <Step title="Add the redirect URI">
+    `http://localhost:5173/auth/google/callback` for development, or your production URL.
+  </Step>
+  <Step title="Add credentials to .env">
+    ```bash .env
+    GOOGLE_CLIENT_ID=your-client-id
+    GOOGLE_CLIENT_SECRET=your-client-secret
+
+    # Session settings (optional)
+    SESSION_LIFETIME_DAYS=7        # default: 7
+    REMEMBER_COOKIE_DAYS=365       # default: 365
+    SESSION_PROTECTION=basic       # None, basic, strong
+    ```
+  </Step>
+  <Step title="Create your admin user">
+    ```bash
+    python seeds.py
+    ```
+  </Step>
+</Steps>
+
+## Routes
+
+| Route | Description |
+| --- | --- |
+| `/auth/google/login` | Start the OAuth flow |
+| `/auth/google/callback` | OAuth callback (automatic) |
+| `/auth/logout` | End session |
+
+```html
+<a href="/auth/google/login">Sign in with Google</a>
+<a href="/auth/logout">Sign out</a>
+```
+
+<Warning>
+  `GET /auth/logout` is deprecated. POST to it instead.
+</Warning>
+
+## Approval workflows
+
+When users first authenticate, Feather can either auto-approve them or hold them for
+admin review.
+
+| Workflow | CLI option | Best for |
+| --- | --- | --- |
+| Manual approval (default) | Auto-approve new user signups? → No | Internal tools, B2B apps, invite-only |
+| Auto-approve | Auto-approve new user signups? → Yes | Consumer apps, open registration |
+
+**Manual approval** creates new users in a suspended state. They see a pending-approval
+page until an admin approves them in the [admin panel](/features/admin-panel). This
+prevents drive-by signups and gives you explicit control over who uses the application.
+
+**Auto-approve** activates new users on first login. Selecting it during scaffolding sets
+`AUTO_APPROVE_USERS = True` in your `config.py` and the framework handles the rest — no
+callback files or environment variables needed.
+
+<Tip>
+  To convert an existing app from manual to auto-approve, add
+  `AUTO_APPROVE_USERS = True` to `config.py`.
+</Tip>
+
+### Status pages
+
+| State | Redirect | Description |
+| --- | --- | --- |
+| Pending | `/account/pending` | New user awaiting admin approval |
+| Suspended | `/account/suspended` | Previously approved, now deactivated |
+
+These pages are scaffolded with friendly messages and logout buttons. They use
+`@login_only` so users stay authenticated while seeing their account status. Edit the
+templates in `templates/pages/account/` to match your branding.
+
+## Decorators
+
+```python
+from feather import auth_required, admin_required, role_required, login_only
+from feather.auth import permission_required, platform_admin_required
+
+@api.get('/me')
+@auth_required                    # any authenticated + approved user
+def get_profile():
+    return {'user': current_user.to_dict()}
+
+@page.get('/account/pending')
+@login_only                       # authenticated but may be pending/suspended
+def account_pending():
+    return render_template('pages/account/pending.html')
+
+@api.delete('/users/<id>')
+@admin_required                   # tenant admin (role="admin")
+def delete_user(id):
+    pass
+
+@api.post('/articles')
+@role_required('editor')          # specific role (admin inherits all)
+def create_article():
+    pass
+
+@api.post('/tenants')
+@platform_admin_required          # cross-tenant operations
+def create_tenant():
+    pass
+```
+
+### Which one to use
+
+| Decorator | Use when |
+| --- | --- |
+| `@auth_required` | Any logged-in, approved user |
+| `@login_only` | Authenticated but may be pending or suspended — status pages, account setup |
+| `@role_required('editor')` | Checking by role name, with inheritance |
+| `@permission_required('resources.create')` | Checking by action — more semantic |
+| `@admin_required` | Shorthand for `@role_required('admin')` |
+
+## Roles
+
+These defaults cover most apps, but you can add, remove or rename them.
+
+| Role | Purpose | Inherits |
+| --- | --- | --- |
+| `user` | Basic access (default for new users) | — |
+| `editor` | Content creation | `user` |
+| `moderator` | Content moderation | `user` |
+| `admin` | Tenant administration | all roles |
+
+Roles inherit permissions, so `@role_required('editor')` allows both editors and admins.
+
+To customize, edit the hierarchy in `feather/auth/roles.py`:
+
+```python
+ROLE_INHERITS = {
+    "admin": {"admin", "editor", "moderator", "reviewer", "user"},
+    "editor": {"editor", "user"},
+    "moderator": {"moderator", "user"},
+    "reviewer": {"reviewer", "user"},   # new role
+    "user": {"user"},
+}
+```
+
+Then use it with `@role_required('reviewer')`. The User model's `role` field is a simple
+string, so no migration is needed when adding roles.
+
+## Permissions
+
+CRUD-based access control that maps onto roles.
+
+| Permission | Who has it | Use case |
+| --- | --- | --- |
+| `resources.read` | all roles | View data |
+| `resources.create` | editor, admin | Create content |
+| `resources.update` | editor, admin | Edit content |
+| `resources.manage` | moderator, admin | Moderation actions |
+| `resources.delete` | admin only | Delete content |
+| `*` | admin only | All permissions |
+
+```python
+from feather.auth import permission_required
+
+@api.get('/articles')
+@permission_required('resources.read')      # all authenticated users
+def list_articles():
+    pass
+
+@api.delete('/articles/<id>')
+@permission_required('resources.delete')    # admins only
+def delete_article(id):
+    pass
+```
+
+Permissions are defined in `feather/auth/permissions.py` and extend the same way roles
+do.
+
+## Seeds
+
+`seeds.py` populates initial data. The scaffolded version creates your admin user with
+the email you provided during `feather new`. Extend it for your own data:
+
+```python seeds.py
+def seed():
+    # admin user (scaffolded)
+    admin = User(email=ADMIN_EMAIL, role="admin", active=True)
+    db.session.add(admin)
+
+    # your seed data
+    default_categories = ["General", "Support", "Billing"]
+    for name in default_categories:
+        db.session.add(Category(name=name))
+
+    db.session.commit()
+```
+
+Run it anytime with `python seeds.py` or `feather db seed`. The scaffolded seed is
+idempotent — it updates existing users rather than creating duplicates.
+
+## Callbacks
+
+<AccordionGroup>
+  <Accordion title="Post-login callback" icon="log-in">
+    For B2B and B2C apps that need custom account setup after OAuth.
+
+    ```bash .env
+    FEATHER_POST_LOGIN_CALLBACK=myapp.auth:handle_login
+    ```
+
+    ```python myapp/auth.py
+    def handle_login(user, token):
+        """Called after OAuth login with user and token.
+
+        Returns:
+            Redirect URL string, or None for default behavior
+        """
+        if not user.account_id:
+            return '/onboarding/select-plan'
+        return None
+    ```
+
+    Use this for creating Account or Membership records, assigning tenants to public
+    email users, or custom onboarding flows.
+  </Accordion>
+
+  <Accordion title="Pre-register callback" icon="shield-ban">
+    Block new registrations before the account is created. Runs during OAuth signup
+    **only for new users** — existing users logging in are unaffected.
+
+    ```bash .env
+    FEATHER_PRE_REGISTER_CALLBACK=myapp.auth:check_registration
+    ```
+
+    ```python myapp/auth.py
+    from flask import request
+
+    def check_registration():
+        """Returns an error message to block, or None to allow."""
+        ip = request.headers.get("X-Real-IP", request.remote_addr)
+        if is_blocked(ip):
+            return "Registration is not available from your location."
+        return None
+    ```
+
+    Returning a string blocks registration — the message is shown as a toast error and
+    no user record is created. Returning `None` (or raising) lets registration proceed.
+    Errors in the callback are logged but do not block signups.
+  </Accordion>
+</AccordionGroup>

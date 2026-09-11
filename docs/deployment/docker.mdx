@@ -1,0 +1,81 @@
+---
+title: "Docker"
+description: "What feather docker init generates, the two Dockerfile details that are easy to break, and how to run the stack locally."
+icon: "container"
+---
+
+Feather deploys as a Docker image behind [Caddy](https://caddyserver.com/), on one
+machine. A €7/month VPS runs the app, Postgres, Redis and TLS termination with room to
+spare, and the whole thing is eight files in your repository.
+
+`feather new` scaffolds them. To add them to an existing app:
+
+```bash
+feather docker init                     # writes the files below, never overwrites
+feather docker init --force             # overwrite existing files
+feather docker init --domain example.com
+feather docker init --no-worker         # no background-job worker service
+```
+
+It inspects your project to decide what to generate — a `db` service if you have a
+database, `redis` and a `worker` if you use background jobs — and never overwrites a file
+that already exists unless you pass `--force`.
+
+## What gets generated
+
+| File | What it does |
+| --- | --- |
+| `Dockerfile` | Multi-stage build. A `base` stage (python:3.11-slim, non-root `app` user), a `frontend` stage (node:22-alpine, `npm ci --ignore-scripts`, `npm run build`), a `worker` target and a `web` target. No Node in the runtime image. |
+| `.dockerignore` | Keeps `venv/`, `node_modules/`, `.git/`, `.env*`, `logs/`, `static/dist/` and tests out of the build context. |
+| `docker-compose.yml` | Production stack: `caddy`, `web`, `worker` (if you enabled jobs), `db` (postgres:16), `redis` (valkey:8). Only Caddy publishes ports. |
+| `docker-compose.dev.yml` | Postgres and Redis on localhost for local development. Nothing else. |
+| `deploy/Caddyfile` | TLS, compression, `reverse_proxy web:8000`, the proxy header contract. |
+| `deploy/deploy.sh` | Build, migrate once, swap containers, wait for health. |
+| `deploy/backup.sh` | Nightly `pg_dump` with retention, for cron. |
+| `.env.example` | Every key this app reads, secrets blanked, with the compose-provided ones marked. |
+
+The `web` target is last in the Dockerfile, so a plain `docker build .` produces the web
+image. The worker is `docker build --target worker .`. Both come from one Dockerfile and
+share a layer cache.
+
+## Two details that are easy to break
+
+<AccordionGroup>
+  <Accordion title="Feather is installed on its own layer, before the rest of requirements.txt" icon="layers">
+    The frontend stage copies the framework's templates out of that layer. Tailwind scans
+    them for the class names the built-in components use.
+
+    Remove that copy and every framework component renders unstyled in production.
+  </Accordion>
+  <Accordion title="Migrations do not run in CMD" icon="database">
+    Two web containers starting at once would race on `feather db upgrade`.
+    `deploy/deploy.sh` runs them exactly once, in a throwaway container, before any
+    long-lived container starts.
+  </Accordion>
+</AccordionGroup>
+
+## Local development
+
+The app itself stays on your machine so `feather dev` keeps Vite's hot reload. Only the
+dependencies go in containers.
+
+```bash
+docker compose -f docker-compose.dev.yml up -d    # Postgres + Redis
+feather dev                                        # Flask + Vite on the host
+```
+
+The ports and credentials match the `DATABASE_URL` and `REDIS_URL` in the generated
+`.env`, so nothing else needs configuring. Bring up one service alone with
+`docker compose -f docker-compose.dev.yml up -d db`. Stop them with `down`, and add `-v`
+to throw the local data away.
+
+You can still build and run the production image locally to check it:
+
+```bash
+docker compose build web
+docker compose run --rm web feather security-check
+```
+
+<Card title="Next: first deploy to a VPS" icon="server" href="/deployment/vps" horizontal>
+  DNS, a deploy user, `.env` on the server, and the deploy script.
+</Card>

@@ -1,0 +1,44 @@
+---
+title: "Backups"
+description: "Nightly pg_dump with retention, and the step that turns a dump into an actual backup."
+icon: "archive"
+---
+
+`deploy/backup.sh` dumps Postgres in `pg_dump` custom format — compressed and restorable
+table by table — and keeps 14 days. Run it from cron on the host:
+
+```bash
+0 3 * * * /opt/myapp/deploy/backup.sh >> /var/log/myapp-backup.log 2>&1
+```
+
+Tune it with `BACKUP_DIR` and `BACKUP_KEEP_DAYS`.
+
+## Restoring
+
+```bash
+docker compose exec -T db pg_restore -U myapp -d myapp --clean < backups/myapp-<stamp>.dump
+```
+
+## Get the dump off the machine
+
+<Warning>
+  A backup on the same disk as the database is not a backup.
+</Warning>
+
+Add a step that copies the dump elsewhere — object storage, another host, anywhere — and
+consider encrypting it on the way out:
+
+```bash
+openssl enc -aes-256-cbc -pbkdf2 -pass file:/root/.backup.key \
+    -in "$dump" -out "$dump.enc" && rm "$dump"
+```
+
+<Note>
+  Everything that matters lives in Postgres and your object storage. The containers and
+  Redis are disposable. The dumps are not.
+</Note>
+
+<Tip>
+  Test one restore before you need it. A backup you have never restored is a hypothesis,
+  not a backup.
+</Tip>

@@ -1,0 +1,60 @@
+---
+title: "Exceptions"
+description: "Typed exceptions that convert themselves into the right status code and JSON body."
+icon: "triangle-alert"
+---
+
+Raise one of these anywhere and Feather turns it into the correct HTTP response. No
+error handling boilerplate in your routes.
+
+```python
+from feather.exceptions import (
+    ValidationError,        # 400 — invalid input
+    AuthenticationError,    # 401 — not logged in
+    AuthorizationError,     # 403 — no permission
+    AccountPendingError,    # 403 — account awaiting approval
+    AccountSuspendedError,  # 403 — account suspended
+    NotFoundError,          # 404 — resource not found
+    ConflictError,          # 409 — already exists
+)
+```
+
+## What a client sees
+
+<CodeGroup>
+
+```python Raise
+raise ValidationError('Email is required', field='email')
+```
+
+```json Response
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Email is required"
+  }
+}
+```
+
+</CodeGroup>
+
+## Account status exceptions
+
+`AccountPendingError` and `AccountSuspendedError` inherit from `AuthorizationError` but
+trigger redirects to dedicated status pages instead of a generic 403.
+
+| Exception | Redirects to |
+| --- | --- |
+| `AccountPendingError` | `/account/pending` |
+| `AccountSuspendedError` | `/account/suspended` |
+
+They are raised automatically by `@auth_required` based on the user's `active` and
+`approved_at` fields, so you do not raise them yourself. The pages are scaffolded into
+your app — edit them in `templates/pages/account/` to match your branding.
+
+<Warning>
+  Upgrading an older app: a suspended user now reports the error code
+  `ACCOUNT_SUSPENDED` rather than `AUTHORIZATION_ERROR`. Check any string comparisons
+  against the old code. See [Upgrading](/reference/upgrading).
+</Warning>

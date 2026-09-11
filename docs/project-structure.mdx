@@ -1,0 +1,64 @@
+---
+title: "Project structure"
+description: "Where every file lives in a scaffolded Feather app, and which directories are auto-discovered."
+icon: "folder-tree"
+---
+
+```text
+myapp/
+├── app.py                    # Entry point
+├── config.py                 # Configuration classes
+├── seeds.py                  # Initial data (if auth enabled)
+├── .env                      # Environment variables
+├── package.json              # Node dependencies (Vite, Tailwind)
+├── vite.config.js            # Build configuration
+├── models/                   # SQLAlchemy models (auto-discovered)
+├── services/                 # Business logic (auto-discovered)
+├── routes/
+│   ├── api/                  # API routes → /api/*
+│   └── pages/                # Page routes → /*
+├── templates/
+│   ├── base.html             # Base layout with HTMX/Vite
+│   ├── components/           # Custom/override components
+│   ├── partials/             # HTMX response fragments
+│   └── pages/                # Full page templates
+├── static/
+│   ├── css/app.css           # Tailwind entry point
+│   ├── js/app.js             # Shared JavaScript
+│   └── islands/              # Interactive JS components
+├── tests/                    # Test files
+└── migrations/               # Alembic migrations
+```
+
+## Auto-discovery
+
+Three directories are scanned at startup and their contents registered automatically:
+
+<CardGroup cols={3}>
+  <Card title="models/" icon="database" href="/backend/models">
+    SQLAlchemy models.
+  </Card>
+  <Card title="services/" icon="cog" href="/backend/services">
+    Business logic classes.
+  </Card>
+  <Card title="routes/" icon="route" href="/backend/routes">
+    `api/` mounts at `/api/*`, `pages/` at `/*`.
+  </Card>
+</CardGroup>
+
+<Warning>
+  Discovery is strict: a module that fails to import stops the app rather than being
+  silently dropped. Set `FEATHER_LENIENT_DISCOVERY=1` to warn and continue while you fix
+  it.
+</Warning>
+
+## Framework-provided assets
+
+These are served from `/feather-static/` and auto-update with Feather upgrades:
+
+- **Components** — see the [component reference](/ui/components) for the full list
+- **JavaScript** — `api.js` (CSRF-aware fetch) and `feather.js` (the Islands runtime)
+
+Override any component by creating your own version in `templates/components/`. A
+component that shares a filename with a framework component takes precedence, and
+[`feather components`](/tooling/components-catalogue) marks it as overriding.

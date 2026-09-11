@@ -1,0 +1,56 @@
+---
+title: "Working with AI assistants"
+description: "Feather ships conventions an assistant can read and a command that checks whether they were followed."
+icon: "bot"
+---
+
+Feather is built with and optimized for [Claude Code](https://claude.ai/code), though it
+works with any AI coding assistant.
+
+## Two files, one set of rules
+
+Every scaffolded project contains a `CLAUDE.md` and an `AGENTS.md` with identical
+content, written together so they cannot drift. `AGENTS.md` is the vendor-neutral name
+other tools look for. Both carry the full rules rather than one linking to the other,
+because an assistant that has to follow a link often does not.
+
+A `.claude/settings.json` is scaffolded alongside them, pre-approving the read-only
+commands an assistant needs.
+
+<Note>
+  These files are a starting point. Add your project's own domain rules and preferences
+  as the app grows.
+</Note>
+
+## Rules an assistant can verify
+
+What makes the conventions useful is that they are checkable. An assistant can confirm
+its own work instead of hoping:
+
+<CardGroup cols={2}>
+  <Card title="feather check" icon="circle-check" href="/tooling/check">
+    Are the conventions being followed? Reports a file, a line and a remedy for each
+    problem.
+  </Card>
+  <Card title="feather components" icon="box" href="/tooling/components-catalogue">
+    What arguments does this macro take? Read from the macros themselves, so it is right
+    even when documentation is not.
+  </Card>
+  <Card title="feather routes" icon="route" href="/reference/cli">
+    What is actually registered?
+  </Card>
+  <Card title="feather test" icon="flask-conical" href="/testing/overview">
+    Does it still work?
+  </Card>
+</CardGroup>
+
+## Why the conventions are strict
+
+The rules in `CLAUDE.md` are not only advice. [`feather check`](/tooling/check) enforces
+the ones that can be enforced and exits non-zero on any error, so it works as a
+pre-commit hook or a CI step.
+
+A route that is deliberately public is exempted with a `# feather: public` comment in
+its module, which records the decision rather than hiding it. When a rule is wrong about
+a specific line, an inline marker silences it for that line only and asks you to write
+the reason — a rule with no way to say "not here" is one people turn off altogether.

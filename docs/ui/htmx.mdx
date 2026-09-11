@@ -1,0 +1,62 @@
+---
+title: "HTMX"
+description: "Server interactions without page reloads. Return HTML fragments, swap them into the page, and fire events other elements listen for."
+icon: "arrow-left-right"
+---
+
+Add `hx-*` attributes to markup, return a rendered partial from the route, and HTMX
+swaps the result into the page.
+
+<CodeGroup>
+
+```html Template
+<button hx-post="/api/posts/123/like" hx-swap="outerHTML">Like (5)</button>
+```
+
+```python Route
+@api.post("/posts/<post_id>/like")
+def like_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    post.toggle_like(current_user)
+    return render_template("partials/like_button.html", post=post, liked=True)
+```
+
+</CodeGroup>
+
+## Cross-element updates
+
+Use the `HX-Trigger` response header to fire an event that other elements listen for.
+This is how one action refreshes an unrelated part of the page.
+
+<CodeGroup>
+
+```python Fire the event
+response = make_response(render_template('partials/todo.html', todo=todo))
+response.headers['HX-Trigger'] = 'todosUpdated'
+return response
+```
+
+```html Listen for it
+<div hx-get="/htmx/stats" hx-trigger="load, todosUpdated from:body">
+```
+
+</CodeGroup>
+
+## Built-in modals
+
+| Pattern | Use |
+| --- | --- |
+| `hx-confirm="Delete?"` | Confirmation dialog, backed by the `confirm_modal` component |
+| `window.showPrompt({...})` | Input dialog, backed by the `prompt_modal` component |
+
+<Warning>
+  Native `alert()`, `confirm()` and `prompt()` are a
+  [`feather check`](/tooling/check) error. Use the components above instead — they are
+  styled, dark-mode aware and testable.
+</Warning>
+
+## Partials live in their own directory
+
+HTMX response fragments belong in `templates/partials/`, separate from full page
+templates in `templates/pages/`. A partial renders a fragment of HTML with no layout
+wrapper, which is exactly what HTMX expects to swap in.

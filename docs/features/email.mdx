@@ -1,0 +1,61 @@
+---
+title: "Email"
+description: "Transactional email through Resend, with toast notifications wired to the HTMX response."
+icon: "mail"
+---
+
+Available for authenticated apps, single-tenant or multi-tenant.
+
+```bash .env
+RESEND_API_KEY=re_xxxx                      # from https://resend.com/api-keys
+RESEND_FROM_EMAIL=noreply@yourdomain.com    # must be verified in Resend
+```
+
+## Sending
+
+```python
+from services.email_service import EmailService
+
+email_service = EmailService()
+
+result = email_service.send(
+    to="user@example.com",
+    subject="Welcome!",
+    body="Thanks for signing up."
+)
+
+result = email_service.send(
+    to="user@example.com",
+    subject="Your Report",
+    body="<h1>Monthly Report</h1><p>...</p>",
+    html=True
+)
+```
+
+## Reporting the result to the user
+
+Return a toast from the HTMX response rather than a redirect:
+
+```python
+response = make_response(render_template("partials/email_sent.html"))
+
+if result["success"]:
+    response.headers["HX-Trigger"] = json.dumps({
+        "showToast": {"message": result["message"], "type": "success"}
+    })
+else:
+    response.headers["HX-Trigger"] = json.dumps({
+        "showToast": {"message": result["error"], "type": "error"}
+    })
+```
+
+<Tip>
+  Send email from a [background job](/features/background-jobs) rather than inline. A
+  slow provider should not slow down the response, and a failed send should be
+  retryable.
+</Tip>
+
+## Admin tools
+
+When email is enabled, the admin panel includes a **Send Email** form at `/admin/tools`
+with a user search dropdown.

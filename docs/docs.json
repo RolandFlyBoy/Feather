@@ -1,0 +1,196 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "maple",
+  "name": "Feather",
+  "description": "The AI-native full-stack Python web framework. Flask, Tailwind CSS, HTMX and vanilla JavaScript islands, with authentication, admin, jobs and deployment already built.",
+  "colors": {
+    "primary": "#2563eb",
+    "light": "#60a5fa",
+    "dark": "#1d4ed8"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://www.featherframework.org"
+  },
+  "fonts": {
+    "heading": { "family": "DM Sans" },
+    "body": { "family": "Inter" }
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "navbar": {
+    "links": [
+      { "label": "Website", "href": "https://www.featherframework.org" },
+      { "label": "PyPI", "href": "https://pypi.org/project/feather-framework/" }
+    ],
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/RolandFlyBoy/Feather"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/RolandFlyBoy/Feather",
+      "website": "https://www.featherframework.org"
+    },
+    "links": [
+      {
+        "header": "Documentation",
+        "items": [
+          { "label": "Quickstart", "href": "https://docs.featherframework.org/quickstart" },
+          { "label": "CLI reference", "href": "https://docs.featherframework.org/reference/cli" },
+          { "label": "Configuration", "href": "https://docs.featherframework.org/reference/configuration" }
+        ]
+      },
+      {
+        "header": "Project",
+        "items": [
+          { "label": "GitHub", "href": "https://github.com/RolandFlyBoy/Feather" },
+          { "label": "PyPI", "href": "https://pypi.org/project/feather-framework/" },
+          { "label": "Changelog", "href": "https://github.com/RolandFlyBoy/Feather/blob/main/CHANGELOG.md" }
+        ]
+      }
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "icon": "rocket",
+            "pages": [
+              "index",
+              "why-feather",
+              "installation",
+              "quickstart",
+              "project-structure",
+              "ai-assistants"
+            ]
+          },
+          {
+            "group": "Building the UI",
+            "icon": "layout-template",
+            "pages": [
+              "ui/overview",
+              "ui/components",
+              "ui/htmx",
+              "ui/islands",
+              "ui/icons",
+              "ui/dark-mode"
+            ]
+          },
+          {
+            "group": "Backend",
+            "icon": "server",
+            "pages": [
+              "backend/routes",
+              "backend/models",
+              "backend/schema-design",
+              "backend/services",
+              "backend/exceptions"
+            ]
+          },
+          {
+            "group": "Features",
+            "icon": "blocks",
+            "pages": [
+              "features/authentication",
+              "features/admin-panel",
+              "features/multi-tenancy",
+              "features/background-jobs",
+              "features/caching",
+              "features/file-storage",
+              "features/email",
+              "features/events",
+              "features/pdf-generation",
+              "features/rate-limiting",
+              "features/serializers",
+              "features/request-tracking",
+              "features/health-checks",
+              "features/error-logging",
+              "features/security-headers"
+            ]
+          },
+          {
+            "group": "Tooling",
+            "icon": "terminal",
+            "pages": [
+              "tooling/check",
+              "tooling/components-catalogue",
+              "tooling/security-check",
+              "tooling/shell"
+            ]
+          },
+          {
+            "group": "Testing",
+            "icon": "flask-conical",
+            "pages": [
+              "testing/overview",
+              "testing/fixtures",
+              "testing/patterns",
+              "testing/database"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "icon": "ship",
+            "pages": [
+              "deployment/overview",
+              "deployment/docker",
+              "deployment/vps",
+              "deployment/ci-cd",
+              "deployment/backups",
+              "deployment/checklist"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Reference",
+            "icon": "book-open",
+            "pages": [
+              "reference/cli",
+              "reference/configuration",
+              "reference/upgrading",
+              "reference/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Tutorials",
+        "groups": [
+          {
+            "group": "Kanban series",
+            "icon": "graduation-cap",
+            "pages": [
+              "tutorials/index"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/RolandFlyBoy/Feather",
+          "icon": "github"
+        },
+        {
+          "anchor": "PyPI",
+          "href": "https://pypi.org/project/feather-framework/",
+          "icon": "package"
+        }
+      ]
+    }
+  }
+}

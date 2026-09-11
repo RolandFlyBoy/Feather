@@ -1,0 +1,265 @@
+---
+title: "Background jobs"
+description: "Three backends chosen by goal rather than environment, with concurrency limits, retries, scheduling and workers that survive deploys."
+icon: "clock"
+---
+
+Many web apps need to do work outside the request cycle — sending emails, processing
+uploads, calling external APIs. Feather provides three job backends.
+
+## Choosing a backend
+
+The choice is not "development versus production". All three work in production. It is
+about what you are trying to achieve.
+
+| Goal | Backend | Trade-off |
+| --- | --- | --- |
+| **Simplicity** — no infrastructure | `sync` | Blocks the request |
+| **Speed** — return fast, process later | `thread` | Jobs lost on restart |
+| **Reliability** — never lose a job | `rq` | Requires Redis and workers |
+
+<AccordionGroup>
+  <Accordion title="sync — when blocking the request is acceptable" icon="minus">
+    - Simple apps where job execution is fast enough
+    - Debugging job logic, since errors appear in the request
+    - Apps where infrastructure simplicity matters more than response time
+  </Accordion>
+  <Accordion title="thread — fast responses without infrastructure" icon="zap">
+    Jobs run in a thread pool managed by Python. Choose it when:
+
+    - You want sub-second response times
+    - You do not want to run Redis
+    - Jobs are fire-and-forget, and losing some on a crash is acceptable
+    - You need concurrency control for memory-intensive tasks such as ML or transcription
+  </Accordion>
+  <Accordion title="rq — when reliability is critical" icon="shield-check">
+    Jobs are persisted to Redis before acknowledgement, and workers run as independent
+    services. Choose it when:
+
+    - Losing a job would cause real problems — payments, notifications
+    - You need job visibility: retry failures, see history
+    - You are running multiple servers
+    - You need scheduled or recurring tasks
+    - You want background processing that survives deploys and crashes
+  </Accordion>
+</AccordionGroup>
+
+## Configuration
+
+<CodeGroup>
+
+```bash thread (default)
+JOB_BACKEND=thread
+JOB_MAX_WORKERS=4              # thread pool size
+# JOB_ENABLE_MONITORING=true   # psutil resource tracking
+```
+
+```bash sync
+JOB_BACKEND=sync
+```
+
+```bash rq
+JOB_BACKEND=rq
+REDIS_URL=redis://localhost:6379/0
+```
+
+</CodeGroup>
+
+<Warning>
+  **Using the thread backend in development?** Set `FLASK_DEBUG=0` in `.env`. Flask's
+  auto-reloader restarts the process on every file change, which kills running background
+  threads — your jobs are terminated mid-execution whenever you save a file.
+</Warning>
+
+## Defining and enqueuing
+
+<CodeGroup>
+
+```python Define
+from feather import job
+
+@job
+def send_welcome_email(user_id, email):
+    send_email(email, 'Welcome!', render_template('emails/welcome.html'))
+```
+
+```python Enqueue
+@api.post('/users')
+@inject(UserService)
+def create_user(user_service, email: str):
+    user = user_service.create(email=email)
+    send_welcome_email.enqueue(user.id, user.email)   # returns immediately
+    return {'user': user.to_dict()}, 201
+
+# with a delay, in seconds
+send_welcome_email.enqueue(user.id, user.email, delay=60)
+```
+
+</CodeGroup>
+
+## Concurrency control
+
+Limit concurrent executions to prevent resource exhaustion. Essential for
+memory-intensive work.
+
+```python
+@job(concurrency=2)   # max 2 concurrent executions
+def transcribe_audio(file_path):
+    """Whisper transcription — memory intensive."""
+    result = whisper.transcribe(file_path)
+    return result['text']
+
+@job(concurrency=1)   # singleton — only 1 at a time
+def rebuild_search_index():
+    pass
+```
+
+Jobs wait in a queue when the limit is reached, first-in-first-out within each task type.
+Different tasks have independent limits.
+
+**Where it matters:** audio and video transcription, ML model inference, rate-limited
+external APIs, and database-heavy operations bounded by the connection pool.
+
+## Retries
+
+Failed jobs retry with exponential backoff.
+
+```python
+@job(retry=3)   # backoff: 2s, 4s, 8s
+def call_external_api(data):
+    response = requests.post('https://api.example.com', json=data)
+    response.raise_for_status()
+
+@job(concurrency=2, retry=2)
+def transcribe_with_retry(video_id):
+    pass
+```
+
+## Resource monitoring
+
+```bash .env
+JOB_ENABLE_MONITORING=true
+```
+
+```bash
+pip install psutil
+```
+
+When a job fails, error logs then include memory in MB, memory percent, CPU percent and
+thread count.
+
+## Scheduled tasks
+
+For recurring jobs, use the RQ backend with rq-scheduler.
+
+```python
+from feather import scheduled
+
+@scheduled(cron='0 9 * * *')   # every day at 9am
+def daily_digest():
+    send_daily_digest_emails()
+
+@scheduled(interval=3600)      # every hour
+def cleanup_temp_files():
+    delete_old_temp_files()
+```
+
+```bash
+pip install rq-scheduler
+rqscheduler --url redis://localhost:6379/0
+```
+
+## Workers as services
+
+With the RQ backend, workers are independent processes that share your app's codebase
+but run separately from the web server. Think of them as sidecars — full access to your
+models, services and config, but their own lifecycle.
+
+This matters because workers are **self-healing**. If your web server crashes, jobs
+already in Redis keep waiting. When the worker restarts it picks up where it left off.
+If a worker crashes mid-job, RQ marks the job failed and it can be retried. Nothing is
+silently lost. That makes workers suitable for operations that must eventually complete:
+billing cycles, subscription renewals, webhook delivery, report generation.
+
+Workers also replace cron. Instead of configuring external schedulers, you enqueue
+delayed or recurring work through application code. The worker's built-in scheduler
+promotes delayed jobs automatically — a billing job enqueued with `delay=55` fires
+exactly when it should, even if the web server restarted in between.
+
+```bash
+pip install rq
+
+feather worker                    # process the default queue
+feather worker high default low   # specific queues, in priority order
+feather worker --burst            # exit when the queue is empty
+```
+
+`feather worker` handles the setup that would otherwise need a custom script: it creates
+the Flask app and pushes app context so jobs can query the database and read config, it
+uses `SimpleWorker` on macOS to avoid the `fork()` crash with the Obj-C runtime, and it
+enables the built-in scheduler by default.
+
+| Flag | Description |
+| --- | --- |
+| `--burst` | Exit when the queue is empty |
+| `--simple` | Force SimpleWorker — one process, no fork (default on macOS) |
+| `--fork` | Force the forking worker — one process per job, so a crashing job cannot take the worker down (default on Linux, and what the Docker `worker` target runs) |
+| `--no-scheduler` | Disable the delayed job scheduler |
+| `--name` | Worker name, for identification in logs |
+| `--log-level` | DEBUG, INFO, WARNING, ERROR (default: INFO) |
+
+## Deploying workers
+
+In production, workers run as separate services sharing the same Docker image as the web
+server, just with a different start command. The generated `docker-compose.yml` already
+has one when you enable background jobs.
+
+```yaml docker-compose.yml
+services:
+  web:
+    build:
+      context: .
+      target: web
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://myapp:${POSTGRES_PASSWORD}@db:5432/myapp
+      REDIS_URL: redis://redis:6379/0
+
+  worker:
+    build:
+      context: .
+      target: worker      # same Dockerfile, CMD ["feather", "worker", "--fork"]
+    env_file: .env        # same secrets, same database
+    environment:
+      JOB_BACKEND: rq
+      JOB_SERIALIZER: json
+      DATABASE_URL: postgresql://myapp:${POSTGRES_PASSWORD}@db:5432/myapp
+      REDIS_URL: redis://redis:6379/0
+```
+
+Scale with `docker compose up -d --scale worker=3`, unless your jobs include a singleton
+loop — a scheduler, a billing tick — that must not run twice.
+
+- Workers share the same image, environment variables and database as the web service
+- Scale them independently, or dedicate workers to specific queues
+- Each worker connects to Redis for job pickup and to your database for business logic
+- Workers survive web deploys: restarting the web service does not interrupt running jobs
+
+<Warning>
+  Set `JOB_SERIALIZER=json` for RQ. Pickle payloads are code execution for anyone who
+  can write to your Redis.
+</Warning>
+
+## Managing the queue
+
+```bash
+feather jobs status              # queue status and counts
+feather jobs list                # all jobs
+feather jobs list --status failed
+feather jobs list --queue high   # jobs in a specific queue (RQ)
+feather jobs list --stuck        # jobs running too long (thread)
+feather jobs info <job_id>
+feather jobs failed
+feather jobs retry <job_id>
+feather jobs clear
+```

@@ -1,0 +1,51 @@
+---
+title: "Events"
+description: "A pub/sub layer for decoupling components, with synchronous and background listeners."
+icon: "radio"
+---
+
+## Defining an event
+
+```python
+from feather.events import Event
+
+class UserCreatedEvent(Event):
+    def __init__(self, user_id: str, email: str):
+        super().__init__(user_id=user_id)
+        self.email = email
+```
+
+## Listening
+
+```python
+from feather.events import listen
+
+# synchronous — runs in the request thread
+@listen(UserCreatedEvent)
+def send_welcome_email(event):
+    send_email(event.email, 'Welcome!')
+
+# async — runs in a background thread pool
+@listen(UserCreatedEvent, async_=True)
+def track_signup_analytics(event):
+    analytics.track('signup', user_id=event.user_id)
+```
+
+## Dispatching
+
+```python
+from feather.events import dispatch
+
+@transactional
+def create_user(self, email: str):
+    user = User(email=email)
+    self.db.add(user)
+    dispatch(UserCreatedEvent(user_id=user.id, email=user.email))
+    return user
+```
+
+<Note>
+  Async listeners run in a `ThreadPoolExecutor` with 4 workers. Use them for non-critical
+  work — analytics, logging, notifications. For anything that must not be lost, enqueue a
+  [background job](/features/background-jobs) instead.
+</Note>

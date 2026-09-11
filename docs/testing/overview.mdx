@@ -1,0 +1,66 @@
+---
+title: "Testing"
+sidebarTitle: "Overview"
+description: "A working test setup is scaffolded with every project. No configuration — just write tests and run them."
+icon: "flask-conical"
+---
+
+When you run `feather new myapp`, you get:
+
+```text
+tests/
+├── conftest.py          # fixtures: client, csrf_client, db setup
+├── test_home.py         # page route tests (working example)
+├── test_auth.py         # auth flow tests (if auth enabled)
+└── test_admin.py        # admin panel tests (if auth enabled)
+```
+
+These are not placeholder files. They are real tests that pass out of the box, and they
+are the patterns to follow for your own.
+
+## Running tests
+
+```bash
+feather test                       # all tests
+feather test -v                    # verbose
+feather test -p tests/test_api.py  # a specific file
+feather test -- -k "test_user"     # filter by test name
+feather test --no-coverage         # skip the coverage report
+```
+
+<CardGroup cols={3}>
+  <Card title="Fixtures" icon="plug" href="/testing/fixtures">
+    The two test clients and why CSRF needs its own.
+  </Card>
+  <Card title="Patterns" icon="list-checks" href="/testing/patterns">
+    How to test routes, services and models.
+  </Card>
+  <Card title="Test database" icon="database" href="/testing/database">
+    Isolation between tests, and one fixture gotcha worth knowing.
+  </Card>
+</CardGroup>
+
+## Framework tests
+
+If you are contributing to Feather itself rather than building an app:
+
+```bash
+feather test --framework           # full suite
+feather test -f --fast             # skip slow tests
+feather test -f -m unit            # run by marker
+feather test -f --list-markers     # show available markers
+feather test -f --clean            # remove test artifacts
+```
+
+| Marker | What it tests |
+| --- | --- |
+| `unit` | Pure functions, no I/O |
+| `integration` | Database, services |
+| `e2e` | Full request/response cycles |
+| `scaffolding` | `feather new` output |
+| `jobs` | The background job system |
+| `api_contract` | API response formats |
+
+<Note>
+  Most app developers will not need these. They test the framework code in `feather/`.
+</Note>

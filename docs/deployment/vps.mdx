@@ -1,0 +1,177 @@
+---
+title: "Deploying to a VPS"
+description: "From a fresh Ubuntu box to a live HTTPS site, and what the deploy script does in what order."
+icon: "server"
+---
+
+Any Ubuntu 24.04 box works — Hetzner, DigitalOcean, Vultr. Four vCPU and 8 GB is
+comfortable for an app plus its database.
+
+<Steps>
+  <Step title="Point DNS at the server" icon="globe">
+    An `A` record for the hostname you will put in `DOMAIN`, TTL 300 until you are happy.
+
+    <Warning>
+      Do this first. Caddy cannot issue a certificate before DNS resolves to the machine.
+    </Warning>
+  </Step>
+
+  <Step title="Create a deploy user and install Docker" icon="user-plus">
+    As root on the fresh box:
+
+    ```bash
+    adduser deploy && usermod -aG sudo deploy
+    # copy your SSH key to /home/deploy/.ssh/authorized_keys, then disable
+    # root login and password auth in /etc/ssh/sshd_config
+
+    apt update && apt install -y ca-certificates curl git ufw fail2ban unattended-upgrades
+    curl -fsSL https://get.docker.com | sh
+    usermod -aG docker deploy
+
+    ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp
+    ufw enable
+    ```
+  </Step>
+
+  <Step title="Get the code onto the server" icon="git-branch">
+    As `deploy`:
+
+    ```bash
+    sudo mkdir -p /opt/myapp && sudo chown deploy:deploy /opt/myapp
+    git clone git@github.com:you/myapp.git /opt/myapp
+    ```
+  </Step>
+
+  <Step title="Write .env on the server" icon="lock">
+    This file never enters git and never goes into the image. It is the single source of
+    truth for production secrets.
+
+    ```bash
+    cd /opt/myapp
+    cp .env.example .env
+    chmod 600 .env
+    nano .env
+    ```
+
+    At minimum:
+
+    ```bash .env
+    DOMAIN=example.com
+    POSTGRES_PASSWORD=          # python -c "import secrets; print(secrets.token_urlsafe(32))"
+    SECRET_KEY=                 # python -c "import secrets; print(secrets.token_urlsafe(48))"
+    GOOGLE_CLIENT_ID=
+    GOOGLE_CLIENT_SECRET=
+    ```
+
+    <Note>
+      `docker-compose.yml` reads `DOMAIN` and `POSTGRES_PASSWORD` itself for
+      interpolation, and passes the whole file into the containers with `env_file: .env`.
+      So `POSTGRES_PASSWORD` is written once and `DATABASE_URL` is built from it.
+
+      Do not set `FLASK_CONFIG`, `PORT`, `WEB_CONCURRENCY`, `DATABASE_URL`, `REDIS_URL`
+      or `JOB_BACKEND` here. Compose sets those on the container, and a duplicate in
+      `.env` only creates a way for them to disagree.
+    </Note>
+
+    Run `feather env check` to see which keys your `config.py` actually reads and which
+    are still missing. It exits non-zero when a key that has no fallback is unset, so it
+    works as a CI or deploy gate.
+  </Step>
+
+  <Step title="Deploy" icon="rocket">
+    ```bash
+    ./deploy/deploy.sh
+    ```
+
+    Watch the first run. Caddy requests a certificate while the app starts, and
+    `docker compose logs -f caddy` shows whether issuance worked. When the script prints
+    `Healthy. Deploy complete.` the site is live over HTTPS.
+  </Step>
+</Steps>
+
+## What deploy.sh does
+
+```bash
+./deploy/deploy.sh          # deploy the current checkout
+./deploy/deploy.sh --pull   # git pull --ff-only first
+```
+
+In order:
+
+1. **`docker compose build`** — every service. Web and worker are separate images even
+   though they share a Dockerfile; building only `web` leaves the worker running last
+   week's code.
+2. **`docker compose up -d db redis`** — dependencies first, so the migration step has
+   something to talk to.
+3. **`docker compose run --rm web feather db upgrade`** — migrations, once, in a
+   throwaway container built from the *new* image. The old containers are still serving
+   while this runs, so a migration that fails leaves the site up.
+4. **`docker compose up -d --remove-orphans`** — swap the containers.
+5. **Wait for health.** It polls Docker's health status for the `web` container, which
+   runs `curl /health`, which checks the database, for up to 120 seconds. Healthy: prune
+   dangling images and exit 0. Unhealthy or timed out: dump the last 50 log lines and
+   exit 1.
+
+<Note>
+  The ordering is the whole point. Migrations run exactly once, against the image about
+  to serve traffic, before any long-lived container starts. Two web containers can never
+  race on the same Alembic upgrade, and a migration failure is not a partial deploy.
+</Note>
+
+## Rolling back
+
+There is no automatic rollback. If a deploy goes bad, check out the previous commit and
+run `./deploy/deploy.sh` again. Migrations already applied are not reverted, so undo
+those deliberately with `feather db downgrade`.
+
+Confirm what the database is actually at:
+
+```bash
+docker compose exec -T db psql -U myapp -d myapp -c "SELECT version_num FROM alembic_version;"
+```
+
+## TLS and the proxy headers
+
+Caddy obtains and renews Let's Encrypt certificates automatically for every hostname in
+`deploy/Caddyfile`. There is nothing to run, no certbot cron, no renewal to forget.
+
+```caddy deploy/Caddyfile
+{$DOMAIN} {
+	encode gzip zstd
+
+	reverse_proxy web:8000 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+```
+
+`{$DOMAIN}` comes from `.env` via compose. To serve `www` as well, add a second block. A
+certificate is issued for each hostname that appears in the file.
+
+```caddy
+www.example.com {
+	redir https://example.com{uri} permanent
+}
+```
+
+### Two load-bearing headers
+
+<AccordionGroup>
+  <Accordion title="X-Forwarded-Proto and Host" icon="shield">
+    Caddy sets these by default and Feather's ProxyFix reads them. Without them Google
+    OAuth builds an `http://` redirect URI and secure session cookies are dropped on
+    every response.
+  </Accordion>
+  <Accordion title="X-Real-IP" icon="map-pin">
+    Caddy does **not** set this one, which is why the generated config does. Rate
+    limiting and any geo logic read it, and when it goes missing they fail silently
+    rather than loudly.
+  </Accordion>
+</AccordionGroup>
+
+After editing the Caddyfile, validate before reloading:
+
+```bash
+docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+```

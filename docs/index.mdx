@@ -1,0 +1,78 @@
+---
+title: "Feather"
+sidebarTitle: "Introduction"
+description: "A full-stack Python web framework built on Flask, Tailwind CSS, HTMX and vanilla JavaScript — with the production infrastructure already written."
+icon: "feather"
+mode: "wide"
+---
+
+Feather is a full-stack web framework built on proven technologies: **Flask** for the
+backend, **Tailwind CSS** for styling, **HTMX** for dynamic interactions, and
+**vanilla JavaScript** for complex client-side behavior.
+
+It is built with and optimized for [Claude Code](https://claude.ai/code), though it
+works with any AI coding assistant. Every project ships a `CLAUDE.md` and an identical
+`AGENTS.md` giving assistants the conventions to follow, and `feather check` enforces
+the ones that can be enforced — so an assistant can verify its own work rather than
+hoping.
+
+<CardGroup cols={2}>
+  <Card title="Install Feather" icon="download" href="/installation">
+    One `pip install`, then `feather new` from any directory.
+  </Card>
+  <Card title="Build your first app" icon="rocket" href="/quickstart">
+    Scaffold, migrate and run a working app in about five minutes.
+  </Card>
+  <Card title="Why Feather exists" icon="lightbulb" href="/why-feather">
+    The gap between Django and the SPA world, and how Feather fills it.
+  </Card>
+  <Card title="Deploy it" icon="ship" href="/deployment/overview">
+    Docker and Caddy on a single VPS, in eight files.
+  </Card>
+</CardGroup>
+
+## What's included
+
+Feather provides production-ready infrastructure so you can focus on your application.
+Every feature is optional and can be enabled during project creation or added later.
+
+| Feature | Options |
+| --- | --- |
+| **Authentication** | Google OAuth with session management, approval workflow |
+| **User Management** | Admin panel for approvals, roles, suspension |
+| **Multi-Tenancy** | Domain-based or individual tenants (B2B + B2C) |
+| **Background Jobs** | Thread pool with concurrency control, or RQ (Redis) |
+| **Caching** | Memory or Redis |
+| **File Storage** | Local filesystem or Google Cloud Storage |
+| **Email** | Resend for transactional emails |
+| **Dark Mode** | Cookie-persisted toggle on every page, including admin |
+| **Security Headers** | CSP, HSTS, X-Frame-Options, Referrer-Policy (production) |
+| **Rate Limiting** | In-memory, or Redis for distributed |
+| **Events** | Pub/sub with sync and async listeners |
+| **Error Logging** | Database-backed, tenant-scoped |
+| **Health Checks** | `/health`, `/health/live`, `/health/ready` |
+| **Request Tracking** | Unique request IDs, JSON logging |
+
+## The three-layer frontend
+
+Feather builds UIs in three layers, each solving a different problem. The mental model:
+start with Components for everything static, reach for HTMX when you need server data
+without a page reload, and only use Islands when you genuinely need client-side state.
+In practice, 90% of features can be built with just Components and HTMX.
+
+<CardGroup cols={3}>
+  <Card title="Components" icon="box" href="/ui/components">
+    Server-rendered Jinja2 macros. No JavaScript, no hydration, just HTML and CSS.
+  </Card>
+  <Card title="HTMX" icon="arrow-left-right" href="/ui/htmx">
+    Server interactions without page reloads. Forms, search, pagination, like buttons.
+  </Card>
+  <Card title="Islands" icon="component" href="/ui/islands">
+    Small JavaScript components for genuinely interactive UI with client-side state.
+  </Card>
+</CardGroup>
+
+<Note>
+  New to the framework? Read [Why Feather](/why-feather) for the reasoning behind the
+  stack, then go straight to the [Quickstart](/quickstart).
+</Note>

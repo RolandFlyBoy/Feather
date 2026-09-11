@@ -1,0 +1,81 @@
+---
+title: "File storage"
+description: "One interface over the local filesystem and Google Cloud Storage, with signed URLs and extension safety built in."
+icon: "hard-drive"
+---
+
+```bash .env
+STORAGE_BACKEND=local       # saves to ./uploads/
+
+# or Google Cloud Storage
+STORAGE_BACKEND=gcs
+GCS_BUCKET=my-bucket
+```
+
+### GCS credentials
+
+<Tabs>
+  <Tab title="Inline JSON">
+    Recommended for deployment — a single line.
+
+    ```bash .env
+    GCS_CREDENTIALS_JSON={"type":"service_account","project_id":"...","private_key":"..."}
+    ```
+  </Tab>
+  <Tab title="File path">
+    For local development.
+
+    ```bash .env
+    GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+    ```
+  </Tab>
+  <Tab title="Default credentials">
+    On GCE/GKE, or after `gcloud auth application-default login`. No extra config needed.
+  </Tab>
+</Tabs>
+
+## Usage
+
+```python
+from feather.storage import get_storage
+
+storage = get_storage()
+
+url = storage.upload(file, 'uploads/photo.jpg', content_type='image/jpeg')
+data = storage.download('uploads/photo.jpg')
+
+# local returns a path, GCS returns a signed URL
+url = storage.get_url('uploads/photo.jpg', expires_in=3600)
+
+if storage.exists('uploads/photo.jpg'):
+    storage.delete('uploads/photo.jpg')
+```
+
+## In a route
+
+```python
+from flask import request
+from feather.storage import get_storage
+
+@api.post('/upload')
+@auth_required
+def upload_file():
+    file = request.files['image']
+    storage = get_storage()
+    url = storage.upload(file, f'uploads/{current_user.id}/{file.filename}')
+    return {'url': url}
+```
+
+## Upload safety
+
+`LocalStorage` serves files from `static/`, where the browser takes the content type from
+the extension. Script-capable extensions are refused by default, so an uploaded page
+cannot run on your origin.
+
+| Key | Default |
+| --- | --- |
+| `STORAGE_BLOCKED_EXTENSIONS` | `html, htm, svg, xhtml, xml, js, mjs, php, phtml` |
+| `STORAGE_ALLOWED_EXTENSIONS` | unset |
+
+Setting the block list replaces it. The allow-list wins over the block list, so
+`STORAGE_ALLOWED_EXTENSIONS` is how you permit SVG when you genuinely need it.

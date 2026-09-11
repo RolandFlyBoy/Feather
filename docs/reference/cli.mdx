@@ -1,0 +1,140 @@
+---
+title: "CLI reference"
+description: "Every feather command, grouped by what you are doing."
+icon: "terminal"
+---
+
+## Project
+
+```bash
+feather new <name>                   # create project (interactive)
+feather new <name> --no-prompt       # use minimal defaults
+feather dev                          # dev server with Vite HMR (port 5173)
+feather dev --no-vite                # Flask only (port 5000)
+feather build                        # build assets for production
+feather start                        # production server (Gunicorn)
+feather start --workers 8            # multiple workers
+feather start --worker-class gevent  # async workers
+```
+
+## Development
+
+```bash
+feather routes                       # list all registered routes
+feather shell                        # Python shell with app context
+feather check                        # check the project against Feather's conventions
+feather check --json                 # machine-readable findings for CI
+feather check --only templates       # one group of rules
+feather check --strict               # warnings fail too
+feather components                   # every component macro with its signature
+feather components --markdown -o docs/components.md
+```
+
+## Security
+
+```bash
+feather security-check                      # audit config, cookies, secrets, dependencies
+feather security-check --json               # machine-readable output for CI
+feather security-check --env-file prod.env  # audit an env file alone
+```
+
+## Testing
+
+<CodeGroup>
+
+```bash Your app
+feather test                       # run project tests
+feather test -v                    # verbose output
+feather test --no-coverage         # skip coverage report
+feather test -p tests/test_api.py  # test a specific file
+feather test -- -k "test_user"     # pass args to pytest
+```
+
+```bash Framework contributors
+feather test --framework        # run all framework tests
+feather test -f -m unit         # run by marker
+feather test -f --fast          # skip slow tests
+feather test -f --list-markers  # show available markers
+feather test -f --clean         # clean test artifacts
+```
+
+</CodeGroup>
+
+## Database
+
+```bash
+feather db init                 # create a migrations/ directory
+feather db migrate -m "msg"     # generate migration from model changes
+feather db upgrade              # apply pending migrations
+feather db downgrade            # revert last migration
+feather db seed                 # run seeds.py
+```
+
+<Note>
+  **`feather db init` is for apps that have no `migrations/` directory.** `feather new`
+  already scaffolds one, so running it in a fresh app fails with "directory migrations
+  already exists". You need it when you add a database to an app scaffolded without one,
+  or after deleting `migrations/` to start the migration history over.
+</Note>
+
+## Code generation
+
+```bash
+feather generate model Post title:string content:text
+feather generate model Post --soft-delete    # add SoftDeleteMixin
+feather generate model Card --ordered        # add OrderingMixin
+feather generate service PostService
+feather generate island like-button
+feather generate route users --model User    # API CRUD routes
+feather generate route dashboard --page      # page route with template
+feather generate serializer UserSerializer id email
+```
+
+## Workers (RQ backend)
+
+```bash
+feather worker                  # start RQ worker (default queue)
+feather worker high default low # process specific queues, priority order
+feather worker --burst          # exit when the queue is empty
+feather worker --simple         # force SimpleWorker (no fork; default on macOS)
+feather worker --fork           # force the forking worker (default on Linux)
+feather worker --no-scheduler   # disable the delayed job scheduler
+```
+
+## Job queue (thread and RQ backends)
+
+```bash
+feather jobs status             # queue status and counts
+feather jobs list               # list all jobs
+feather jobs list --status failed
+feather jobs list --queue high  # jobs in a specific queue (RQ)
+feather jobs list --stuck       # jobs running too long (thread)
+feather jobs info <job_id>      # job details
+feather jobs failed             # failed and timed-out jobs
+feather jobs retry <job_id>     # re-queue a failed job
+feather jobs clear              # clear job history
+```
+
+## Administration (multi-tenant)
+
+```bash
+feather platform-admin <email>           # grant platform admin
+feather platform-admin <email> --revoke  # revoke platform admin
+```
+
+## Deployment
+
+```bash
+feather docker init                        # write Dockerfile, compose files, deploy/ scripts, .env.example
+feather docker init --force                # overwrite files that already exist
+feather docker init --domain example.com   # seed DOMAIN in .env.example
+feather docker init --no-worker            # skip the background-job worker service
+```
+
+## Environment
+
+```bash
+feather env check                      # which env keys config.py reads, and which are missing
+feather env check --env-file prod.env  # check a production env file
+feather env check --json               # machine-readable output for CI
+```

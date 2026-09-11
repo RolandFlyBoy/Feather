@@ -1,0 +1,85 @@
+---
+title: "Health checks"
+description: "Three endpoints registered on every app, for load balancers, Kubernetes probes and the Docker healthcheck."
+icon: "heart-pulse"
+---
+
+Feather registers these on every app. You do not write them.
+
+| Endpoint | Purpose | What it checks |
+| --- | --- | --- |
+| `/health` | Full health check | Database connectivity, app running |
+| `/health/live` | Liveness probe | The process is alive — always 200 if responding |
+| `/health/ready` | Readiness probe | The app can serve traffic — database connected |
+
+## Liveness versus readiness
+
+**Liveness** answers "is the process alive?" If this fails, the container should be
+restarted. **Readiness** answers "can it handle requests?" If this fails, stop sending
+traffic but do not restart.
+
+Example: your app is running but the database is down. Liveness passes because the
+process is alive; readiness fails because it cannot serve requests. The load balancer
+stops routing to this instance while it recovers.
+
+## Response format
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "checks": {
+    "database": "ok"
+  }
+}
+```
+
+Returns `200 OK` when healthy and `503 Service Unavailable` when not.
+
+## Wiring it up
+
+<Tabs>
+  <Tab title="Load balancer">
+    For AWS ALB, GCP and similar:
+
+    | Setting | Value |
+    | --- | --- |
+    | Health check path | `/health` |
+    | Healthy threshold | 2 |
+    | Unhealthy threshold | 3 |
+    | Interval | 30 seconds |
+  </Tab>
+  <Tab title="Kubernetes">
+    ```yaml
+    livenessProbe:
+      httpGet:
+        path: /health/live
+        port: 8000
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+    readinessProbe:
+      httpGet:
+        path: /health/ready
+        port: 8000
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    ```
+  </Tab>
+  <Tab title="Docker">
+    The generated Dockerfile already has `HEALTHCHECK ... curl /health`, and
+    `deploy/deploy.sh` waits on it before declaring a deploy finished. Most PaaS hosts
+    either detect `/health` or take it as a configured health-check path.
+  </Tab>
+</Tabs>
+
+<Tip>
+  Prefer `/health` over a hand-written route. A container with a broken `DATABASE_URL`
+  reports unhealthy instead of quietly serving 500s.
+</Tip>
+
+<Note>
+  Apps scaffolded before 0.9.7 also have a `routes/api/health.py` giving `/api/health`.
+  That route is yours, not the framework's, and it only proves the process is listening.
+  Point new health checks at `/health`.
+</Note>

@@ -1,0 +1,60 @@
+---
+title: "feather security-check"
+description: "An audit that reads like a reviewer's checklist and exits non-zero when something fails."
+icon: "shield-check"
+---
+
+`feather security-check` audits an app the way a reviewer would, and exits non-zero if
+anything fails. Run it in CI and before every deploy.
+
+```bash
+feather security-check                      # audit the current project
+feather security-check --json               # machine-readable, for CI
+feather security-check --env-file prod.env  # audit an env file without importing the app
+```
+
+## What it checks
+
+- The secret key's strength, and that it is not the development default
+- That an environment is explicitly selected and debug is off
+- Session and remember-me cookie flags
+- CSRF
+- The RQ job serializer
+- Redis URLs without a password
+- `OAUTH_CALLBACK_URL` and `TRUSTED_HOSTS`
+- Security headers
+- That `.env` is gitignored
+- That installed dependencies meet the framework's minimum versions
+
+## What to set in production
+
+Beyond a strong `SECRET_KEY`:
+
+<AccordionGroup>
+  <Accordion title="TRUSTED_HOSTS" icon="globe">
+    Set it to the hostnames you serve. Without it, a client-supplied `Host` header
+    determines your OAuth redirect URI and every external URL you generate.
+  </Accordion>
+  <Accordion title="OAUTH_CALLBACK_URL" icon="key-round">
+    Set it to the exact callback you registered with Google, `https://` and the right
+    hostname, `www` included.
+  </Accordion>
+  <Accordion title="JOB_SERIALIZER=json" icon="clock">
+    If you use RQ. Pickle payloads are code execution for anyone who can write to your
+    Redis.
+  </Accordion>
+  <Accordion title="A password on Redis" icon="database">
+    And `rediss://` if it crosses a network.
+  </Accordion>
+</AccordionGroup>
+
+## Uploads
+
+`LocalStorage` serves files from `static/`, where the browser takes the content type
+from the extension. Script-capable extensions are refused by default, so an uploaded
+page cannot run on your origin. To accept SVG, set `STORAGE_ALLOWED_EXTENSIONS` to the
+list you do want. See [File storage](/features/file-storage).
+
+<Card title="The full production checklist" icon="list-checks" href="/deployment/checklist" horizontal>
+  Everything to confirm before the first real user.
+</Card>

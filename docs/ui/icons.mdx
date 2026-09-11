@@ -1,0 +1,37 @@
+---
+title: "Icons"
+description: "Google Material Icons through a single Jinja2 macro, in four sizes."
+icon: "shapes"
+---
+
+Feather uses [Google Material Icons](https://fonts.google.com/icons) through the `icon`
+macro.
+
+```html
+{% from "components/icon.html" import icon %}
+
+{{ icon("home") }}
+{{ icon("settings", size="lg") }}
+```
+
+## Sizes
+
+| Size | Pixels |
+| --- | --- |
+| `sm` | 18px |
+| `md` (default) | 24px |
+| `lg` | 36px |
+| `xl` | 48px |
+
+## In a button
+
+The `button` macro takes an `icon` argument, so the two compose directly:
+
+```html
+{{ button("Delete", variant="danger", icon=icon("delete", size="sm")) }}
+```
+
+<Note>
+  Material Icons are loaded from Google alongside Google Fonts. Every other frontend
+  library (HTMX, Idiomorph, Apache ECharts) is bundled through npm rather than a CDN.
+</Note>

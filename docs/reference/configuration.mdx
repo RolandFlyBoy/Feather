@@ -1,0 +1,127 @@
+---
+title: "Configuration"
+description: "Every key Feather reads, with its default. Set them in config.py or the environment — config.py wins."
+icon: "sliders"
+---
+
+## The scaffolded config.py
+
+```python config.py
+import os
+
+class Config:
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
+    DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://localhost/myapp')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Session cookies (for OAuth)
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_HTTPONLY = True
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+    SESSION_COOKIE_SECURE = False   # allow HTTP
+    SESSION_PROTECTION = "basic"    # relaxed for the Vite proxy
+
+class ProductionConfig(Config):
+    DEBUG = False
+    SESSION_COOKIE_SECURE = True    # HTTPS only
+    SESSION_PROTECTION = "basic"    # marks session non-fresh on IP/UA change
+```
+
+## A typical .env
+
+```bash .env
+# Required
+SECRET_KEY=your-production-secret-key
+DATABASE_URL=postgresql://user:pass@localhost/myapp
+
+# Authentication
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+SESSION_LIFETIME_DAYS=7
+
+# Multi-tenancy
+FEATHER_MULTI_TENANT=true
+FEATHER_ALLOW_PUBLIC_EMAILS=true
+
+# Storage
+STORAGE_BACKEND=local
+GCS_BUCKET=my-bucket
+
+# Caching
+CACHE_BACKEND=memory
+CACHE_URL=redis://localhost:6379/0
+
+# Background Jobs
+JOB_BACKEND=thread
+JOB_MAX_WORKERS=4
+REDIS_URL=redis://localhost:6379/0
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+```
+
+## Core
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `SECRET_KEY` | dev key | Signs sessions. Refused outside debug if left at the default. |
+| `DATABASE_URL` | sqlite | SQLAlchemy connection string. |
+| `FLASK_CONFIG` / `FLASK_ENV` | development | Which config class to load. Accepts `production`, `prod`, `development`, `dev`, `testing`, `test`. Leaving both unset logs a warning and selects development. |
+| `SESSION_LIFETIME_DAYS` | `7` | Session expiry. |
+| `REMEMBER_COOKIE_DAYS` | `365` | Remember-me cookie lifetime. |
+| `WTF_CSRF_TIME_LIMIT` | `None` | Token lifetime. `None` means the session bounds it. |
+| `LOG_LEVEL`, `LOG_FORMAT` | `INFO`, plain | Logging. JSON is automatic in production. |
+
+## Hosting and proxies
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `TRUSTED_HOSTS` | unset | Hostnames this app answers to, comma-separated or a list. A request with any other `Host` gets 400. Set this in production. |
+| `FEATHER_PROXY_FIX` | `True` | Install ProxyFix so forwarded headers are honoured. Turn it off when nothing in front of the app normalises them. |
+| `FEATHER_PROXY_FIX_NUM` | `1` | Number of trusted proxy hops. |
+| `OAUTH_CALLBACK_URL` | unset | Pins the OAuth redirect URI. Without it the URI comes from the request Host header. |
+| `FEATHER_SECURITY_HEADERS` | `True` | Send CSP, HSTS and friends in production. |
+| `FEATHER_PERMISSIONS_POLICY` | camera and microphone denied | Permissions-Policy header value. |
+
+## Authentication and tenancy
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Google OAuth credentials. |
+| `FEATHER_MULTI_TENANT` | `False` | Enable multi-tenant mode. |
+| `FEATHER_ALLOW_PUBLIC_EMAILS` | `False` | Allow Gmail, Outlook and similar domains. |
+| `FEATHER_PRE_REGISTER_CALLBACK`, `FEATHER_POST_LOGIN_CALLBACK` | unset | Dotted paths to hooks run around sign-up and login. |
+| `SESSION_PROTECTION` | `basic` | Flask-Login session protection. |
+
+## Storage, cache and jobs
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `STORAGE_BACKEND` | `local` | `local` or `gcs`. |
+| `GCS_BUCKET` | unset | Required for the `gcs` backend. |
+| `STORAGE_BLOCKED_EXTENSIONS` | `html, htm, svg, xhtml, xml, js, mjs, php, phtml` | Extensions `LocalStorage.upload` refuses, because `static/` serves them with script-capable content types on your own origin. Setting this replaces the list. |
+| `STORAGE_ALLOWED_EXTENSIONS` | unset | Allow-list. Wins over the block list, so this is how you permit SVG. |
+| `CACHE_BACKEND`, `CACHE_URL` | `memory` | `memory` or `redis`. |
+| `JOB_BACKEND` | `thread` | `sync`, `thread` or `rq`. |
+| `JOB_MAX_WORKERS` | `4` | Thread pool size for the thread backend. |
+| `JOB_SERIALIZER` | pickle | Set to `json` for RQ. Pickle payloads are code execution for anyone who can write to Redis. |
+| `RATELIMIT_STORAGE_URI` | unset | Where Flask-Limiter keeps counters. Falls back to `REDIS_URL`, then to memory with a warning. |
+| `REDIS_URL` | unset | Required for the `rq` backend. |
+
+## Development
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `VITE_DEV_SERVER` | `http://localhost:5173` | Where debug-mode island scripts are loaded from. |
+| `FEATHER_NO_VITE` | unset | Serve built island assets instead. `feather dev --no-vite` sets it. |
+| `FEATHER_LENIENT_DISCOVERY` | `False` | Warn and continue when a `models/`, `services/` or `routes/` module fails to import, instead of failing startup. |
+| `FEATHER_NO_UPDATE_CHECK` | unset | Skip the CLI's PyPI version check. |
+
+<Tip>
+  `feather env check` reports which of these keys your `config.py` actually reads and
+  which are missing from your environment. It exits non-zero when a key with no fallback
+  is unset, so it works as a CI or deploy gate.
+</Tip>

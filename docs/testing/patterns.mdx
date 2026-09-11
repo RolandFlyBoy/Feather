@@ -1,0 +1,65 @@
+---
+title: "Testing patterns"
+description: "What to assert at each layer: HTTP behaviour in route tests, business rules in service tests, defaults in model tests."
+icon: "list-checks"
+---
+
+<Tabs>
+  <Tab title="Route tests">
+    Test HTTP behaviour — status codes, auth gates, response shape.
+
+    ```python
+    def test_list_items_requires_auth(client):
+        response = client.get('/api/items')
+        assert response.status_code == 401
+
+    def test_list_items_when_authenticated(csrf_client, authenticated_user):
+        response = csrf_client.get('/api/items')
+        assert response.status_code == 200
+        assert 'items' in response.json
+    ```
+  </Tab>
+
+  <Tab title="Service tests">
+    Test business logic directly, without going through HTTP.
+
+    ```python
+    from services import ItemService
+    from feather.exceptions import ValidationError
+    import pytest
+
+    def test_create_item_validates_name(app):
+        with app.app_context():
+            service = ItemService()
+            with pytest.raises(ValidationError):
+                service.create(name='')   # empty name should fail
+
+    def test_create_item_success(app):
+        with app.app_context():
+            service = ItemService()
+            item = service.create(name='Valid Name')
+            assert item.id is not None
+    ```
+  </Tab>
+
+  <Tab title="Model tests">
+    Test the data layer — mixin behaviour, defaults, constraints.
+
+    ```python
+    def test_item_defaults(app):
+        with app.app_context():
+            item = Item(name='Test')
+            db.session.add(item)
+            db.session.commit()
+
+            assert item.id is not None
+            assert item.created_at is not None
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Because routes stay thin and services hold the logic, most of your assertions belong in
+  service tests. Route tests then only need to prove the wiring: the right decorator, the
+  right status code, the right key in the response.
+</Tip>

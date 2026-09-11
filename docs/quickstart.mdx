@@ -1,0 +1,89 @@
+---
+title: "Quickstart"
+description: "Scaffold a Feather project, set up the database and get the dev server running with hot reload."
+icon: "rocket"
+---
+
+<Steps>
+  <Step title="Create a new project" icon="folder-plus">
+    ```bash
+    feather new myapp
+    ```
+
+    You are prompted for the app type first:
+
+    | App type | Database | Auth | Description |
+    | --- | --- | --- | --- |
+    | `simple` (default) | Ask (default: none) | No | Static pages, minimal setup |
+    | `single-tenant` | Ask (default: SQLite) | Yes | One organization, user accounts |
+    | `multi-tenant` | PostgreSQL (required) | Yes | Multiple organizations (SaaS) |
+
+    Then about optional features:
+
+    - **Background jobs** — thread pool by default, optionally Redis
+    - **Auto-approve users** — immediately activate new signups (authenticated apps only)
+    - **Caching** — memory cache for development, optionally Redis for production
+    - **File storage** — local filesystem for development, optionally GCS for production
+    - **Email** — Resend for transactional emails (authenticated apps only)
+    - **Display name field** — optional `display_name` on the User model (authenticated apps only)
+    - **Admin email** — creates your initial admin user (authenticated apps only)
+
+    <Tip>
+      `feather new myapp --no-prompt` skips every question and uses minimal defaults.
+    </Tip>
+  </Step>
+
+  <Step title="Set up the database" icon="database">
+    Migrations are manual so you can review the models first.
+
+    ```bash
+    cd myapp
+    source venv/bin/activate
+
+    feather db migrate -m "Initial migration"
+    feather db upgrade
+    python seeds.py            # creates the admin user if auth is enabled
+    ```
+  </Step>
+
+  <Step title="Start the dev server" icon="play">
+    ```bash
+    feather dev
+    ```
+
+    Open [http://localhost:5173](http://localhost:5173). Vite handles frontend assets
+    with hot module replacement, and Flask runs on port 5000 behind the proxy. CSS and
+    JavaScript changes are instant; template and Python changes trigger a reload.
+
+    <Warning>
+      **Using background jobs with the thread backend?** Set `FLASK_DEBUG=0` in `.env`.
+      Flask's auto-reloader kills background threads on every file change. Use
+      `JOB_BACKEND=sync` during development if you need debug mode.
+    </Warning>
+  </Step>
+</Steps>
+
+## What you get
+
+Every Feather project includes a `CLAUDE.md` and an `AGENTS.md` with the same content,
+written together so they cannot drift, plus a `.claude/settings.json` that pre-approves
+the read-only commands an assistant needs.
+
+They are a starting point — add your project's own domain rules and preferences as the
+app grows. What makes them useful is that the rules are checkable:
+
+```bash
+feather check        # are the conventions being followed?
+feather components   # what arguments does this macro take?
+feather routes       # what is actually registered?
+feather test         # does it still work?
+```
+
+<CardGroup cols={2}>
+  <Card title="Project structure" icon="folder-tree" href="/project-structure">
+    Where every file goes, and what auto-discovery expects.
+  </Card>
+  <Card title="Working with AI assistants" icon="bot" href="/ai-assistants">
+    How the conventions files and `feather check` fit together.
+  </Card>
+</CardGroup>

@@ -1,0 +1,67 @@
+---
+title: "Services"
+description: "Business logic with transactions handled by a decorator, pagination helpers and singletons for expensive setup."
+icon: "cog"
+---
+
+Services contain business logic. Keep routes thin, services fat.
+
+```python services/user_service.py
+from feather import Service, transactional
+from feather.exceptions import ValidationError, ConflictError
+from feather.db import paginate
+from models import User
+
+class UserService(Service):
+    @transactional  # auto-commits on success, rolls back on exception
+    def create(self, email: str, username: str) -> User:
+        if not email or '@' not in email:
+            raise ValidationError('Valid email required', field='email')
+
+        if User.query.filter_by(email=email).first():
+            raise ConflictError('Email already registered')
+
+        user = User(email=email, username=username)
+        self.db.add(user)
+        return user
+
+    def list_paginated(self, page: int = 1, per_page: int = 20):
+        query = User.query.order_by(User.created_at.desc())
+        return paginate(query, page=page, per_page=per_page)
+```
+
+## Transactions
+
+`@transactional` commits when the method returns and rolls back when it raises. Because
+[exceptions](/backend/exceptions) already map to HTTP responses, a validation failure
+rolls back the transaction and returns a 400 without any explicit handling.
+
+## Injecting a service into a route
+
+```python
+@api.post('/users')
+@inject(UserService)
+def create_user(user_service, email: str, username: str):
+    user = user_service.create(email=email, username=username)
+    return {'user': user}, 201
+```
+
+## Singleton services
+
+For expensive initialization you want to happen once rather than per request:
+
+```python
+from feather.services import singleton, Service
+
+@singleton
+class CacheService(Service):
+    def __init__(self):
+        super().__init__()
+        self.cache = {}  # shared across all requests
+```
+
+## Generating a service
+
+```bash
+feather generate service PostService
+```

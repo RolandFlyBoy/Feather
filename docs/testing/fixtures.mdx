@@ -1,0 +1,67 @@
+---
+title: "Fixtures"
+description: "Two test clients, one of them CSRF-aware, and how to add your own fixtures for common test data."
+icon: "plug"
+---
+
+The scaffolded `conftest.py` provides two test clients.
+
+| Fixture | Use for | CSRF handling |
+| --- | --- | --- |
+| `client` | GET requests, public endpoints | Not needed |
+| `csrf_client` | POST, PUT, DELETE requests | Automatic |
+
+```python
+def test_public_page(client):
+    """GET requests use the basic client."""
+    response = client.get('/health')
+    assert response.status_code == 200
+
+def test_create_item(csrf_client):
+    """POST/PUT/DELETE use csrf_client — the token is automatic."""
+    response = csrf_client.post('/api/items', json={'name': 'Test'})
+    assert response.status_code == 201
+```
+
+<Note>
+  **Why two clients?** Feather enables CSRF protection by default. The `csrf_client`
+  fixture fetches and includes the token, so your tests do not have to handle it
+  manually.
+</Note>
+
+## Adding your own
+
+Extend `conftest.py` for data several tests need.
+
+```python tests/conftest.py
+import pytest
+from models import User, Item
+
+@pytest.fixture
+def authenticated_user(app):
+    """Create and login a test user."""
+    with app.app_context():
+        user = User(email='test@example.com', active=True)
+        db.session.add(user)
+        db.session.commit()
+
+        with app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess['_user_id'] = user.id
+            yield client
+
+@pytest.fixture
+def sample_items(app):
+    """Create sample items for testing."""
+    with app.app_context():
+        items = [Item(name=f'Item {i}') for i in range(3)]
+        db.session.add_all(items)
+        db.session.commit()
+        return items
+```
+
+<Warning>
+  A fixture that holds one `app.app_context()` open across requests from several test
+  clients resolves every request to the first user loaded. See
+  [Test database](/testing/database) for why, and the shape that avoids it.
+</Warning>
