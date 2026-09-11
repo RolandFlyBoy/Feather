@@ -594,12 +594,61 @@ CHECKS = {
 }
 
 
+#: Marks a line the author has decided the rule should not apply to.
+#: `feather: allow <rule>` on the offending line or the one above it, in
+#: whatever comment syntax the file already uses.
+ALLOW_RE = re.compile(
+    r"feather:\s*allow\s+(?P<rules>[a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)"
+    r"(?:\s*[-\u2014:]\s*(?P<reason>.+?))?\s*(?:\*/|-->|#\}|$)",
+    re.IGNORECASE,
+)
+
+
+def suppressed_rules(lines: list, line_number: int) -> set:
+    """Rules allowed at `line_number` by a marker on it or the line above.
+
+    A rule with no way to say "not here" is a rule people turn off
+    altogether, and a blanket disable loses the other ninety per cent. Some
+    violations are the right answer: a progress bar whose width is per-row
+    data cannot move to a stylesheet, and rendering it from JavaScript trades
+    a lint error for a flash of empty bar.
+    """
+    allowed = set()
+    for index in (line_number - 1, line_number - 2):
+        if 0 <= index < len(lines):
+            match = ALLOW_RE.search(lines[index])
+            if match:
+                allowed.update(
+                    rule.strip().lower()
+                    for rule in match.group("rules").split(",")
+                )
+    return allowed
+
+
+def apply_suppressions(findings: list) -> list:
+    """Drop findings whose line carries a matching allow marker."""
+    kept = []
+    cache = {}
+    for finding in findings:
+        path = finding.path
+        if path not in cache:
+            try:
+                cache[path] = path.read_text(errors="ignore").splitlines()
+            except OSError:
+                cache[path] = []
+        if finding.rule.lower() in suppressed_rules(cache[path], finding.line):
+            continue
+        kept.append(finding)
+    return kept
+
+
 def run_checks(root: Path, only: Optional[str] = None) -> list:
     findings = []
     for name, fn in CHECKS.items():
         if only and name != only:
             continue
         findings.extend(fn(root))
+    findings = apply_suppressions(findings)
     findings.sort(key=lambda f: (str(f.path), f.line))
     return findings
 

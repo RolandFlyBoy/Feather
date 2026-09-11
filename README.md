@@ -1921,6 +1921,23 @@ step. A route that is deliberately public is exempted with a
 `# feather: public` comment in its module, which records the decision rather
 than hiding it.
 
+**When a rule is wrong about a line**, say so on that line or the one above
+it, in whatever comment syntax the file already uses:
+
+```html
+{# feather: allow inline-style — width comes from per-row data #}
+<div class="campaign-bar-fill" style="width: {{ pct }}%"></div>
+```
+
+The marker takes a comma-separated list of rules and applies to that line
+only, so the rest of the file stays covered. A rule with no way to say "not
+here" is one people turn off altogether, and a blanket disable costs far
+more than the exception it was reaching for. The bar above is the honest
+case: a width that is data cannot move to a stylesheet, and setting it from
+JavaScript trades a lint error for a flash of empty bar on every render.
+Write the reason after a dash; the marker is a decision, and the next person
+should be able to see what it was.
+
 ### Component Catalogue
 
 Never guess a macro's arguments. `feather components` reads them from the

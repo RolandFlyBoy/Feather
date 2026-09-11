@@ -10,6 +10,25 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.11 (2026-09-11) — a way to say "not here"
+
+- **`feather check` takes a `feather: allow <rule>` marker** on the
+  offending line or the one above it, in whatever comment syntax the file
+  already uses, scoped to that line and accepting a comma-separated list.
+
+  ```html
+  {# feather: allow inline-style — width comes from per-row data #}
+  <div class="campaign-bar-fill" style="width: {{ pct }}%"></div>
+  ```
+
+  Some violations are the right answer. A progress bar whose width is
+  per-row data cannot move to a stylesheet, and setting it from JavaScript
+  trades a lint error for a flash of empty bar on every render. Until now
+  the only way past that was to stop running the check, which costs every
+  other rule it enforces. Write the reason after a dash: the marker records
+  a decision, and the point is that the next person can see what it was.
+
+
 ## 0.9.10 (2026-09-11) — the checkers tell the truth
 
 Every fix here came out of upgrading the two apps this framework runs from
