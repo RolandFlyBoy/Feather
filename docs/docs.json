@@ -8,6 +8,9 @@
     "light": "#60a5fa",
     "dark": "#1d4ed8"
   },
+  "icons": {
+    "library": "lucide"
+  },
   "favicon": "/favicon.svg",
   "logo": {
     "light": "/logo/light.svg",
@@ -15,16 +18,26 @@
     "href": "https://www.featherframework.org"
   },
   "fonts": {
-    "heading": { "family": "DM Sans" },
-    "body": { "family": "Inter" }
+    "heading": {
+      "family": "DM Sans"
+    },
+    "body": {
+      "family": "Inter"
+    }
   },
   "appearance": {
     "default": "system"
   },
   "navbar": {
     "links": [
-      { "label": "Website", "href": "https://www.featherframework.org" },
-      { "label": "PyPI", "href": "https://pypi.org/project/feather-framework/" }
+      {
+        "label": "Website",
+        "href": "https://www.featherframework.org"
+      },
+      {
+        "label": "PyPI",
+        "href": "https://pypi.org/project/feather-framework/"
+      }
     ],
     "primary": {
       "type": "github",
@@ -40,17 +53,35 @@
       {
         "header": "Documentation",
         "items": [
-          { "label": "Quickstart", "href": "https://docs.featherframework.org/quickstart" },
-          { "label": "CLI reference", "href": "https://docs.featherframework.org/reference/cli" },
-          { "label": "Configuration", "href": "https://docs.featherframework.org/reference/configuration" }
+          {
+            "label": "Quickstart",
+            "href": "https://docs.featherframework.org/quickstart"
+          },
+          {
+            "label": "CLI reference",
+            "href": "https://docs.featherframework.org/reference/cli"
+          },
+          {
+            "label": "Configuration",
+            "href": "https://docs.featherframework.org/reference/configuration"
+          }
         ]
       },
       {
         "header": "Project",
         "items": [
-          { "label": "GitHub", "href": "https://github.com/RolandFlyBoy/Feather" },
-          { "label": "PyPI", "href": "https://pypi.org/project/feather-framework/" },
-          { "label": "Changelog", "href": "https://github.com/RolandFlyBoy/Feather/blob/main/CHANGELOG.md" }
+          {
+            "label": "GitHub",
+            "href": "https://github.com/RolandFlyBoy/Feather"
+          },
+          {
+            "label": "PyPI",
+            "href": "https://pypi.org/project/feather-framework/"
+          },
+          {
+            "label": "Changelog",
+            "href": "https://github.com/RolandFlyBoy/Feather/blob/main/CHANGELOG.md"
+          }
         ]
       }
     ]
@@ -59,6 +90,7 @@
     "tabs": [
       {
         "tab": "Documentation",
+        "icon": "book-open",
         "groups": [
           {
             "group": "Get started",
@@ -152,6 +184,7 @@
       },
       {
         "tab": "Reference",
+        "icon": "book-marked",
         "groups": [
           {
             "group": "Reference",
@@ -167,10 +200,11 @@
       },
       {
         "tab": "Tutorials",
+        "icon": "graduation-cap",
         "groups": [
           {
             "group": "Kanban series",
-            "icon": "graduation-cap",
+            "icon": "list-ordered",
             "pages": [
               "tutorials/index"
             ]
