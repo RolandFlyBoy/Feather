@@ -10,6 +10,56 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.10 (2026-09-11) — the checkers tell the truth
+
+Every fix here came out of upgrading the two apps this framework runs from
+0.9.0 and 0.9.5 to 0.9.9. Three of the four are cases where a command
+reported confidently on something other than what it was asked about, which
+is worse than not reporting: the first one cost an afternoon before anyone
+doubted the tool rather than the app.
+
+Fixed
+
+- **`feather security-check --env-file X` audited `.env` instead of X.**
+  Importing anything under `feather.cli` loads the project's `.env` into the
+  process environment as a side effect, and two checks consulted the
+  environment ahead of the settings they were handed. Auditing production
+  from a developer's checkout therefore announced that production's
+  `SECRET_KEY` was the development default and its debugger was on. Both
+  were false. The merged settings answer first now, with the environment as
+  the fallback so that app mode keeps working: there the settings are the
+  live `app.config`, which carries no `FLASK_ENV`.
+- **`feather check` failed on `<script type="application/json">`.** A data
+  island carries no executable code and is the supported way to hand server
+  data to a module; import maps and template elements are the same. They are
+  no longer inline scripts. Real inline code still is, `type="module"`
+  included.
+- **`feather test` ran whichever `pytest` came first on `PATH`.** In a shell
+  with another project's virtualenv active that was the other project's
+  pytest, which failed on imports belonging to neither app, so the error
+  read as this app's problem. The project's own virtualenv wins now,
+  matching the `venv/bin/python -m pytest` that app docs already recommend.
+- **`feather env check` listed forgotten keys and deliberately-empty ones
+  together.** A key read as `os.environ.get("X")` cannot raise, so some of
+  them are keys where `None` is the right answer. The output now names the
+  explicit form that says so.
+- A generated app passes its own `feather check`. Two scaffolded templates
+  used inline styles, so a new project reported two errors against code it
+  had not touched.
+
+Documentation
+
+- A single **Upgrading** section: the sequence once, the two changes that
+  account for most breakage (extras, and the Tailwind source path that fails
+  silently), and a table of what to grep for with the reason beside it.
+
+Upgrade notes
+
+- Drop-in from 0.9.9. `feather check` may now report fewer errors, and
+  `feather security-check --env-file` may report different results, because
+  the previous ones were wrong.
+
+
 ## 0.9.9 (2026-09-10) — real rate limiting in scaffolded apps
 
 Additive. Nothing an existing app does changes; the new behaviour only
