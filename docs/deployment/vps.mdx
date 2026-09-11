@@ -4,8 +4,8 @@ description: "From a fresh Ubuntu box to a live HTTPS site, and what the deploy 
 icon: "server"
 ---
 
-Any Ubuntu 24.04 box works — Hetzner, DigitalOcean, Vultr. Four vCPU and 8 GB is
-comfortable for an app plus its database.
+Any Ubuntu 24.04 box works, whether Hetzner, DigitalOcean or Vultr. Four vCPU and 8 GB is
+comfortable for an app and its database.
 
 <Steps>
   <Step title="Point DNS at the server" icon="globe">
@@ -64,18 +64,18 @@ comfortable for an app plus its database.
     ```
 
     <Note>
-      `docker-compose.yml` reads `DOMAIN` and `POSTGRES_PASSWORD` itself for
-      interpolation, and passes the whole file into the containers with `env_file: .env`.
-      So `POSTGRES_PASSWORD` is written once and `DATABASE_URL` is built from it.
+      `docker-compose.yml` reads `DOMAIN` and `POSTGRES_PASSWORD` itself for interpolation,
+      and passes the whole file into the containers with `env_file: .env`. So
+      `POSTGRES_PASSWORD` is written once and `DATABASE_URL` is built from it.
 
-      Do not set `FLASK_CONFIG`, `PORT`, `WEB_CONCURRENCY`, `DATABASE_URL`, `REDIS_URL`
-      or `JOB_BACKEND` here. Compose sets those on the container, and a duplicate in
-      `.env` only creates a way for them to disagree.
+      Leave `FLASK_CONFIG`, `PORT`, `WEB_CONCURRENCY`, `DATABASE_URL`, `REDIS_URL` and
+      `JOB_BACKEND` out of this file. Compose sets them on the container, and a duplicate
+      here only creates a way for the two to disagree.
     </Note>
 
-    Run `feather env check` to see which keys your `config.py` actually reads and which
-    are still missing. It exits non-zero when a key that has no fallback is unset, so it
-    works as a CI or deploy gate.
+    Run `feather env check` to see which keys your `config.py` reads and which are still
+    missing. It exits non-zero when a key with no fallback is unset, so it works as a CI or
+    deploy gate.
   </Step>
 
   <Step title="Deploy" icon="rocket">
@@ -98,33 +98,33 @@ comfortable for an app plus its database.
 
 In order:
 
-1. **`docker compose build`** — every service. Web and worker are separate images even
-   though they share a Dockerfile; building only `web` leaves the worker running last
-   week's code.
-2. **`docker compose up -d db redis`** — dependencies first, so the migration step has
+1. **`docker compose build`** builds every service. Web and worker are separate images
+   despite sharing a Dockerfile, and building only `web` leaves the worker on last week's
+   code.
+2. **`docker compose up -d db redis`** starts dependencies, so the migration step has
    something to talk to.
-3. **`docker compose run --rm web feather db upgrade`** — migrations, once, in a
-   throwaway container built from the *new* image. The old containers are still serving
-   while this runs, so a migration that fails leaves the site up.
-4. **`docker compose up -d --remove-orphans`** — swap the containers.
+3. **`docker compose run --rm web feather db upgrade`** runs migrations once, in a
+   throwaway container built from the *new* image. The old containers keep serving while
+   this happens, so a failed migration leaves the site up.
+4. **`docker compose up -d --remove-orphans`** swaps the containers.
 5. **Wait for health.** It polls Docker's health status for the `web` container, which
-   runs `curl /health`, which checks the database, for up to 120 seconds. Healthy: prune
-   dangling images and exit 0. Unhealthy or timed out: dump the last 50 log lines and
-   exit 1.
+   runs `curl /health`, which checks the database, for up to 120 seconds. On success it
+   prunes dangling images and exits 0. On failure or timeout it dumps the last 50 log lines
+   and exits 1.
 
 <Note>
-  The ordering is the whole point. Migrations run exactly once, against the image about
-  to serve traffic, before any long-lived container starts. Two web containers can never
-  race on the same Alembic upgrade, and a migration failure is not a partial deploy.
+  The ordering is what matters. Migrations run exactly once, against the image about to
+  serve traffic, before any long-lived container starts. Two web containers can never race
+  on the same Alembic upgrade, and a failed migration is never a partial deploy.
 </Note>
 
 ## Rolling back
 
-There is no automatic rollback. If a deploy goes bad, check out the previous commit and
-run `./deploy/deploy.sh` again. Migrations already applied are not reverted, so undo
-those deliberately with `feather db downgrade`.
+There is no automatic rollback. If a deploy goes wrong, check out the previous commit and
+run `./deploy/deploy.sh` again. Migrations already applied are not reverted, so undo those
+deliberately with `feather db downgrade`.
 
-Confirm what the database is actually at:
+To confirm where the database actually is:
 
 ```bash
 docker compose exec -T db psql -U myapp -d myapp -c "SELECT version_num FROM alembic_version;"
@@ -132,8 +132,8 @@ docker compose exec -T db psql -U myapp -d myapp -c "SELECT version_num FROM ale
 
 ## TLS and the proxy headers
 
-Caddy obtains and renews Let's Encrypt certificates automatically for every hostname in
-`deploy/Caddyfile`. There is nothing to run, no certbot cron, no renewal to forget.
+Caddy obtains and renews Let's Encrypt certificates for every hostname in
+`deploy/Caddyfile`. There is nothing to run, no certbot cron, and no renewal to forget.
 
 ```caddy deploy/Caddyfile
 {$DOMAIN} {
@@ -146,7 +146,7 @@ Caddy obtains and renews Let's Encrypt certificates automatically for every host
 ```
 
 `{$DOMAIN}` comes from `.env` via compose. To serve `www` as well, add a second block. A
-certificate is issued for each hostname that appears in the file.
+certificate is issued for each hostname in the file.
 
 ```caddy
 www.example.com {
@@ -159,13 +159,12 @@ www.example.com {
 <AccordionGroup>
   <Accordion title="X-Forwarded-Proto and Host" icon="shield">
     Caddy sets these by default and Feather's ProxyFix reads them. Without them Google
-    OAuth builds an `http://` redirect URI and secure session cookies are dropped on
-    every response.
+    OAuth builds an `http://` redirect URI, and secure session cookies are dropped on every
+    response.
   </Accordion>
   <Accordion title="X-Real-IP" icon="map-pin">
-    Caddy does **not** set this one, which is why the generated config does. Rate
-    limiting and any geo logic read it, and when it goes missing they fail silently
-    rather than loudly.
+    Caddy does **not** set this one, which is why the generated config does. Rate limiting
+    and any geo logic read it, and they fail silently when it is missing.
   </Accordion>
 </AccordionGroup>
 

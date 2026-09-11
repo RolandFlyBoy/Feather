@@ -16,7 +16,7 @@ GCS_BUCKET=my-bucket
 
 <Tabs>
   <Tab title="Inline JSON">
-    Recommended for deployment — a single line.
+    Recommended for deployment, since it fits on one line.
 
     ```bash .env
     GCS_CREDENTIALS_JSON={"type":"service_account","project_id":"...","private_key":"..."}
@@ -30,7 +30,7 @@ GCS_BUCKET=my-bucket
     ```
   </Tab>
   <Tab title="Default credentials">
-    On GCE/GKE, or after `gcloud auth application-default login`. No extra config needed.
+    On GCE or GKE, or after `gcloud auth application-default login`. Nothing else to set.
   </Tab>
 </Tabs>
 
@@ -77,5 +77,5 @@ cannot run on your origin.
 | `STORAGE_BLOCKED_EXTENSIONS` | `html, htm, svg, xhtml, xml, js, mjs, php, phtml` |
 | `STORAGE_ALLOWED_EXTENSIONS` | unset |
 
-Setting the block list replaces it. The allow-list wins over the block list, so
-`STORAGE_ALLOWED_EXTENSIONS` is how you permit SVG when you genuinely need it.
+Setting the block list replaces it. The allow-list wins over the block list, which is how
+you permit SVG when you need it.

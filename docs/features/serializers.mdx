@@ -54,9 +54,9 @@ class UserSerializer(Serializer):
 | `IntegerField()` | Coerce to integer |
 | `FloatField()` | Coerce to float |
 | `BooleanField()` | Coerce to boolean |
-| `DateTimeField(format=None)` | Format datetime, default ISO 8601 |
+| `DateTimeField(format=None)` | Format datetime, ISO 8601 by default |
 | `NestedField(serializer, many=False)` | Nested object or collection |
-| `MethodField()` | Computed via a `get_<field_name>()` method |
+| `MethodField()` | Computed by a `get_<field_name>()` method |
 
 ## Generating one
 
@@ -64,5 +64,5 @@ class UserSerializer(Serializer):
 feather generate serializer UserSerializer id email created_at
 ```
 
-This writes exactly the shape above, including the `Meta` block and a commented example
-of a computed field.
+That writes the shape above, including the `Meta` block and a commented example of a
+computed field.

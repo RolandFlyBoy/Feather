@@ -5,7 +5,7 @@ icon: "zap"
 ---
 
 ```bash .env
-CACHE_BACKEND=memory       # in-memory: single process, resets on restart
+CACHE_BACKEND=memory       # in-memory, single process, cleared on restart
 # or
 CACHE_BACKEND=redis        # shared across processes, persistent
 CACHE_URL=redis://localhost:6379/0
@@ -14,7 +14,7 @@ CACHE_DEFAULT_TTL=300      # seconds
 
 ## Caching function results
 
-Results are cached by the function's arguments, so each distinct call gets its own entry.
+Results are keyed by the function's arguments, so each distinct call gets its own entry.
 
 ```python
 from feather import cached
@@ -23,8 +23,8 @@ from feather import cached
 def get_user_stats(user_id):
     return calculate_stats(user_id)
 
-stats = get_user_stats(123)   # first call: executes
-stats = get_user_stats(123)   # second call: cached
+stats = get_user_stats(123)   # first call executes
+stats = get_user_stats(123)   # second call returns the cached value
 
 get_user_stats.invalidate(user_id=123)   # invalidate when data changes
 ```
@@ -53,9 +53,8 @@ def dashboard():
 ```
 
 <Warning>
-  `cache_response` varies on the current user by default. On a genuinely public page
-  pass `vary_on_user=False`, or every visitor gets their own copy of an identical
-  response.
+  `cache_response` varies on the current user by default. On a genuinely public page pass
+  `vary_on_user=False`, or every visitor stores a separate copy of an identical response.
 </Warning>
 
 ## Direct access
@@ -71,6 +70,6 @@ cache.delete('key')
 
 <Note>
   The `memory` backend is per-process. Under `gunicorn --workers 4` each worker keeps its
-  own cache, so a hit rate looks worse than it is and invalidation reaches only one
-  worker. Use `redis` whenever you run more than one process.
+  own cache, so hit rates look worse than they are and invalidation reaches one worker
+  only. Use `redis` whenever you run more than one process.
 </Note>

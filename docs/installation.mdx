@@ -1,6 +1,6 @@
 ---
 title: "Installation"
-description: "Install the Feather CLI and check you have the prerequisites for the kind of app you are building."
+description: "Install the Feather CLI, and check the prerequisites for the kind of app you are building."
 icon: "download"
 ---
 
@@ -11,15 +11,15 @@ icon: "download"
     | Requirement | Why |
     | --- | --- |
     | **Python 3.11+** | The runtime |
-    | **Node.js 22+** | Vite 7 (build tooling) and Tailwind CSS |
+    | **Node.js 22+** | Vite 7 build tooling and Tailwind CSS |
     | **pipx** | Installing the Feather CLI globally |
   </Tab>
   <Tab title="Simple apps">
-    No auth, prototypes, internal tools.
+    Prototypes, internal tools, anything without auth.
 
     | Requirement | Why |
     | --- | --- |
-    | **SQLite** | Works out of the box, no setup required |
+    | **SQLite** | Works out of the box, no setup |
   </Tab>
   <Tab title="Production apps">
     Auth, multi-tenant, background jobs.
@@ -27,10 +27,10 @@ icon: "download"
     | Requirement | Why |
     | --- | --- |
     | **PostgreSQL** | Required for multi-tenant apps, recommended for anything with auth |
-    | **Google Cloud credentials** | OAuth — the free tier works fine |
+    | **Google Cloud credentials** | OAuth. The free tier is enough |
     | **Redis** (optional) | Distributed caching and persistent job queues |
     | **Google Cloud Storage** (optional) | File uploads in production |
-    | **Resend** (optional) | Transactional emails |
+    | **Resend** (optional) | Transactional email |
   </Tab>
 </Tabs>
 
@@ -56,21 +56,20 @@ feather test --framework
 
 </CodeGroup>
 
-That is all you need to run `feather new`. You can now run it from any directory.
+That is everything `feather new` needs. You can run it from any directory.
 
 ## Extras and reproducible builds
 
-The generated project's `requirements.txt` names the [extras](/deployment/overview)
-your answers enabled, pinned to the version that generated it, so builds are
-reproducible:
+The generated project's `requirements.txt` names the [extras](/deployment/overview) your
+answers enabled, pinned to the version that generated it:
 
 ```text requirements.txt
 feather-framework[postgres,redis,prod,test]==0.9.8
 ```
 
 <Note>
-  Importing a feature whose extra is missing raises an error naming the exact install
-  command, rather than an import traceback.
+  Importing a feature whose extra is missing raises an error naming the install command
+  to run, rather than an import traceback.
 </Note>
 
 <Card title="Next: create your first app" icon="rocket" href="/quickstart" horizontal>

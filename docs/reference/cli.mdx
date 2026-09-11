@@ -71,10 +71,10 @@ feather db seed                 # run seeds.py
 ```
 
 <Note>
-  **`feather db init` is for apps that have no `migrations/` directory.** `feather new`
-  already scaffolds one, so running it in a fresh app fails with "directory migrations
-  already exists". You need it when you add a database to an app scaffolded without one,
-  or after deleting `migrations/` to start the migration history over.
+  **`feather db init` is for apps with no `migrations/` directory.** `feather new` already
+  scaffolds one, so running it in a fresh app fails with "directory migrations already
+  exists". You need it when you add a database to an app scaffolded without one, or after
+  deleting `migrations/` to restart the migration history.
 </Note>
 
 ## Code generation

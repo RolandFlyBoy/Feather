@@ -4,8 +4,8 @@ description: "Every macro's real signature, read from the macros themselves."
 icon: "box"
 ---
 
-Never guess a macro's arguments. `feather components` reads them from the macros
-themselves, so it is right even when documentation is not.
+`feather components` reads macro arguments from the macros themselves, so it stays
+accurate as they change.
 
 ```bash
 feather components                                  # signatures and import lines
@@ -16,19 +16,19 @@ feather components --markdown -o docs/components.md
 ## Your components too
 
 Components your app defines under `templates/components/` are listed alongside the
-framework's. One that shares a filename with a framework component is marked as
-overriding it, which is how the template loader resolves it at runtime.
+framework's. One sharing a filename with a framework component is marked as overriding
+it, which is how the template loader resolves it at runtime.
 
 <Tip>
-  This is the command to point an AI assistant at before it writes a template. The
-  [component reference](/ui/components) in these docs lists the framework macros, but
-  `feather components` also knows about yours.
+  Point an AI assistant at this command before it writes a template. The
+  [component reference](/ui/components) covers the framework macros, but this covers
+  yours as well.
 </Tip>
 
 ## In your own docs
 
-The `--markdown` flag writes a catalogue file you can commit, so a reviewer reading a
-pull request sees the same signatures without running anything.
+The `--markdown` flag writes a catalogue file you can commit, so a reviewer reading a pull
+request sees the same signatures without running anything.
 
 ```bash
 feather components --markdown -o docs/components.md

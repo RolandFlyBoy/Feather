@@ -4,8 +4,7 @@ description: "WeasyPrint turns HTML and CSS into PDFs, so document layout uses t
 icon: "file-text"
 ---
 
-WeasyPrint ships with the `pdf` extra. It converts HTML and CSS to PDF, letting you use
-familiar web technologies for document layout.
+WeasyPrint ships with the `pdf` extra and converts HTML and CSS to PDF.
 
 ```bash
 pip install "feather-framework[pdf]"
@@ -47,8 +46,8 @@ def generate_report(title, data):
 ```
 
 <Tip>
-  Render the HTML with a Jinja2 template instead of an f-string once the document grows
-  past a few elements. You get the same escaping and partials as the rest of your views.
+  Move to a Jinja2 template once the document grows past a few elements. You get the same
+  escaping and partials as the rest of your views.
 </Tip>
 
 ## Saving to storage
@@ -71,7 +70,7 @@ def download_report(id):
 
 ## Generating in the background
 
-PDF rendering is slow enough to be worth moving off the request.
+Rendering is slow enough to be worth moving off the request.
 
 ```python
 from feather import job

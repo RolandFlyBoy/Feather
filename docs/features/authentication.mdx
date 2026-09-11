@@ -1,25 +1,24 @@
 ---
 title: "Authentication"
-description: "Google OAuth with no passwords to store, approval workflows, roles, permissions and callbacks for custom onboarding."
+description: "Google OAuth with no passwords to store, approval workflows, roles, permissions, and callbacks for custom onboarding."
 icon: "key-round"
 ---
 
-Feather uses **Google OAuth** — no passwords to store, no signup forms to build. The
-same flow handles login and registration: users click "Sign in with Google", authorize
-the app, and Feather creates their account if it does not exist. This eliminates the
-entire signup, login and forgot-password complexity that traditional auth requires.
+Feather authenticates with **Google OAuth**, so there are no passwords to store and no
+signup form to build. One flow covers both login and registration: the user authorizes
+the app, and Feather creates their account if it does not exist. That removes the whole
+signup, login and password-reset surface.
 
 <Note>
-  Google OAuth is the default, but the architecture extends to other OAuth providers
-  (GitHub, Microsoft) by adding additional blueprints.
+  Google is the default. The architecture extends to other OAuth providers, such as GitHub
+  or Microsoft, by adding blueprints.
 </Note>
 
 ## Setup
 
 <Steps>
   <Step title="Create OAuth credentials">
-    Create them at the
-    [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+    In the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
   </Step>
   <Step title="Add the redirect URI">
     `http://localhost:5173/auth/google/callback` for development, or your production URL.
@@ -47,7 +46,7 @@ entire signup, login and forgot-password complexity that traditional auth requir
 | Route | Description |
 | --- | --- |
 | `/auth/google/login` | Start the OAuth flow |
-| `/auth/google/callback` | OAuth callback (automatic) |
+| `/auth/google/callback` | OAuth callback, handled for you |
 | `/auth/logout` | End session |
 
 ```html
@@ -61,25 +60,24 @@ entire signup, login and forgot-password complexity that traditional auth requir
 
 ## Approval workflows
 
-When users first authenticate, Feather can either auto-approve them or hold them for
-admin review.
+New users can be approved automatically or held for admin review.
 
 | Workflow | CLI option | Best for |
 | --- | --- | --- |
-| Manual approval (default) | Auto-approve new user signups? → No | Internal tools, B2B apps, invite-only |
-| Auto-approve | Auto-approve new user signups? → Yes | Consumer apps, open registration |
+| Manual approval (default) | Auto-approve new user signups? No | Internal tools, B2B apps, invite-only |
+| Auto-approve | Auto-approve new user signups? Yes | Consumer apps, open registration |
 
-**Manual approval** creates new users in a suspended state. They see a pending-approval
-page until an admin approves them in the [admin panel](/features/admin-panel). This
-prevents drive-by signups and gives you explicit control over who uses the application.
+**Manual approval** creates users in a suspended state. They see a pending-approval page
+until an admin approves them in the [admin panel](/features/admin-panel). This keeps
+drive-by signups out and leaves you in control of who has access.
 
-**Auto-approve** activates new users on first login. Selecting it during scaffolding sets
-`AUTO_APPROVE_USERS = True` in your `config.py` and the framework handles the rest — no
-callback files or environment variables needed.
+**Auto-approve** activates users on first login. Choosing it during scaffolding sets
+`AUTO_APPROVE_USERS = True` in `config.py`, and the framework handles the rest. There are
+no callback files or environment variables to add.
 
 <Tip>
-  To convert an existing app from manual to auto-approve, add
-  `AUTO_APPROVE_USERS = True` to `config.py`.
+  To switch an existing app to auto-approve, add `AUTO_APPROVE_USERS = True` to
+  `config.py`.
 </Tip>
 
 ### Status pages
@@ -89,9 +87,9 @@ callback files or environment variables needed.
 | Pending | `/account/pending` | New user awaiting admin approval |
 | Suspended | `/account/suspended` | Previously approved, now deactivated |
 
-These pages are scaffolded with friendly messages and logout buttons. They use
-`@login_only` so users stay authenticated while seeing their account status. Edit the
-templates in `templates/pages/account/` to match your branding.
+Both pages are scaffolded with a message and a logout button, and use `@login_only` so
+users stay authenticated while they read them. Edit the templates in
+`templates/pages/account/` to match your branding.
 
 ## Decorators
 
@@ -100,12 +98,12 @@ from feather import auth_required, admin_required, role_required, login_only
 from feather.auth import permission_required, platform_admin_required
 
 @api.get('/me')
-@auth_required                    # any authenticated + approved user
+@auth_required                    # any authenticated, approved user
 def get_profile():
     return {'user': current_user.to_dict()}
 
 @page.get('/account/pending')
-@login_only                       # authenticated but may be pending/suspended
+@login_only                       # authenticated but may be pending or suspended
 def account_pending():
     return render_template('pages/account/pending.html')
 
@@ -115,7 +113,7 @@ def delete_user(id):
     pass
 
 @api.post('/articles')
-@role_required('editor')          # specific role (admin inherits all)
+@role_required('editor')          # specific role, admin inherits all
 def create_article():
     pass
 
@@ -130,23 +128,23 @@ def create_tenant():
 | Decorator | Use when |
 | --- | --- |
 | `@auth_required` | Any logged-in, approved user |
-| `@login_only` | Authenticated but may be pending or suspended — status pages, account setup |
+| `@login_only` | Authenticated but possibly pending or suspended, as on status pages |
 | `@role_required('editor')` | Checking by role name, with inheritance |
-| `@permission_required('resources.create')` | Checking by action — more semantic |
+| `@permission_required('resources.create')` | Checking by action, which reads more clearly |
 | `@admin_required` | Shorthand for `@role_required('admin')` |
 
 ## Roles
 
-These defaults cover most apps, but you can add, remove or rename them.
+These defaults suit most apps, and you can add, remove or rename them.
 
 | Role | Purpose | Inherits |
 | --- | --- | --- |
-| `user` | Basic access (default for new users) | — |
+| `user` | Basic access, the default for new users | none |
 | `editor` | Content creation | `user` |
 | `moderator` | Content moderation | `user` |
 | `admin` | Tenant administration | all roles |
 
-Roles inherit permissions, so `@role_required('editor')` allows both editors and admins.
+Roles inherit permissions, so `@role_required('editor')` admits editors and admins.
 
 To customize, edit the hierarchy in `feather/auth/roles.py`:
 
@@ -160,12 +158,12 @@ ROLE_INHERITS = {
 }
 ```
 
-Then use it with `@role_required('reviewer')`. The User model's `role` field is a simple
-string, so no migration is needed when adding roles.
+Then use `@role_required('reviewer')`. The User model's `role` field is a plain string,
+so adding a role needs no migration.
 
 ## Permissions
 
-CRUD-based access control that maps onto roles.
+Access control by action, mapped onto roles.
 
 | Permission | Who has it | Use case |
 | --- | --- | --- |
@@ -190,13 +188,12 @@ def delete_article(id):
     pass
 ```
 
-Permissions are defined in `feather/auth/permissions.py` and extend the same way roles
-do.
+Permissions live in `feather/auth/permissions.py` and extend the same way roles do.
 
 ## Seeds
 
 `seeds.py` populates initial data. The scaffolded version creates your admin user with
-the email you provided during `feather new`. Extend it for your own data:
+the email you gave during `feather new`. Extend it for your own data:
 
 ```python seeds.py
 def seed():
@@ -212,14 +209,14 @@ def seed():
     db.session.commit()
 ```
 
-Run it anytime with `python seeds.py` or `feather db seed`. The scaffolded seed is
-idempotent — it updates existing users rather than creating duplicates.
+Run it with `python seeds.py` or `feather db seed`. The scaffolded seed is idempotent,
+updating existing users rather than duplicating them.
 
 ## Callbacks
 
 <AccordionGroup>
   <Accordion title="Post-login callback" icon="log-in">
-    For B2B and B2C apps that need custom account setup after OAuth.
+    For apps that need account setup after OAuth.
 
     ```bash .env
     FEATHER_POST_LOGIN_CALLBACK=myapp.auth:handle_login
@@ -237,13 +234,13 @@ idempotent — it updates existing users rather than creating duplicates.
         return None
     ```
 
-    Use this for creating Account or Membership records, assigning tenants to public
-    email users, or custom onboarding flows.
+    Use it to create Account or Membership records, assign tenants to users with public
+    email addresses, or drive an onboarding flow.
   </Accordion>
 
   <Accordion title="Pre-register callback" icon="shield-ban">
-    Block new registrations before the account is created. Runs during OAuth signup
-    **only for new users** — existing users logging in are unaffected.
+    Block new registrations before the account is created. This runs during signup for
+    new users only. Existing users logging in are unaffected.
 
     ```bash .env
     FEATHER_PRE_REGISTER_CALLBACK=myapp.auth:check_registration
@@ -260,8 +257,8 @@ idempotent — it updates existing users rather than creating duplicates.
         return None
     ```
 
-    Returning a string blocks registration — the message is shown as a toast error and
-    no user record is created. Returning `None` (or raising) lets registration proceed.
-    Errors in the callback are logged but do not block signups.
+    A returned string blocks registration, shows the message as a toast error, and creates
+    no user record. `None` lets registration proceed. Errors raised inside the callback
+    are logged but do not block signups.
   </Accordion>
 </AccordionGroup>

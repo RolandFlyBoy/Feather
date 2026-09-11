@@ -4,8 +4,8 @@ description: "SQLAlchemy models with mixins for UUIDs, timestamps, soft deletes,
 icon: "database"
 ---
 
-Models define your database schema using SQLAlchemy. Feather adds mixins for the columns
-and behaviour most models need.
+Models define your schema using SQLAlchemy. Feather adds mixins for the columns and
+behaviour most models need.
 
 ```python models/post.py
 from feather.db import db, Model
@@ -23,7 +23,7 @@ class Post(UUIDMixin, TimestampMixin, SoftDeleteMixin, Model):
 
 | Mixin | Provides |
 | --- | --- |
-| `UUIDMixin` | `id` (auto-generated UUID) |
+| `UUIDMixin` | `id`, an auto-generated UUID |
 | `TimestampMixin` | `created_at`, `updated_at` |
 | `SoftDeleteMixin` | `soft_delete()`, `restore()`, `query_active()` |
 | `OrderingMixin` | `move_to()`, `move_above()`, `query_ordered()` |
@@ -31,8 +31,8 @@ class Post(UUIDMixin, TimestampMixin, SoftDeleteMixin, Model):
 
 ## Ordering for drag-and-drop
 
-`OrderingMixin` maintains a position column. `__ordering_scope__` makes positions
-relative to a parent, so cards are ordered within their own column rather than globally.
+`OrderingMixin` maintains a position column. `__ordering_scope__` makes positions relative
+to a parent, so cards are ordered within their own column rather than globally.
 
 ```python models/card.py
 class Card(UUIDMixin, TimestampMixin, OrderingMixin, Model):
@@ -51,7 +51,7 @@ Card.query_ordered(column_id=col.id).all()
 
 <Tip>
   Pair this with an [island](/ui/islands) using the `draggable` config and optimistic
-  updates, so the card moves instantly and the server call reconciles behind it.
+  updates, so the card moves immediately and the server call reconciles behind it.
 </Tip>
 
 ## Generating a model
@@ -69,6 +69,6 @@ feather db migrate -m "Add posts table"
 feather db upgrade
 ```
 
-<Card title="Next: how to lay out users, accounts and billing" icon="sitemap" href="/backend/schema-design" horizontal>
-  The schema mistake that makes team plans and profile switching impossible later.
+<Card title="Next: laying out users, accounts and billing" icon="sitemap" href="/backend/schema-design" horizontal>
+  The schema decision that makes team plans and profile switching possible later.
 </Card>

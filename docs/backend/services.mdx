@@ -1,10 +1,10 @@
 ---
 title: "Services"
-description: "Business logic with transactions handled by a decorator, pagination helpers and singletons for expensive setup."
+description: "Business logic with transactions handled by a decorator, pagination helpers, and singletons for expensive setup."
 icon: "cog"
 ---
 
-Services contain business logic. Keep routes thin, services fat.
+Services hold business logic. Keep routes thin and services substantial.
 
 ```python services/user_service.py
 from feather import Service, transactional
@@ -13,7 +13,7 @@ from feather.db import paginate
 from models import User
 
 class UserService(Service):
-    @transactional  # auto-commits on success, rolls back on exception
+    @transactional  # commits on success, rolls back on exception
     def create(self, email: str, username: str) -> User:
         if not email or '@' not in email:
             raise ValidationError('Valid email required', field='email')
@@ -32,9 +32,9 @@ class UserService(Service):
 
 ## Transactions
 
-`@transactional` commits when the method returns and rolls back when it raises. Because
+`@transactional` commits when the method returns and rolls back when it raises. Since
 [exceptions](/backend/exceptions) already map to HTTP responses, a validation failure
-rolls back the transaction and returns a 400 without any explicit handling.
+rolls back the transaction and returns a 400 with no explicit handling.
 
 ## Injecting a service into a route
 
@@ -48,7 +48,7 @@ def create_user(user_service, email: str, username: str):
 
 ## Singleton services
 
-For expensive initialization you want to happen once rather than per request:
+For initialization that should happen once rather than per request:
 
 ```python
 from feather.services import singleton, Service

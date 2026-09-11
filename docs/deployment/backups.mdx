@@ -1,11 +1,11 @@
 ---
 title: "Backups"
-description: "Nightly pg_dump with retention, and the step that turns a dump into an actual backup."
+description: "Nightly pg_dump with retention, and the step that makes a dump into a real backup."
 icon: "archive"
 ---
 
-`deploy/backup.sh` dumps Postgres in `pg_dump` custom format — compressed and restorable
-table by table — and keeps 14 days. Run it from cron on the host:
+`deploy/backup.sh` dumps Postgres in `pg_dump` custom format, compressed and restorable
+table by table, keeping 14 days. Run it from cron on the host:
 
 ```bash
 0 3 * * * /opt/myapp/deploy/backup.sh >> /var/log/myapp-backup.log 2>&1
@@ -25,8 +25,8 @@ docker compose exec -T db pg_restore -U myapp -d myapp --clean < backups/myapp-<
   A backup on the same disk as the database is not a backup.
 </Warning>
 
-Add a step that copies the dump elsewhere — object storage, another host, anywhere — and
-consider encrypting it on the way out:
+Add a step that copies the dump elsewhere, to object storage or another host, and consider
+encrypting it on the way out:
 
 ```bash
 openssl enc -aes-256-cbc -pbkdf2 -pass file:/root/.backup.key \
@@ -39,6 +39,5 @@ openssl enc -aes-256-cbc -pbkdf2 -pass file:/root/.backup.key \
 </Note>
 
 <Tip>
-  Test one restore before you need it. A backup you have never restored is a hypothesis,
-  not a backup.
+  Test one restore before you need it. A backup you have never restored is a hypothesis.
 </Tip>

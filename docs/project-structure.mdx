@@ -32,7 +32,7 @@ myapp/
 
 ## Auto-discovery
 
-Three directories are scanned at startup and their contents registered automatically:
+Three directories are scanned at startup, and their contents registered for you.
 
 <CardGroup cols={3}>
   <Card title="models/" icon="database" href="/backend/models">
@@ -47,18 +47,18 @@ Three directories are scanned at startup and their contents registered automatic
 </CardGroup>
 
 <Warning>
-  Discovery is strict: a module that fails to import stops the app rather than being
-  silently dropped. Set `FEATHER_LENIENT_DISCOVERY=1` to warn and continue while you fix
+  Discovery is strict. A module that fails to import stops the app rather than being
+  dropped silently. Set `FEATHER_LENIENT_DISCOVERY=1` to warn and continue while you fix
   it.
 </Warning>
 
 ## Framework-provided assets
 
-These are served from `/feather-static/` and auto-update with Feather upgrades:
+These are served from `/feather-static/` and update when you upgrade Feather:
 
-- **Components** — see the [component reference](/ui/components) for the full list
-- **JavaScript** — `api.js` (CSRF-aware fetch) and `feather.js` (the Islands runtime)
+- **Components.** See the [component reference](/ui/components) for the full list.
+- **JavaScript.** `api.js` for CSRF-aware fetch, and `feather.js` for the islands runtime.
 
-Override any component by creating your own version in `templates/components/`. A
-component that shares a filename with a framework component takes precedence, and
-[`feather components`](/tooling/components-catalogue) marks it as overriding.
+To override a component, create your own version in `templates/components/` using the
+same filename. The template loader resolves yours first, and
+[`feather components`](/tooling/components-catalogue) marks it as an override.

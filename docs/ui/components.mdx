@@ -1,6 +1,6 @@
 ---
 title: "Components"
-description: "Server-rendered Jinja2 macros for buttons, cards, modals, inputs and more — every one overridable in your own app."
+description: "Server-rendered Jinja2 macros for buttons, cards, modals and inputs. Every one can be overridden in your own app."
 icon: "box"
 ---
 
@@ -21,22 +21,23 @@ Import a macro and call it. Every framework component lives in
 | --- | --- | --- |
 | `alert` | `alert.html` | `alert(message, class="")` |
 | `button` | `button.html` | `button(text, type="button", variant="primary", icon=None, class="")` |
-| `card` | `card.html` | `card(class="")` — call block |
-| `confirm_modal` | `confirm_modal.html` | `confirm_modal()` — backs `hx-confirm` |
+| `card` | `card.html` | `card(class="")`, call block |
+| `confirm_modal` | `confirm_modal.html` | `confirm_modal()`, backs `hx-confirm` |
 | `dropdown` | `dropdown.html` | `dropdown(name, options, selected=None, placeholder=None, label=None, inline=False, required=False, class="")` |
 | `htmx_indicator` | `htmx_indicator.html` | `htmx_indicator(color="#6366f1")` |
 | `icon` | `icon.html` | `icon(name, size="md", class="")` |
 | `input` | `input.html` | `input(name, type="text", placeholder="", required=False, class="")` |
 | `textarea` | `input.html` | `textarea(name, rows=3, placeholder="", required=False, class="")` |
-| `modal` | `modal.html` | `modal(id, class="")` — call block |
+| `modal` | `modal.html` | `modal(id, class="")`, call block |
 | `page_loader` | `page_loader.html` | `page_loader(color="#6366f1", bg="#f9fafb")` |
-| `prompt_modal` | `prompt_modal.html` | `prompt_modal()` — backs `window.showPrompt()` |
+| `prompt_modal` | `prompt_modal.html` | `prompt_modal()`, backs `window.showPrompt()` |
 | `spinner` | `spinner.html` | `spinner(size="md", color="currentColor")` |
-| `toast` | `toast.html` | `toast()` — the toast container |
+| `toast` | `toast.html` | `toast()`, the toast container |
 
 <Tip>
-  Never guess a macro's arguments. [`feather components`](/tooling/components-catalogue)
-  reads them from the macros themselves, so it is right even when documentation is not.
+  Rather than checking a macro's arguments here,
+  [`feather components`](/tooling/components-catalogue) reads them from the macros
+  themselves, and also covers the ones your app defines.
 </Tip>
 
 ## Call blocks
@@ -53,6 +54,6 @@ Import a macro and call it. Every framework component lives in
 
 ## Overriding a component
 
-Create your own version in `templates/components/` using the same filename. The template
-loader resolves yours first at runtime, and `feather components` lists it alongside the
-framework's, marked as overriding.
+Create your own version in `templates/components/` with the same filename. The template
+loader resolves yours first at runtime, and `feather components` lists it next to the
+framework's, marked as an override.

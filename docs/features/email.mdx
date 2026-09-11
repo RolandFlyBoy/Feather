@@ -32,9 +32,9 @@ result = email_service.send(
 )
 ```
 
-## Reporting the result to the user
+## Reporting the result
 
-Return a toast from the HTMX response rather than a redirect:
+Return a toast from the HTMX response rather than redirecting:
 
 ```python
 response = make_response(render_template("partials/email_sent.html"))
@@ -50,12 +50,11 @@ else:
 ```
 
 <Tip>
-  Send email from a [background job](/features/background-jobs) rather than inline. A
-  slow provider should not slow down the response, and a failed send should be
-  retryable.
+  Send from a [background job](/features/background-jobs) rather than inline. A slow
+  provider should not slow the response, and a failed send should be retryable.
 </Tip>
 
 ## Admin tools
 
-When email is enabled, the admin panel includes a **Send Email** form at `/admin/tools`
-with a user search dropdown.
+With email enabled, the admin panel gains a **Send Email** form at `/admin/tools`, with a
+user search dropdown.

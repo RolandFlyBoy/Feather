@@ -1,6 +1,6 @@
 ---
 title: "Configuration"
-description: "Every key Feather reads, with its default. Set them in config.py or the environment — config.py wins."
+description: "Every key Feather reads, with its default. Set them in config.py or the environment. config.py wins."
 icon: "sliders"
 ---
 
@@ -121,7 +121,7 @@ LOG_FORMAT=json
 | `FEATHER_NO_UPDATE_CHECK` | unset | Skip the CLI's PyPI version check. |
 
 <Tip>
-  `feather env check` reports which of these keys your `config.py` actually reads and
-  which are missing from your environment. It exits non-zero when a key with no fallback
-  is unset, so it works as a CI or deploy gate.
+  `feather env check` reports which of these keys your `config.py` reads and which are
+  missing from your environment. It exits non-zero when a key with no fallback is unset, so
+  it works as a CI or deploy gate.
 </Tip>

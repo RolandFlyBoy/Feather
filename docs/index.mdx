@@ -1,20 +1,19 @@
 ---
 title: "Feather"
 sidebarTitle: "Introduction"
-description: "A full-stack Python web framework built on Flask, Tailwind CSS, HTMX and vanilla JavaScript — with the production infrastructure already written."
+description: "A full-stack Python web framework built on Flask, Tailwind CSS, HTMX and vanilla JavaScript. The production infrastructure is already written."
 icon: "feather"
 mode: "wide"
 ---
 
-Feather is a full-stack web framework built on proven technologies: **Flask** for the
-backend, **Tailwind CSS** for styling, **HTMX** for dynamic interactions, and
-**vanilla JavaScript** for complex client-side behavior.
+Feather is a full-stack web framework built on proven parts: **Flask** for the backend,
+**Tailwind CSS** for styling, **HTMX** for dynamic interactions, and **vanilla
+JavaScript** for complex client-side behavior.
 
-It is built with and optimized for [Claude Code](https://claude.ai/code), though it
-works with any AI coding assistant. Every project ships a `CLAUDE.md` and an identical
-`AGENTS.md` giving assistants the conventions to follow, and `feather check` enforces
-the ones that can be enforced — so an assistant can verify its own work rather than
-hoping.
+It works with any AI coding assistant, and is tuned for
+[Claude Code](https://claude.ai/code). Every project ships a `CLAUDE.md` and an identical
+`AGENTS.md` describing the conventions to follow. `feather check` enforces the ones that
+can be enforced, so an assistant can check its own work instead of guessing.
 
 <CardGroup cols={2}>
   <Card title="Install Feather" icon="download" href="/installation">
@@ -33,32 +32,31 @@ hoping.
 
 ## What's included
 
-Feather provides production-ready infrastructure so you can focus on your application.
-Every feature is optional and can be enabled during project creation or added later.
+Every feature below is optional. Turn it on during project creation, or add it later.
 
 | Feature | Options |
 | --- | --- |
 | **Authentication** | Google OAuth with session management, approval workflow |
-| **User Management** | Admin panel for approvals, roles, suspension |
-| **Multi-Tenancy** | Domain-based or individual tenants (B2B + B2C) |
-| **Background Jobs** | Thread pool with concurrency control, or RQ (Redis) |
+| **User management** | Admin panel for approvals, roles, suspension |
+| **Multi-tenancy** | Domain-based or individual tenants (B2B and B2C) |
+| **Background jobs** | Thread pool with concurrency control, or RQ on Redis |
 | **Caching** | Memory or Redis |
-| **File Storage** | Local filesystem or Google Cloud Storage |
-| **Email** | Resend for transactional emails |
-| **Dark Mode** | Cookie-persisted toggle on every page, including admin |
-| **Security Headers** | CSP, HSTS, X-Frame-Options, Referrer-Policy (production) |
-| **Rate Limiting** | In-memory, or Redis for distributed |
+| **File storage** | Local filesystem or Google Cloud Storage |
+| **Email** | Resend for transactional email |
+| **Dark mode** | Cookie-persisted toggle on every page, including admin |
+| **Security headers** | CSP, HSTS, X-Frame-Options, Referrer-Policy in production |
+| **Rate limiting** | In-memory, or Redis for distributed |
 | **Events** | Pub/sub with sync and async listeners |
-| **Error Logging** | Database-backed, tenant-scoped |
-| **Health Checks** | `/health`, `/health/live`, `/health/ready` |
-| **Request Tracking** | Unique request IDs, JSON logging |
+| **Error logging** | Database-backed, tenant-scoped |
+| **Health checks** | `/health`, `/health/live`, `/health/ready` |
+| **Request tracking** | Unique request IDs, JSON logging |
 
 ## The three-layer frontend
 
-Feather builds UIs in three layers, each solving a different problem. The mental model:
-start with Components for everything static, reach for HTMX when you need server data
-without a page reload, and only use Islands when you genuinely need client-side state.
-In practice, 90% of features can be built with just Components and HTMX.
+Feather builds UIs in three layers, each solving a different problem. Start with
+components for anything static. Reach for HTMX when you need server data without a page
+reload. Use islands only when you need state on the client. Most features need nothing
+past the first two.
 
 <CardGroup cols={3}>
   <Card title="Components" icon="box" href="/ui/components">
@@ -68,11 +66,11 @@ In practice, 90% of features can be built with just Components and HTMX.
     Server interactions without page reloads. Forms, search, pagination, like buttons.
   </Card>
   <Card title="Islands" icon="component" href="/ui/islands">
-    Small JavaScript components for genuinely interactive UI with client-side state.
+    Small JavaScript components for UI that needs client-side state.
   </Card>
 </CardGroup>
 
 <Note>
-  New to the framework? Read [Why Feather](/why-feather) for the reasoning behind the
-  stack, then go straight to the [Quickstart](/quickstart).
+  New here? Read [Why Feather](/why-feather) for the reasoning behind the stack, then go
+  to the [Quickstart](/quickstart).
 </Note>

@@ -1,6 +1,6 @@
 ---
 title: "Rate limiting"
-description: "A decorator for single-process guards, and Flask-Limiter with Redis for limits that actually hold across workers."
+description: "A decorator for single-process guards, and Flask-Limiter with Redis for limits that hold across workers."
 icon: "gauge"
 ---
 
@@ -41,15 +41,15 @@ def create_comment():
 | `message` | Custom error message | "Rate limit exceeded" |
 
 <Warning>
-  `@rate_limit` keeps its counters in the process. Under `gunicorn --workers 4` a limit
-  of ten per minute is really forty per minute. Treat it as a development guard and a
-  convenience for single-process deployments, not as protection.
+  `@rate_limit` keeps counters in the process. Under `gunicorn --workers 4` a limit of ten
+  per minute is really forty. Treat it as a development guard and a convenience for
+  single-process deployments, not as protection.
 </Warning>
 
 ## In production: Flask-Limiter
 
-Scaffolded apps with authentication ship a `rate_limits.py` that does this properly. It
-limits the Google OAuth login and callback and every admin POST route through
+Scaffolded apps with authentication ship a `rate_limits.py` that handles this properly.
+It limits the Google OAuth login and callback and every admin POST route through
 Flask-Limiter, sharing counters across workers via Redis.
 
 ```bash
@@ -60,27 +60,27 @@ pip install "feather-framework[ratelimit]"
 RATELIMIT_STORAGE_URI=redis://localhost:6379/1
 ```
 
-Without it the limiter falls back to memory and logs a warning saying so. The limits
-themselves live in `config.py` as `RATELIMIT_DEFAULT`, `RATELIMIT_LOGIN` and
-`RATELIMIT_ADMIN`, each overridable by environment variable. Run
-`flask limiter limits` to print which routes are actually limited.
+Without it the limiter falls back to memory and logs a warning. The limits live in
+`config.py` as `RATELIMIT_DEFAULT`, `RATELIMIT_LOGIN` and `RATELIMIT_ADMIN`, each
+overridable by environment variable. Run `flask limiter limits` to see which routes are
+actually limited.
 
 ### Two things that fail silently
 
-Both cost real debugging time in production if you wire this up by hand.
+Both cost real debugging time if you wire this up by hand.
 
 <AccordionGroup>
   <Accordion title="Assign the wrapper back" icon="circle-alert">
-    Flask-Limiter enforces a limit only through the function it returns. Writing
-    `limiter.limit(rule)(app.view_functions[ep])` and discarding the result does
-    nothing — and worse, drops that endpoint out of the default limit too.
+    Flask-Limiter enforces a limit only through the function it returns. Calling
+    `limiter.limit(rule)(app.view_functions[ep])` and discarding the result does nothing,
+    and drops that endpoint out of the default limit as well.
 
     ```python
     app.view_functions[ep] = limiter.limit(rule)(view)
     ```
   </Accordion>
   <Accordion title="Exempt static endpoints" icon="circle-alert">
-    One page load fetches ten or more scripts and fonts from Flask. Without a
+    A single page load fetches ten or more scripts and fonts from Flask. Without a
     `limiter.request_filter` exempting `static` and `feather_static`, a busy user gets a
     429 on the app's own JavaScript while the page is still loading.
   </Accordion>

@@ -4,14 +4,13 @@ description: "An interactive Python shell with the app context and every model a
 icon: "terminal"
 ---
 
-`feather shell` launches an interactive Python shell with your Flask application context
-pre-loaded. This is invaluable for debugging, data exploration and administrative tasks,
-especially in production.
+`feather shell` opens an interactive Python shell with your Flask application context
+loaded, which is what you want for debugging, data exploration and administrative tasks.
 
-**Auto-loaded:**
+Loaded for you:
 
-- `app` — the Flask application instance
-- `db` — the SQLAlchemy database instance
+- `app`, the Flask application instance
+- `db`, the SQLAlchemy database instance
 - Every model from your `models/` directory
 
 ```bash
@@ -39,8 +38,7 @@ Available variables:
 
 ## In production
 
-Reach it through `docker compose exec web feather shell`, or plain SSH access to your
-server.
+Reach it with `docker compose exec web feather shell`, or over SSH on the server.
 
 | Task | Example |
 | --- | --- |
@@ -48,9 +46,9 @@ server.
 | Count records | `Post.query.count()` |
 | Fix data issues | `user.active = True; db.session.commit()` |
 | Debug queries | `User.query.filter_by(role='admin').all()` |
-| Run one-off migrations | Direct database operations when needed |
+| Run one-off operations | Direct database work when needed |
 
 <Tip>
-  Install IPython (`pip install ipython`) and the shell uses it automatically, for tab
+  Install IPython with `pip install ipython` and the shell uses it automatically, for tab
   completion and syntax highlighting.
 </Tip>

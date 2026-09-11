@@ -4,20 +4,19 @@ description: "A cookie-persisted toggle on every page including the admin panel,
 icon: "moon"
 ---
 
-Every scaffolded app includes a dark mode toggle that persists across pages via a `dm`
-cookie. The toggle is in the header of every page, including the admin panel.
+Every scaffolded app includes a dark mode toggle that persists across pages in a `dm`
+cookie. The toggle sits in the header of every page, including the admin panel.
 
 ## How it works
 
 <Steps>
   <Step title="The cookie is read before first paint">
-    A `dark-mode.js` script loaded in `<head>` reads the `dm` cookie and applies a
-    `.dark` class to `<html>` before first render — so there is no flash of the wrong
-    theme.
+    A `dark-mode.js` script loaded in `<head>` reads the `dm` cookie and applies a `.dark`
+    class to `<html>` before first render, so the wrong theme never flashes.
   </Step>
   <Step title="Any element can toggle it">
-    Clicking any element carrying `data-toggle-dark-mode` toggles the class and updates
-    the cookie.
+    Clicking an element carrying `data-toggle-dark-mode` toggles the class and updates the
+    cookie.
   </Step>
   <Step title="Styles respond through a custom variant">
     All CSS uses `dark:` variants via Tailwind's custom variant:
@@ -38,9 +37,9 @@ Scaffolded into your templates:
 </button>
 ```
 
-The only thing `dark-mode.js` looks for is the `data-toggle-dark-mode` attribute. Which
-icon shows is plain `dark:` variants on the two spans. If you would rather keep the
-markup clean, move the swap into `app.css` and give the button a class of your own:
+The script only looks for the `data-toggle-dark-mode` attribute. Which icon shows is
+plain `dark:` variants on the two spans. To keep the markup cleaner, move the swap into
+`app.css` and give the button your own class:
 
 ```css app.css
 .dark-mode-toggle .icon-light { @apply dark:hidden; }
@@ -49,9 +48,8 @@ markup clean, move the swap into `app.css` and give the button a class of your o
 
 ## Writing dark-mode-aware styles
 
-When adding custom styles, include `dark:` variants for every color-related class.
-Feather recommends CSS classes with `@apply` rather than inline Tailwind, so dark mode
-support looks like this:
+Include `dark:` variants for every color-related class. Feather prefers CSS classes with
+`@apply` over inline Tailwind, so dark mode support looks like this:
 
 ```css app.css
 .my-card {
@@ -63,5 +61,5 @@ support looks like this:
 <Tip>
   Utility classes in markup instead of `@apply` in `app.css` are reported by
   [`feather check`](/tooling/check) as the `inline-tailwind` warning. Keeping styles in
-  the stylesheet is what makes a one-line dark mode audit possible.
+  the stylesheet is what makes a dark mode audit a single-file read.
 </Tip>

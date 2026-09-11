@@ -1,6 +1,6 @@
 ---
 title: "feather security-check"
-description: "An audit that reads like a reviewer's checklist and exits non-zero when something fails."
+description: "A configuration audit that exits non-zero when something fails, for CI and pre-deploy."
 icon: "shield-check"
 ---
 
@@ -32,16 +32,15 @@ Beyond a strong `SECRET_KEY`:
 
 <AccordionGroup>
   <Accordion title="TRUSTED_HOSTS" icon="globe">
-    Set it to the hostnames you serve. Without it, a client-supplied `Host` header
-    determines your OAuth redirect URI and every external URL you generate.
+    Set it to the hostnames you serve. Without it, a client-supplied `Host` header decides
+    your OAuth redirect URI and every external URL you generate.
   </Accordion>
   <Accordion title="OAUTH_CALLBACK_URL" icon="key-round">
-    Set it to the exact callback you registered with Google, `https://` and the right
+    Set it to the exact callback registered with Google, using `https://` and the right
     hostname, `www` included.
   </Accordion>
   <Accordion title="JOB_SERIALIZER=json" icon="clock">
-    If you use RQ. Pickle payloads are code execution for anyone who can write to your
-    Redis.
+    For RQ. Pickle payloads are code execution for anyone who can write to your Redis.
   </Accordion>
   <Accordion title="A password on Redis" icon="database">
     And `rediss://` if it crosses a network.
@@ -50,10 +49,10 @@ Beyond a strong `SECRET_KEY`:
 
 ## Uploads
 
-`LocalStorage` serves files from `static/`, where the browser takes the content type
-from the extension. Script-capable extensions are refused by default, so an uploaded
-page cannot run on your origin. To accept SVG, set `STORAGE_ALLOWED_EXTENSIONS` to the
-list you do want. See [File storage](/features/file-storage).
+`LocalStorage` serves files from `static/`, where the browser takes the content type from
+the extension. Script-capable extensions are refused by default, so an uploaded page
+cannot run on your origin. To accept SVG, set `STORAGE_ALLOWED_EXTENSIONS` to the list you
+want. See [File storage](/features/file-storage).
 
 <Card title="The full production checklist" icon="list-checks" href="/deployment/checklist" horizontal>
   Everything to confirm before the first real user.

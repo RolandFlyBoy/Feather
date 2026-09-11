@@ -1,6 +1,6 @@
 ---
 title: "Quickstart"
-description: "Scaffold a Feather project, set up the database and get the dev server running with hot reload."
+description: "Scaffold a Feather project, set up the database, and get the dev server running with hot reload."
 icon: "rocket"
 ---
 
@@ -10,7 +10,7 @@ icon: "rocket"
     feather new myapp
     ```
 
-    You are prompted for the app type first:
+    Feather asks for the app type first:
 
     | App type | Database | Auth | Description |
     | --- | --- | --- | --- |
@@ -20,21 +20,21 @@ icon: "rocket"
 
     Then about optional features:
 
-    - **Background jobs** — thread pool by default, optionally Redis
-    - **Auto-approve users** — immediately activate new signups (authenticated apps only)
-    - **Caching** — memory cache for development, optionally Redis for production
-    - **File storage** — local filesystem for development, optionally GCS for production
-    - **Email** — Resend for transactional emails (authenticated apps only)
-    - **Display name field** — optional `display_name` on the User model (authenticated apps only)
-    - **Admin email** — creates your initial admin user (authenticated apps only)
+    - **Background jobs.** Thread pool by default, optionally Redis.
+    - **Auto-approve users.** Activate new signups immediately. Authenticated apps only.
+    - **Caching.** Memory for development, optionally Redis for production.
+    - **File storage.** Local filesystem for development, optionally GCS for production.
+    - **Email.** Resend for transactional email. Authenticated apps only.
+    - **Display name field.** Adds `display_name` to the User model. Authenticated apps only.
+    - **Admin email.** Creates your first admin user. Authenticated apps only.
 
     <Tip>
-      `feather new myapp --no-prompt` skips every question and uses minimal defaults.
+      `feather new myapp --no-prompt` skips the questions and uses minimal defaults.
     </Tip>
   </Step>
 
   <Step title="Set up the database" icon="database">
-    Migrations are manual so you can review the models first.
+    Migrations are manual, so you can review the models before anything is written.
 
     ```bash
     cd myapp
@@ -51,26 +51,26 @@ icon: "rocket"
     feather dev
     ```
 
-    Open [http://localhost:5173](http://localhost:5173). Vite handles frontend assets
-    with hot module replacement, and Flask runs on port 5000 behind the proxy. CSS and
-    JavaScript changes are instant; template and Python changes trigger a reload.
+    Open [http://localhost:5173](http://localhost:5173). Vite serves frontend assets with
+    hot module replacement, and Flask runs on port 5000 behind the proxy. CSS and
+    JavaScript changes appear immediately. Template and Python changes trigger a reload.
 
     <Warning>
       **Using background jobs with the thread backend?** Set `FLASK_DEBUG=0` in `.env`.
-      Flask's auto-reloader kills background threads on every file change. Use
-      `JOB_BACKEND=sync` during development if you need debug mode.
+      Flask's auto-reloader kills background threads on every file change, so jobs die
+      mid-execution each time you save. Use `JOB_BACKEND=sync` if you need debug mode.
     </Warning>
   </Step>
 </Steps>
 
-## What you get
+## What the scaffold gives you
 
-Every Feather project includes a `CLAUDE.md` and an `AGENTS.md` with the same content,
-written together so they cannot drift, plus a `.claude/settings.json` that pre-approves
-the read-only commands an assistant needs.
+Every project includes a `CLAUDE.md` and an `AGENTS.md` with the same content, written
+together so they cannot drift, plus a `.claude/settings.json` that pre-approves the
+read-only commands an assistant needs.
 
-They are a starting point — add your project's own domain rules and preferences as the
-app grows. What makes them useful is that the rules are checkable:
+Treat them as a starting point and add your own domain rules as the app grows. What makes
+them useful is that the rules are checkable:
 
 ```bash
 feather check        # are the conventions being followed?

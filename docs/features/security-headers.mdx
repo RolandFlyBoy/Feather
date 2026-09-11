@@ -4,8 +4,8 @@ description: "CSP, HSTS and the rest applied automatically in production, with p
 icon: "shield"
 ---
 
-Feather adds security headers to all responses in production (`DEBUG=False`). No
-configuration needed — they are applied by default and skipped in development.
+Feather adds security headers to all responses in production, when `DEBUG=False`. They
+are on by default and skipped in development, so there is nothing to configure.
 
 | Header | Value | Purpose |
 | --- | --- | --- |
@@ -30,8 +30,7 @@ frame-ancestors 'none'
 
 ## Extending it
 
-Custom directives are merged with the defaults, so you only specify what you are
-changing. For Stripe:
+Custom directives merge with the defaults, so you specify only what changes. For Stripe:
 
 ```python config.py
 class ProductionConfig(Config):
@@ -48,12 +47,12 @@ FEATHER_SECURITY_HEADERS = False
 ```
 
 <Warning>
-  Not recommended. If a third-party script is being blocked, add its origin to the
-  relevant directive rather than turning the whole header off.
+  Not recommended. If a third-party script is blocked, add its origin to the relevant
+  directive rather than turning off the header.
 </Warning>
 
 <Note>
   The strict `script-src 'self'` is why inline `<script>` blocks and `onclick=` handlers
   are [`feather check`](/tooling/check) errors. Code that works in development would be
-  silently blocked by CSP in production.
+  blocked by CSP in production.
 </Note>

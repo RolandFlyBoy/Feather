@@ -4,8 +4,8 @@ description: "Auto-discovered route modules, dependency injection into handlers,
 icon: "route"
 ---
 
-Routes handle HTTP requests. Feather auto-discovers modules in `routes/api/` and
-`routes/pages/`.
+Routes handle HTTP requests. Feather discovers modules in `routes/api/` and
+`routes/pages/` automatically.
 
 ```python routes/api/users.py
 from feather import api, auth_required, inject
@@ -33,13 +33,12 @@ def create_user(user_service, email: str, username: str):
 
 ## Keep routes thin
 
-A route handler that does work belonging in a service is reported by
-[`feather check`](/tooling/check) as the `fat-route` warning. Parse the request, call a
-service, return a response.
+Parse the request, call a service, return a response. A handler doing work that belongs
+in a service is reported by [`feather check`](/tooling/check) as the `fat-route` warning.
 
 <CardGroup cols={2}>
   <Card title="Services" icon="cog" href="/backend/services">
-    Where the business logic goes, with transactions handled for you.
+    Where business logic goes, with transactions handled for you.
   </Card>
   <Card title="Exceptions" icon="triangle-alert" href="/backend/exceptions">
     Raise a typed exception and it becomes the right JSON response.
@@ -48,9 +47,9 @@ service, return a response.
 
 ## Auth decorators
 
-Every route should carry one, or declare itself public. A route with no auth decorator
-is reported as the `unprotected-route` warning; a deliberately public one is exempted
-with a `# feather: public` comment in its module.
+Every route should carry one, or declare itself public. A route with no auth decorator is
+reported as the `unprotected-route` warning. A deliberately public one carries a
+`# feather: public` comment in its module.
 
 See [Authentication](/features/authentication) for the full decorator set.
 

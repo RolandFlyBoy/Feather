@@ -4,14 +4,14 @@ description: "Errors captured to the database with stack traces, scoped to the t
 icon: "bug"
 ---
 
-Errors are automatically logged to the database with stack traces. Each error is
-associated with the current user and tenant.
+Errors are logged to the database with stack traces, each one associated with the current
+user and tenant.
 
-- Tenant admins see only their tenant's errors
-- Platform admins see all errors
+- Tenant admins see their own tenant's errors
+- Platform admins see all of them
 
-View them at `/admin/logs` in the [admin panel](/features/admin-panel), filterable by
-4xx/5xx and searchable.
+Read them at `/admin/logs` in the [admin panel](/features/admin-panel), filterable by 4xx
+and 5xx and searchable.
 
 ## The ErrorLog model
 

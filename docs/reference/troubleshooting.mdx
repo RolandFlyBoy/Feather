@@ -1,6 +1,6 @@
 ---
 title: "Troubleshooting"
-description: "The handful of things that go wrong most often, and what to do about them."
+description: "The things that go wrong most often, and what to do about them."
 icon: "circle-help"
 ---
 
@@ -12,9 +12,9 @@ icon: "circle-help"
     python app.py
     ```
 
-    Discovery is strict — a broken module under `models/`, `services/` or `routes/` stops
-    the app rather than being silently dropped. Set `FEATHER_LENIENT_DISCOVERY=1` to warn
-    and continue while you fix it.
+    Discovery is strict, so a broken module under `models/`, `services/` or `routes/`
+    stops the app rather than being dropped silently. Set `FEATHER_LENIENT_DISCOVERY=1` to
+    warn and continue while you fix it.
   </Accordion>
 
   <Accordion title="Port already in use" icon="plug">
@@ -25,36 +25,35 @@ icon: "circle-help"
   </Accordion>
 
   <Accordion title="Pages are unstyled in production" icon="palette">
-    Either `DEBUG=False` and `feather build` was never run, or `static/dist/` is missing
-    or outdated. Always run `feather build` before deploying.
+    Either `DEBUG=False` and `feather build` was never run, or `static/dist/` is stale. Run
+    `feather build` before deploying.
 
-    If only the *framework* components are unstyled, check the Tailwind `@source` path.
-    See [Upgrading](/reference/upgrading).
+    If only the *framework* components are unstyled, check the Tailwind `@source` path. See
+    [Upgrading](/reference/upgrading).
   </Accordion>
 
   <Accordion title="Background jobs are killed mid-execution" icon="clock">
-    With the `thread` backend, Flask's auto-reloader restarts the process on every file
+    On the `thread` backend, Flask's auto-reloader restarts the process on every file
     change and kills running threads. Set `FLASK_DEBUG=0` in `.env`, or use
     `JOB_BACKEND=sync` during development if you need debug mode.
   </Accordion>
 
   <Accordion title="OAuth redirects to http:// in production" icon="key-round">
     The redirect URI is being built from the request `Host` header. Set
-    `OAUTH_CALLBACK_URL` to the exact callback you registered with Google, and
-    `TRUSTED_HOSTS` to the hostnames you serve. Confirm your proxy forwards
-    `X-Forwarded-Proto` — see [TLS and the proxy headers](/deployment/vps).
+    `OAUTH_CALLBACK_URL` to the exact callback registered with Google, and `TRUSTED_HOSTS`
+    to the hostnames you serve. Confirm your proxy forwards `X-Forwarded-Proto`, covered in
+    [TLS and the proxy headers](/deployment/vps).
   </Accordion>
 
   <Accordion title="Every test resolves to the same user" icon="flask-conical">
-    Flask-Login caches the current user on `g` for the lifetime of an application
-    context. A fixture holding one `app.app_context()` open across several test clients
-    resolves every request to the first user loaded. See
-    [Test database](/testing/database).
+    Flask-Login caches the current user on `g` for the lifetime of an application context.
+    A fixture holding one `app.app_context()` open across several test clients resolves
+    every request to the first user loaded. See [Test database](/testing/database).
   </Accordion>
 
   <Accordion title="Rate limits are higher than configured" icon="gauge">
-    `@rate_limit` keeps counters in the process. Under `gunicorn --workers 4` a limit of
-    ten per minute is really forty. Use Flask-Limiter with Redis — see
+    `@rate_limit` keeps counters in the process, so under `gunicorn --workers 4` a limit of
+    ten per minute is really forty. Use Flask-Limiter with Redis, covered in
     [Rate limiting](/features/rate-limiting).
   </Accordion>
 </AccordionGroup>

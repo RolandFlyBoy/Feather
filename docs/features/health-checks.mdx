@@ -4,23 +4,23 @@ description: "Three endpoints registered on every app, for load balancers, Kuber
 icon: "heart-pulse"
 ---
 
-Feather registers these on every app. You do not write them.
+Feather registers these on every app, so you do not write them.
 
 | Endpoint | Purpose | What it checks |
 | --- | --- | --- |
 | `/health` | Full health check | Database connectivity, app running |
-| `/health/live` | Liveness probe | The process is alive — always 200 if responding |
-| `/health/ready` | Readiness probe | The app can serve traffic — database connected |
+| `/health/live` | Liveness probe | The process is alive. Always 200 if responding |
+| `/health/ready` | Readiness probe | The app can serve traffic, database connected |
 
 ## Liveness versus readiness
 
-**Liveness** answers "is the process alive?" If this fails, the container should be
-restarted. **Readiness** answers "can it handle requests?" If this fails, stop sending
-traffic but do not restart.
+**Liveness** answers whether the process is alive. A failure here means the container
+should be restarted. **Readiness** answers whether it can handle requests. A failure here
+means stop sending traffic, but do not restart.
 
-Example: your app is running but the database is down. Liveness passes because the
-process is alive; readiness fails because it cannot serve requests. The load balancer
-stops routing to this instance while it recovers.
+Consider an app that is running while its database is down. Liveness passes, because the
+process is alive. Readiness fails, because it cannot serve requests. The load balancer
+stops routing to that instance until it recovers.
 
 ## Response format
 
@@ -34,7 +34,7 @@ stops routing to this instance while it recovers.
 }
 ```
 
-Returns `200 OK` when healthy and `503 Service Unavailable` when not.
+Healthy returns `200 OK`. Unhealthy returns `503 Service Unavailable`.
 
 ## Wiring it up
 
@@ -69,17 +69,17 @@ Returns `200 OK` when healthy and `503 Service Unavailable` when not.
   <Tab title="Docker">
     The generated Dockerfile already has `HEALTHCHECK ... curl /health`, and
     `deploy/deploy.sh` waits on it before declaring a deploy finished. Most PaaS hosts
-    either detect `/health` or take it as a configured health-check path.
+    either detect `/health` or accept it as a configured health-check path.
   </Tab>
 </Tabs>
 
 <Tip>
-  Prefer `/health` over a hand-written route. A container with a broken `DATABASE_URL`
+  Prefer `/health` to a hand-written route. A container with a broken `DATABASE_URL`
   reports unhealthy instead of quietly serving 500s.
 </Tip>
 
 <Note>
   Apps scaffolded before 0.9.7 also have a `routes/api/health.py` giving `/api/health`.
-  That route is yours, not the framework's, and it only proves the process is listening.
-  Point new health checks at `/health`.
+  That route is yours rather than the framework's, and proves only that the process is
+  listening. Point new health checks at `/health`.
 </Note>

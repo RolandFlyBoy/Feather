@@ -1,12 +1,12 @@
 ---
 title: "Request tracking"
-description: "A unique ID on every request and structured JSON logging, so a production incident is greppable."
+description: "A unique ID on every request and structured JSON logging, so you can trace one request through the logs."
 icon: "scan-search"
 ---
 
 ```bash .env
 LOG_LEVEL=INFO        # DEBUG, INFO, WARNING, ERROR, CRITICAL
-LOG_FORMAT=json       # auto-enabled when FLASK_ENV=production
+LOG_FORMAT=json       # enabled automatically when FLASK_ENV=production
 ```
 
 ## Usage
@@ -23,9 +23,9 @@ def list_users():
 ## How it works
 
 - A unique UUID per request
-- The incoming `X-Request-ID` header is used if present, for distributed tracing
-- The ID is added to response headers automatically
-- Available via `get_request_id()` or `g.request_id`
+- The incoming `X-Request-ID` header is reused when present, for distributed tracing
+- The ID goes into the response headers automatically
+- Read it with `get_request_id()` or `g.request_id`
 
 ## JSON log format
 
@@ -40,7 +40,6 @@ def list_users():
 ```
 
 <Tip>
-  Because the request ID travels in both the response header and every log line, a user
-  reporting a failure can hand you the header value and you can find every log line for
-  that request.
+  The ID travels in both the response header and every log line, so a user reporting a
+  failure can hand you the header value and you can pull up every line for that request.
 </Tip>

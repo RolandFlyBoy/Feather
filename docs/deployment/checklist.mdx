@@ -14,24 +14,24 @@ icon: "list-checks"
 </Check>
 
 <Check>
-  **`FLASK_CONFIG=production`** — set by compose. Confirm with
+  **`FLASK_CONFIG=production`**, which compose sets. Confirm with
   `docker compose exec web printenv FLASK_CONFIG`
 </Check>
 
 <Check>
-  **`TRUSTED_HOSTS` lists the hostnames you serve**, so Host-header spoofing cannot forge
+  **`TRUSTED_HOSTS` lists the hostnames you serve**, so a spoofed Host header cannot forge
   absolute URLs in emails and redirects.
 </Check>
 
 <Check>
-  **`OAUTH_CALLBACK_URL` uses `https://` and the exact hostname**, `www` included — and
+  **`OAUTH_CALLBACK_URL` uses `https://` and the exact hostname**, `www` included, and
   matches the redirect URI in the Google Cloud Console.
 </Check>
 
 <Check>
-  **`JOB_SERIALIZER=json`** — the default in the generated compose file. `pickle` will
-  unpickle arbitrary objects off Redis. Only switch if a job argument genuinely cannot be
-  JSON-encoded.
+  **`JOB_SERIALIZER=json`**, the default in the generated compose file. `pickle` will
+  unpickle arbitrary objects off Redis, so switch only if a job argument genuinely cannot
+  be JSON-encoded.
 </Check>
 
 <Check>
@@ -63,18 +63,18 @@ icon: "list-checks"
 ## Upgrading from `feather deploy render`
 
 0.9.7 removed `feather deploy render`. Your existing `Dockerfile` and `render.yaml` are
-your files and keep working — nothing was deleted from your repo. To adopt the new
-layout, run `feather docker init`; it will not overwrite anything without `--force`.
+your files and keep working, since nothing was deleted from your repo. To adopt the new
+layout, run `feather docker init`. It will not overwrite anything without `--force`.
 
 <Warning>
-  One change matters even if you stay where you are. Replace the absolute `@source` line
-  in `static/css/app.css` with:
+  One change matters even if you stay where you are. Replace the absolute `@source` line in
+  `static/css/app.css` with:
 
   ```css
   @source "../../.feather-templates/**/*.html";
   ```
 
-  and add `.feather-templates` to `.gitignore`. Older scaffolds baked the absolute path
-  of the installed Feather package into that file, so images built anywhere but the
-  machine that ran `feather new` silently lack every framework component style.
+  and add `.feather-templates` to `.gitignore`. Older scaffolds baked the absolute path of
+  the installed Feather package into that file, so images built anywhere but the machine
+  that ran `feather new` silently lack every framework component style.
 </Warning>

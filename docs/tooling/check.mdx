@@ -4,7 +4,7 @@ description: "The conventions are enforced, not just documented. Every finding n
 icon: "circle-check"
 ---
 
-The rules in `CLAUDE.md` are not only advice. `feather check` enforces the ones that can
+The rules in `CLAUDE.md` are more than advice. `feather check` enforces the ones that can
 be enforced, and reports a file, a line and a remedy for each problem it finds.
 
 ```bash
@@ -36,8 +36,8 @@ It exits non-zero on any error, so it works as a pre-commit hook or a CI step.
 
 ## Declaring a public route
 
-A route that is deliberately public is exempted with a comment in its module, which
-records the decision rather than hiding it:
+Exempt a deliberately public route with a comment in its module, so the decision is
+recorded rather than hidden:
 
 ```python
 # feather: public
@@ -45,11 +45,10 @@ records the decision rather than hiding it:
 
 ## When a rule is wrong about a line
 
-Say so on that line or the one above it, in whatever comment syntax the file already
-uses:
+Say so on that line or the one above it, in whatever comment syntax the file already uses:
 
 ```html
-{# feather: allow inline-style — width comes from per-row data #}
+{# feather: allow inline-style - width comes from per-row data #}
 <div class="campaign-bar-fill" style="width: {{ pct }}%"></div>
 ```
 
@@ -64,6 +63,6 @@ rest of the file stays covered.
 </Note>
 
 <Tip>
-  Write the reason after a dash. The marker is a decision, and the next person should be
-  able to see what it was.
+  Write the reason after a dash. The marker records a decision, and the next person should
+  be able to see what it was.
 </Tip>

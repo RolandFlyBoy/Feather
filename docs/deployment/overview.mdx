@@ -1,7 +1,7 @@
 ---
 title: "Production overview"
 sidebarTitle: "Overview"
-description: "What the core install brings, which extras to enable, and the DEBUG behaviour that causes unstyled pages in production."
+description: "What the core install brings, which extras to enable, and the DEBUG behaviour behind unstyled pages in production."
 icon: "package"
 ---
 
@@ -11,8 +11,7 @@ The core install is what every Feather app uses: Flask, Flask-SQLAlchemy, Flask-
 Flask-Login, Flask-WTF, Werkzeug, SQLAlchemy, Alembic, Authlib, Requests, Jinja2 and
 urllib3.
 
-Everything else is an extra, so an app that renders no PDFs does not install a PDF
-renderer.
+Everything else is an extra, so an app that renders no PDFs installs no PDF renderer.
 
 | Extra | Brings | Enable it when |
 | --- | --- | --- |
@@ -21,7 +20,7 @@ renderer.
 | `email` | resend | Sending transactional email |
 | `gcs` | google-cloud-storage | `STORAGE_BACKEND=gcs` |
 | `pdf` | WeasyPrint | Generating PDFs |
-| `ratelimit` | flask-limiter | Rate limiting that works across workers (auth apps) |
+| `ratelimit` | flask-limiter | Rate limiting across workers, for auth apps |
 | `prod` | gunicorn | Running `feather start` or the Docker web process |
 | `test` | pytest, pytest-cov | Running the app's own tests |
 | `all` | all of the above | Reproducing the pre-0.9.8 install |
@@ -35,28 +34,25 @@ is usually handled for you. `feather --version` and
 [`feather security-check`](/tooling/security-check) report which extras are installed.
 
 <Note>
-  Importing a feature whose extra is missing raises an error naming the exact install
-  command, rather than an import traceback.
+  Importing a feature whose extra is missing raises an error naming the install command to
+  run, rather than an import traceback.
 </Note>
 
 ### Frontend libraries
 
-Bundled via npm, no CDN: HTMX, Idiomorph, Apache ECharts. Loaded from Google: Google
-Fonts and Material Icons.
+Bundled through npm rather than a CDN: HTMX, Idiomorph, Apache ECharts. Loaded from
+Google: Google Fonts and Material Icons.
 
 ## DEBUG mode behaviour
 
-Understanding this is crucial for production.
-
 | Setting | Asset loading | Description |
 | --- | --- | --- |
-| `DEBUG=True` | Vite dev server (`localhost:5173`) | Hot reload, no build needed |
+| `DEBUG=True` | Vite dev server on `localhost:5173` | Hot reload, no build needed |
 | `DEBUG=False` | Built assets from `static/dist/` | Requires `feather build` first |
 
 <Warning>
-  **Unstyled pages in production** happen when `DEBUG=False` but `feather build` was
-  never run, or when `static/dist/` is missing or outdated. Always run `feather build`
-  before deploying.
+  **Unstyled pages in production** happen when `DEBUG=False` but `feather build` was never
+  run, or when `static/dist/` is stale. Run `feather build` before deploying.
 </Warning>
 
 ## Configuration shorthand
@@ -69,7 +65,7 @@ FLASK_CONFIG=ProductionConfig
 FLASK_CONFIG=prod
 ```
 
-Supported: `development`/`dev`, `production`/`prod`, `testing`/`test`.
+Supported: `development` and `dev`, `production` and `prod`, `testing` and `test`.
 
 <CardGroup cols={2}>
   <Card title="Deploy with Docker" icon="container" href="/deployment/docker">

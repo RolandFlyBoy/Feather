@@ -4,18 +4,18 @@ description: "Typed exceptions that convert themselves into the right status cod
 icon: "triangle-alert"
 ---
 
-Raise one of these anywhere and Feather turns it into the correct HTTP response. No
-error handling boilerplate in your routes.
+Raise one of these anywhere and Feather turns it into the correct HTTP response, with no
+error handling in your routes.
 
 ```python
 from feather.exceptions import (
-    ValidationError,        # 400 — invalid input
-    AuthenticationError,    # 401 — not logged in
-    AuthorizationError,     # 403 — no permission
-    AccountPendingError,    # 403 — account awaiting approval
-    AccountSuspendedError,  # 403 — account suspended
-    NotFoundError,          # 404 — resource not found
-    ConflictError,          # 409 — already exists
+    ValidationError,        # 400, invalid input
+    AuthenticationError,    # 401, not logged in
+    AuthorizationError,     # 403, no permission
+    AccountPendingError,    # 403, account awaiting approval
+    AccountSuspendedError,  # 403, account suspended
+    NotFoundError,          # 404, resource not found
+    ConflictError,          # 409, already exists
 )
 ```
 
@@ -41,17 +41,17 @@ raise ValidationError('Email is required', field='email')
 
 ## Account status exceptions
 
-`AccountPendingError` and `AccountSuspendedError` inherit from `AuthorizationError` but
-trigger redirects to dedicated status pages instead of a generic 403.
+`AccountPendingError` and `AccountSuspendedError` inherit from `AuthorizationError`, but
+redirect to dedicated status pages instead of returning a generic 403.
 
 | Exception | Redirects to |
 | --- | --- |
 | `AccountPendingError` | `/account/pending` |
 | `AccountSuspendedError` | `/account/suspended` |
 
-They are raised automatically by `@auth_required` based on the user's `active` and
-`approved_at` fields, so you do not raise them yourself. The pages are scaffolded into
-your app — edit them in `templates/pages/account/` to match your branding.
+`@auth_required` raises them for you based on the user's `active` and `approved_at`
+fields, so you never raise them directly. Both pages are scaffolded into your app. Edit
+them in `templates/pages/account/` to match your branding.
 
 <Warning>
   Upgrading an older app: a suspended user now reports the error code

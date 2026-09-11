@@ -6,7 +6,7 @@ icon: "list-checks"
 
 <Tabs>
   <Tab title="Route tests">
-    Test HTTP behaviour — status codes, auth gates, response shape.
+    Test HTTP behaviour: status codes, auth gates, response shape.
 
     ```python
     def test_list_items_requires_auth(client):
@@ -43,7 +43,7 @@ icon: "list-checks"
   </Tab>
 
   <Tab title="Model tests">
-    Test the data layer — mixin behaviour, defaults, constraints.
+    Test the data layer: mixin behaviour, defaults, constraints.
 
     ```python
     def test_item_defaults(app):
@@ -59,7 +59,7 @@ icon: "list-checks"
 </Tabs>
 
 <Tip>
-  Because routes stay thin and services hold the logic, most of your assertions belong in
-  service tests. Route tests then only need to prove the wiring: the right decorator, the
-  right status code, the right key in the response.
+  Because routes stay thin and services hold the logic, most assertions belong in service
+  tests. Route tests then only prove the wiring: the right decorator, the right status
+  code, the right key in the response.
 </Tip>

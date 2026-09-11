@@ -1,11 +1,11 @@
 ---
 title: "Islands"
-description: "Small JavaScript components for UI that genuinely needs client-side state — with optimistic updates and drag-and-drop built in."
+description: "Small JavaScript components for UI that needs client-side state, with optimistic updates and drag-and-drop built in."
 icon: "component"
 ---
 
-An island is declared in JavaScript and mounted by a `data-island` attribute. State
-changes re-render only the selectors you name.
+An island is declared in JavaScript and mounted by a `data-island` attribute. When state
+changes, only the selectors you name are re-rendered.
 
 <CodeGroup>
 
@@ -35,8 +35,8 @@ island("counter", {
 
 ## Optimistic updates
 
-Update the UI instantly, then reconcile with the server. The first callback runs
-immediately; if the second fails, the first is rolled back.
+Update the UI immediately, then reconcile with the server. The first callback runs at
+once. If the second fails, the first is rolled back.
 
 ```javascript
 await this.optimistic(
@@ -46,15 +46,15 @@ await this.optimistic(
 ```
 
 <Note>
-  Use `ApiUtility` (`api.js`) rather than raw `fetch` — it handles CSRF tokens and
+  Use `ApiUtility` from `api.js` rather than raw `fetch`. It handles CSRF tokens and
   retries, and raw `fetch` is a [`feather check`](/tooling/check) error.
 </Note>
 
 ## Drag and drop
 
-Built in via the `draggable` config. The full API is documented in the `CLAUDE.md` that
-ships with every project. Pair it with
-[`OrderingMixin`](/backend/models) on the model so positions persist.
+Available through the `draggable` config, documented in full in the `CLAUDE.md` that
+ships with every project. Pair it with [`OrderingMixin`](/backend/models) on the model so
+positions persist.
 
 ## Generating an island
 
@@ -63,5 +63,5 @@ feather generate island like-button
 ```
 
 This writes the island file and wires it into the build. `feather check` reports an
-island no template mounts (`orphan-island`) and a template mounting an island that does
+island no template mounts (`orphan-island`), and a template mounting an island that does
 not exist (`missing-island`).

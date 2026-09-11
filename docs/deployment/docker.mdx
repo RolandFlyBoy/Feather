@@ -6,7 +6,7 @@ icon: "container"
 
 Feather deploys as a Docker image behind [Caddy](https://caddyserver.com/), on one
 machine. A €7/month VPS runs the app, Postgres, Redis and TLS termination with room to
-spare, and the whole thing is eight files in your repository.
+spare, in eight files.
 
 `feather new` scaffolds them. To add them to an existing app:
 
@@ -17,22 +17,22 @@ feather docker init --domain example.com
 feather docker init --no-worker         # no background-job worker service
 ```
 
-It inspects your project to decide what to generate — a `db` service if you have a
-database, `redis` and a `worker` if you use background jobs — and never overwrites a file
-that already exists unless you pass `--force`.
+It inspects your project to decide what to generate, adding a `db` service if you have a
+database, and `redis` and a `worker` if you use background jobs. It never overwrites an
+existing file without `--force`.
 
 ## What gets generated
 
 | File | What it does |
 | --- | --- |
-| `Dockerfile` | Multi-stage build. A `base` stage (python:3.11-slim, non-root `app` user), a `frontend` stage (node:22-alpine, `npm ci --ignore-scripts`, `npm run build`), a `worker` target and a `web` target. No Node in the runtime image. |
+| `Dockerfile` | Multi-stage build. A `base` stage on python:3.11-slim with a non-root `app` user, a `frontend` stage on node:22-alpine running `npm ci --ignore-scripts` and `npm run build`, then `worker` and `web` targets. No Node in the runtime image. |
 | `.dockerignore` | Keeps `venv/`, `node_modules/`, `.git/`, `.env*`, `logs/`, `static/dist/` and tests out of the build context. |
-| `docker-compose.yml` | Production stack: `caddy`, `web`, `worker` (if you enabled jobs), `db` (postgres:16), `redis` (valkey:8). Only Caddy publishes ports. |
-| `docker-compose.dev.yml` | Postgres and Redis on localhost for local development. Nothing else. |
-| `deploy/Caddyfile` | TLS, compression, `reverse_proxy web:8000`, the proxy header contract. |
+| `docker-compose.yml` | Production stack: `caddy`, `web`, `worker` if jobs are enabled, `db` on postgres:16, `redis` on valkey:8. Only Caddy publishes ports. |
+| `docker-compose.dev.yml` | Postgres and Redis on localhost for local development, nothing else. |
+| `deploy/Caddyfile` | TLS, compression, `reverse_proxy web:8000`, and the proxy header contract. |
 | `deploy/deploy.sh` | Build, migrate once, swap containers, wait for health. |
 | `deploy/backup.sh` | Nightly `pg_dump` with retention, for cron. |
-| `.env.example` | Every key this app reads, secrets blanked, with the compose-provided ones marked. |
+| `.env.example` | Every key this app reads, secrets blanked, compose-provided ones marked. |
 
 The `web` target is last in the Dockerfile, so a plain `docker build .` produces the web
 image. The worker is `docker build --target worker .`. Both come from one Dockerfile and
@@ -41,9 +41,9 @@ share a layer cache.
 ## Two details that are easy to break
 
 <AccordionGroup>
-  <Accordion title="Feather is installed on its own layer, before the rest of requirements.txt" icon="layers">
-    The frontend stage copies the framework's templates out of that layer. Tailwind scans
-    them for the class names the built-in components use.
+  <Accordion title="Feather installs on its own layer, before the rest of requirements.txt" icon="layers">
+    The frontend stage copies the framework's templates out of that layer, and Tailwind
+    scans them for the class names the built-in components use.
 
     Remove that copy and every framework component renders unstyled in production.
   </Accordion>
@@ -56,20 +56,20 @@ share a layer cache.
 
 ## Local development
 
-The app itself stays on your machine so `feather dev` keeps Vite's hot reload. Only the
-dependencies go in containers.
+Your app stays on your machine so `feather dev` keeps Vite's hot reload. Only the
+dependencies run in containers.
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d    # Postgres + Redis
 feather dev                                        # Flask + Vite on the host
 ```
 
-The ports and credentials match the `DATABASE_URL` and `REDIS_URL` in the generated
-`.env`, so nothing else needs configuring. Bring up one service alone with
-`docker compose -f docker-compose.dev.yml up -d db`. Stop them with `down`, and add `-v`
-to throw the local data away.
+Ports and credentials match the `DATABASE_URL` and `REDIS_URL` in the generated `.env`, so
+nothing else needs configuring. Bring up one service with
+`docker compose -f docker-compose.dev.yml up -d db`. Stop them with `down`, adding `-v` to
+discard the local data.
 
-You can still build and run the production image locally to check it:
+To check the production image locally:
 
 ```bash
 docker compose build web

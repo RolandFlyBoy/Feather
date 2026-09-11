@@ -5,9 +5,9 @@ icon: "git-branch"
 ---
 
 The shape that works: test on a runner with real service containers, then SSH in and run
-the same `deploy/deploy.sh` you would run by hand. The server builds its own images, so
-CI needs no registry and holds no application secrets — two repository secrets total,
-`SSH_KEY` (the private key for `deploy@`) and `SSH_HOST`.
+the same `deploy/deploy.sh` you would run by hand. The server builds its own images, so CI
+needs no registry and holds no application secrets. Two repository secrets cover it,
+`SSH_KEY` for the `deploy@` private key and `SSH_HOST`.
 
 ```yaml .github/workflows/deploy.yml
 name: Deploy
@@ -74,7 +74,7 @@ jobs:
 
 <Tip>
   Running `feather db upgrade` against an empty Postgres in CI is the cheapest migration
-  test there is. It catches a migration chain that no longer applies before the chain
+  test available. It catches a migration chain that no longer applies before that chain
   reaches production.
 </Tip>
 
@@ -87,7 +87,7 @@ with a forced command in the server's `~deploy/.ssh/authorized_keys`:
 command="/opt/myapp/deploy/deploy.sh --pull",no-agent-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA... github-actions
 ```
 
-The workflow's `ssh` argument is then ignored and the key cannot open a shell.
+The workflow's `ssh` argument is then ignored, and the key cannot open a shell.
 
 <Note>
   Add `feather check` and `feather security-check` to the test job. Both exit non-zero on

@@ -4,7 +4,7 @@ description: "Server interactions without page reloads. Return HTML fragments, s
 icon: "arrow-left-right"
 ---
 
-Add `hx-*` attributes to markup, return a rendered partial from the route, and HTMX
+Add `hx-*` attributes to your markup, return a rendered partial from the route, and HTMX
 swaps the result into the page.
 
 <CodeGroup>
@@ -25,7 +25,7 @@ def like_post(post_id):
 
 ## Cross-element updates
 
-Use the `HX-Trigger` response header to fire an event that other elements listen for.
+Set the `HX-Trigger` response header to fire an event that other elements listen for.
 This is how one action refreshes an unrelated part of the page.
 
 <CodeGroup>
@@ -50,13 +50,12 @@ return response
 | `window.showPrompt({...})` | Input dialog, backed by the `prompt_modal` component |
 
 <Warning>
-  Native `alert()`, `confirm()` and `prompt()` are a
-  [`feather check`](/tooling/check) error. Use the components above instead — they are
-  styled, dark-mode aware and testable.
+  Native `alert()`, `confirm()` and `prompt()` are a [`feather check`](/tooling/check)
+  error. The components above are styled, dark-mode aware and testable.
 </Warning>
 
-## Partials live in their own directory
+## Where partials live
 
 HTMX response fragments belong in `templates/partials/`, separate from full page
-templates in `templates/pages/`. A partial renders a fragment of HTML with no layout
-wrapper, which is exactly what HTMX expects to swap in.
+templates in `templates/pages/`. A partial renders HTML with no layout wrapper, which is
+what HTMX expects to swap in.

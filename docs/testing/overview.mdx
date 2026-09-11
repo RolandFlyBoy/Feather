@@ -1,11 +1,11 @@
 ---
 title: "Testing"
 sidebarTitle: "Overview"
-description: "A working test setup is scaffolded with every project. No configuration — just write tests and run them."
+description: "A working test setup is scaffolded with every project. There is nothing to configure before you write the first test."
 icon: "flask-conical"
 ---
 
-When you run `feather new myapp`, you get:
+`feather new myapp` gives you this:
 
 ```text
 tests/
@@ -15,8 +15,8 @@ tests/
 └── test_admin.py        # admin panel tests (if auth enabled)
 ```
 
-These are not placeholder files. They are real tests that pass out of the box, and they
-are the patterns to follow for your own.
+These are real tests that pass from the start, and they are the patterns to follow for
+your own.
 
 ## Running tests
 
@@ -30,19 +30,19 @@ feather test --no-coverage         # skip the coverage report
 
 <CardGroup cols={3}>
   <Card title="Fixtures" icon="plug" href="/testing/fixtures">
-    The two test clients and why CSRF needs its own.
+    The two test clients, and why CSRF needs its own.
   </Card>
   <Card title="Patterns" icon="list-checks" href="/testing/patterns">
     How to test routes, services and models.
   </Card>
   <Card title="Test database" icon="database" href="/testing/database">
-    Isolation between tests, and one fixture gotcha worth knowing.
+    Isolation between tests, and one fixture trap to avoid.
   </Card>
 </CardGroup>
 
 ## Framework tests
 
-If you are contributing to Feather itself rather than building an app:
+For contributing to Feather itself rather than building an app:
 
 ```bash
 feather test --framework           # full suite
@@ -56,11 +56,11 @@ feather test -f --clean            # remove test artifacts
 | --- | --- |
 | `unit` | Pure functions, no I/O |
 | `integration` | Database, services |
-| `e2e` | Full request/response cycles |
+| `e2e` | Full request and response cycles |
 | `scaffolding` | `feather new` output |
 | `jobs` | The background job system |
 | `api_contract` | API response formats |
 
 <Note>
-  Most app developers will not need these. They test the framework code in `feather/`.
+  Most app developers never need these. They cover the framework code in `feather/`.
 </Note>

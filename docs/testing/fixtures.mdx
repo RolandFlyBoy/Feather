@@ -18,20 +18,19 @@ def test_public_page(client):
     assert response.status_code == 200
 
 def test_create_item(csrf_client):
-    """POST/PUT/DELETE use csrf_client — the token is automatic."""
+    """POST, PUT and DELETE use csrf_client. The token is handled for you."""
     response = csrf_client.post('/api/items', json={'name': 'Test'})
     assert response.status_code == 201
 ```
 
 <Note>
-  **Why two clients?** Feather enables CSRF protection by default. The `csrf_client`
-  fixture fetches and includes the token, so your tests do not have to handle it
-  manually.
+  Feather enables CSRF protection by default, which is why there are two clients. The
+  `csrf_client` fixture fetches and includes the token so your tests do not have to.
 </Note>
 
 ## Adding your own
 
-Extend `conftest.py` for data several tests need.
+Extend `conftest.py` for data that several tests need.
 
 ```python tests/conftest.py
 import pytest
@@ -61,7 +60,7 @@ def sample_items(app):
 ```
 
 <Warning>
-  A fixture that holds one `app.app_context()` open across requests from several test
-  clients resolves every request to the first user loaded. See
+  A fixture holding one `app.app_context()` open across requests from several test clients
+  resolves every request to the first user loaded. See
   [Test database](/testing/database) for why, and the shape that avoids it.
 </Warning>

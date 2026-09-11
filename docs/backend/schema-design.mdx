@@ -1,18 +1,20 @@
 ---
 title: "Schema design"
-description: "Separate authentication from content ownership from billing, before a family plan or a workspace switcher forces you to."
+description: "Separate authentication, content ownership and billing into three models before a team plan or a workspace switcher requires it."
 icon: "sitemap"
 ---
 
-A common mistake when building SaaS apps is putting everything on the User model —
-subscription status, quotas, assets, preferences. This creates problems:
+A common mistake in SaaS apps is putting everything on the User model: subscription
+status, quotas, assets, preferences. Three problems follow.
 
-- **Family and team sharing become impossible** — subscriptions are locked to one person
-- **Profile switching breaks** — you cannot have separate preferences per context
-- **Billing gets messy** — transferring subscriptions or handling corporate accounts is hard
+- **Sharing becomes impossible.** Subscriptions are locked to one person, so family and
+  team plans have nowhere to live.
+- **Profile switching breaks.** There is no way to hold separate preferences per context.
+- **Billing gets tangled.** Transferring a subscription or handling a corporate account
+  means moving rows between users.
 
-The better pattern separates authentication (User) from content ownership (Account) from
-billing (Subscription).
+Separating authentication (User) from content ownership (Account) from billing
+(Subscription) avoids all three.
 
 ```mermaid
 graph LR
@@ -24,17 +26,17 @@ graph LR
 ## The four models
 
 <AccordionGroup>
-  <Accordion title="User — authentication identity only" icon="user">
+  <Accordion title="User: authentication identity only" icon="user">
     ```python
     class User(UserMixin, Model):
         email = db.Column(db.String(255), unique=True)  # OAuth identity
         stripe_customer_id = db.Column(db.String(255))  # for the billing portal
-        # NO subscription_status, NO quota, NO content here
+        # no subscription_status, no quota, no content here
     ```
   </Accordion>
-  <Accordion title="Account — where content and quotas live" icon="folder">
-    Think Netflix profiles. Projects, documents and assets belong to an Account, not a
-    User.
+  <Accordion title="Account: where content and quotas live" icon="folder">
+    Projects, documents and assets belong to an Account rather than a User, in the way
+    Netflix profiles belong to a household.
 
     ```python
     class Account(Model):
@@ -43,7 +45,7 @@ graph LR
         quota = db.Column(db.Integer, default=0)       # usage limits here
     ```
   </Accordion>
-  <Accordion title="AccountUser — many-to-many with roles" icon="users">
+  <Accordion title="AccountUser: many-to-many with roles" icon="users">
     ```python
     class AccountUser(Model):
         user_id = db.Column(db.ForeignKey("users.id"), primary_key=True)
@@ -51,7 +53,7 @@ graph LR
         role = db.Column(db.String(20))  # "admin", "member", "child"
     ```
   </Accordion>
-  <Accordion title="Subscription — billing state attached to the Account" icon="credit-card">
+  <Accordion title="Subscription: billing attached to the Account" icon="credit-card">
     ```python
     class Subscription(Model):
         account_id = db.Column(db.ForeignKey("accounts.id"))
@@ -62,15 +64,15 @@ graph LR
   </Accordion>
 </AccordionGroup>
 
-## What this buys you
+## What the split gives you
 
-- One user can access multiple accounts (personal plus work)
-- Multiple users can share one account (a family plan)
-- Subscriptions transfer cleanly when ownership changes
-- Content queries are scoped to Account, not scattered across Users
-- Team features can be added later without schema changes
+- One user can reach several accounts, personal and work.
+- Several users can share one account, which is how a family plan works.
+- Subscriptions transfer cleanly when ownership changes.
+- Content queries scope to an Account instead of scattering across Users.
+- Team features arrive later without a schema change.
 
 <Note>
-  **When to use this pattern:** any app with subscriptions, quotas, shared resources, or
-  where users might want separate workspaces or profiles.
+  Use this pattern for any app with subscriptions, quotas, shared resources, or where
+  users might want separate workspaces or profiles.
 </Note>
