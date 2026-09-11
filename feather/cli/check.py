@@ -115,7 +115,18 @@ INLINE_HANDLER_RE = re.compile(
     r"mouseover|mouseout|mouseenter|mouseleave)\s*=",
     re.IGNORECASE,
 )
-SCRIPT_BLOCK_RE = re.compile(r"<script(?![^>]*\ssrc=)[^>]*>", re.IGNORECASE)
+# An inline <script> is executable code in a template. A <script> carrying a
+# src= is a normal asset include, and one with a data type (application/json,
+# importmap, text/template) carries no executable code either - it is the
+# supported way to hand server data to a module, and flagging it as an error
+# made the rule fire on correct code.
+SCRIPT_BLOCK_RE = re.compile(
+    r"<script(?![^>]*\ssrc=)"
+    r"(?![^>]*\stype\s*=\s*[\"']\s*(?:application/json|application/ld\+json|"
+    r"importmap|speculationrules|text/template|text/x-template)\s*[\"'])"
+    r"[^>]*>",
+    re.IGNORECASE,
+)
 CLASS_ATTR_RE = re.compile(r'class\s*=\s*"([^"]*)"', re.IGNORECASE)
 STYLE_ATTR_RE = re.compile(r'\sstyle\s*=\s*"([^"]*)"', re.IGNORECASE)
 IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)

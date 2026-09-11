@@ -229,10 +229,22 @@ def load_env_settings(project_dir: Path, env_file: Optional[str], notes: list) -
     elif env_file:
         raise click.ClickException(f"Env file not found: {env_file}")
 
-    # Process environment wins over the file, matching python-dotenv's default
+    # The process environment normally wins, matching python-dotenv's default.
+    #
+    # An explicitly named --env-file is the exception. Importing anything under
+    # feather.cli loads the project's .env into os.environ as a side effect, so
+    # without this the ambient .env would silently override the very file the
+    # caller asked about: `--env-file prod.env` run from a repo with a
+    # development .env reported that production's SECRET_KEY was the dev
+    # default. A security report naming the wrong file is worse than no report.
+    named_file_keys = set(values) if env_file else set()
     for key in list(values) + KNOWN_ENV_KEYS:
+        if key in named_file_keys:
+            continue
         if key in os.environ:
             values[key] = os.environ[key]
+    if named_file_keys:
+        notes.append(f"{path.name} is authoritative for the {len(named_file_keys)} key(s) it sets")
 
     # Layer explicit values over the config-class defaults for the detected
     # environment, so unset-but-defaulted settings are judged correctly.
@@ -265,12 +277,29 @@ def resolve_settings(project_dir: Path, env_file: Optional[str]) -> Settings:
 # =============================================================================
 
 
+def _setting_or_environ(settings: Settings, key: str):
+    """Value for `key`, preferring the settings over the process environment.
+
+    In env mode `settings` is already the merged view that load_env_settings
+    assembled, so consulting os.environ first would put the ambient .env back
+    on top and undo an explicit --env-file: that is how a production check
+    came to report the developer's SECRET_KEY. In app mode the settings are
+    the live app.config, which carries no FLASK_ENV, so the environment still
+    has to answer. Hence settings first, environment as the fallback - and an
+    explicit falsy value counts as an answer, or FLASK_DEBUG=0 would fall
+    through to a stale FLASK_DEBUG=1 in the environment.
+    """
+    if key in settings.values and settings.values[key] is not None:
+        return settings.values[key]
+    return os.environ.get(key)
+
+
 def detect_environment(settings: Settings) -> Optional[str]:
     """Return 'production', 'development', 'testing', or None if unset."""
     from feather.core.config import CONFIG_SHORTCUTS
 
     for key in ("FLASK_CONFIG", "FLASK_ENV"):
-        raw = os.environ.get(key) or settings.values.get(key)
+        raw = _setting_or_environ(settings, key)
         if not raw:
             continue
         text = str(raw).strip()
@@ -327,7 +356,7 @@ def check_debug(settings: Settings, production: bool) -> Check:
         return Check("debug", SKIP, "Not production; DEBUG not checked")
 
     for key in ("FLASK_DEBUG", "DEBUG"):
-        value = as_bool(os.environ.get(key, settings.values.get(key)))
+        value = as_bool(_setting_or_environ(settings, key))
         if value:
             return Check(
                 "debug", FAIL, f"{key} is on in production",

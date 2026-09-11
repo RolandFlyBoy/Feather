@@ -269,6 +269,19 @@ def env_check(env_file: Optional[str], project_path: str, as_json: bool):
                     bold=True,
                 )
             )
+            # A key read as os.environ.get("X") with nothing after it cannot
+            # raise, so some of these are keys where None is a perfectly good
+            # value - a rotation key, a language that means auto-detect. The
+            # tool cannot tell that apart from an oversight, but config.py can
+            # say which it meant, and this is the only place anyone will think
+            # to look when the answer is "that one is fine unset".
+            click.echo(
+                click.style(
+                    'If None is a valid value for one of these, say so in '
+                    'config.py: os.environ.get("KEY", None).',
+                    fg="cyan",
+                )
+            )
         else:
             click.echo(click.style("All required keys are set.", fg="green"))
 
