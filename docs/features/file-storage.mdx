@@ -1,8 +1,11 @@
 ---
 title: "File storage"
-description: "One interface over the local filesystem and Google Cloud Storage, with signed URLs and extension safety built in."
+description: "One interface for local files and Google Cloud Storage, so moving between them is a config change."
 icon: "hard-drive"
 ---
+
+Files go to the local filesystem or to Google Cloud Storage, behind the same interface.
+Switching between them is a change in `.env` rather than a change in your code.
 
 ```bash .env
 STORAGE_BACKEND=local       # saves to ./uploads/

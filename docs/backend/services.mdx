@@ -1,10 +1,11 @@
 ---
 title: "Services"
-description: "Business logic with transactions handled by a decorator, pagination helpers, and singletons for expensive setup."
+description: "Business logic lives here. A decorator handles the transaction, so a failed validation rolls back on its own."
 icon: "cog"
 ---
 
-Services hold business logic. Keep routes thin and services substantial.
+Services hold the business logic. Routes should stay thin enough to read at a glance, and
+anything more than parsing a request and returning a response belongs here.
 
 ```python services/user_service.py
 from feather import Service, transactional

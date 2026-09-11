@@ -1,0 +1,156 @@
+---
+title: "6. Deploying"
+sidebarTitle: "6. Deploying"
+description: "Put the app on a server at your own domain, with automatic HTTPS, nightly backups and a deploy that runs on every push."
+icon: "ship"
+---
+
+Everything so far has run on your laptop. This part puts it on the internet properly: your
+domain, a real certificate, a database that gets backed up, and a deploy you trigger with
+one command or a merge to `main`.
+
+The whole thing runs on one machine for about €7 a month. The app, Postgres, Redis and TLS
+termination all share the box, and the deployment is eight files that `feather new` already
+put in your repository.
+
+**You'll use:** `feather docker init`, multi-stage builds, `docker-compose.dev.yml`,
+one-shot migrations, health-gated deploys, Caddy, `deploy/backup.sh` and GitHub Actions.
+
+## What you need
+
+- A working app from part 4 or part 5
+- A domain whose DNS you control
+- A VPS you can SSH into as root. Hetzner, DigitalOcean and Vultr all work. Two vCPU and
+  4 GB is enough to start
+- Docker locally, which is optional but useful for step 1
+
+Check whether your app already has the deployment files:
+
+```bash
+ls Dockerfile docker-compose.yml docker-compose.dev.yml deploy/
+```
+
+If that errors, add them. It never overwrites an existing file, so it's safe in a project
+you've been working in.
+
+```bash
+feather docker init --domain kanban.example.com
+```
+
+## What you'll build
+
+<Steps>
+  <Step title="Understand what you're deploying">
+    Read the generated Dockerfile and compose file. Two details in the Dockerfile are easy
+    to break, and both are covered in [Docker](/deployment/docker).
+  </Step>
+  <Step title="Run the dependencies locally">
+    `docker-compose.dev.yml` puts Postgres and Redis in containers while your app stays on
+    the host, so `feather dev` keeps hot reload.
+  </Step>
+  <Step title="Prepare the server">
+    DNS first, then a deploy user, Docker, a firewall and unattended upgrades.
+  </Step>
+  <Step title="Put the code and the secrets on the server">
+    The production `.env` is written once, on the server, and never enters git or the
+    image.
+  </Step>
+  <Step title="Deploy">
+    `./deploy/deploy.sh` builds, migrates once, swaps the containers and waits for health.
+  </Step>
+  <Step title="Understand the TLS setup">
+    Caddy issues and renews certificates on its own. Two proxy headers are load-bearing.
+  </Step>
+  <Step title="Set up backups">
+    `deploy/backup.sh` in cron, and a step to get the dump off the machine.
+  </Step>
+  <Step title="Deploy from GitHub Actions">
+    Test against real service containers, then SSH in and run the same script.
+  </Step>
+  <Step title="Work through the pre-launch checklist" />
+</Steps>
+
+## Prompt Claude
+
+Deployment differs from the earlier parts, because a lot of it happens on a server rather
+than in your repository. Split it accordingly.
+
+<Tabs>
+  <Tab title="Repository work">
+    ```text
+    I'm working through part 6 of the Feather Kanban tutorial series.
+
+    Read the tutorial first:
+    https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/06-deploying.md
+
+    My app is the result of part 5 and runs locally with `feather dev`. My domain is
+    kanban.example.com and my server is a fresh Ubuntu 24.04 box.
+
+    Do the repository-side work only, not anything that touches the server:
+    - Run `feather docker init --domain kanban.example.com` and show me what it
+      generated or skipped
+    - Walk me through the Dockerfile, especially why feather installs on its own
+      layer and why migrations are not in CMD
+    - Write the GitHub Actions workflow from Step 8, with the test job using real
+      Postgres and Redis service containers
+    - Add `feather check` and `feather security-check` to the test job
+
+    Then give me the exact commands I need to run on the server myself, in order,
+    with a note on what each one does. Do not run anything over SSH.
+    ```
+  </Tab>
+  <Tab title="Pre-launch review">
+    ```text
+    Continuing part 6. The app is deployed at https://kanban.example.com and
+    responding.
+
+    Work through the pre-launch checklist in Step 9 of the tutorial and the one at
+    https://docs.featherframework.org/deployment/checklist.
+
+    For each item, tell me how to verify it rather than assuming it. Where you can
+    check from the repository, check it. Where it needs a command on the server, give
+    me the command and tell me what a passing result looks like.
+
+    Flag anything that looks wrong, particularly TRUSTED_HOSTS, OAUTH_CALLBACK_URL
+    and JOB_SERIALIZER.
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  Keep the assistant out of your production server unless you've decided otherwise
+  deliberately. Having it prepare commands you run yourself gives you the same speed with a
+  review step in between, and the deploy script is the piece that applies migrations.
+</Warning>
+
+## Checkpoint
+
+- `https://your-domain` serves the app over a valid certificate
+- Signing in with Google works, which proves the proxy headers are right
+- `curl https://your-domain/health` returns healthy with a database check
+- `./deploy/deploy.sh` completes and prints that it is healthy
+- A push to `main` triggers the workflow, and it deploys after tests pass
+- `deploy/backup.sh` produces a dump, and you have restored one at least once
+- `feather security-check --env-file .env` passes on the server
+
+## What you learned
+
+- `feather docker init`, and that it never overwrites without `--force`
+- Multi-stage builds that leave Node out of the runtime image
+- Running dependencies in containers while the app stays on your machine
+- Running migrations exactly once, before the container swap, so two containers can't race
+- Health-gated deploys, where healthy means the database is reachable
+- Caddy's automatic certificates, and the proxy headers OAuth depends on
+- Keeping `.env` on the server, where CI never sees it
+- `feather env check` and `feather security-check` as pre-launch gates
+
+## Where to go next
+
+- **A staging host.** A second A record, a second checkout, a second compose project name,
+  and the same scripts.
+- **Log aggregation.** The app writes JSON logs in production. Ship them somewhere you can
+  search.
+- **Error alerting.** `/admin/logs` records exceptions. Add a notification when the rate
+  spikes.
+- **Off-site backups.** The piece step 7 leaves as an exercise, and the one you'll be glad
+  you did.

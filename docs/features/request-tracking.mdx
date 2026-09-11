@@ -1,8 +1,11 @@
 ---
 title: "Request tracking"
-description: "A unique ID on every request and structured JSON logging, so you can trace one request through the logs."
+description: "Every request gets an ID that shows up in the response headers and in every log line it produces."
 icon: "scan-search"
 ---
+
+Tracing a failure through the logs is much easier when every line from the same request
+carries the same ID. Feather adds one, and turns on JSON logging in production.
 
 ```bash .env
 LOG_LEVEL=INFO        # DEBUG, INFO, WARNING, ERROR, CRITICAL

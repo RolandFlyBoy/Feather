@@ -1,0 +1,146 @@
+---
+title: "5. SaaS Kanban"
+sidebarTitle: "5. SaaS Kanban"
+description: "Rebuild the app so each organization's data is isolated, with a platform admin above the tenant admins."
+icon: "building-2"
+---
+
+Part 4 gave every user their own boards. That's not the same thing as a SaaS, where a
+company signs up and its people share data that nobody outside the company can reach.
+
+The difference sounds small and isn't. Every query has to be scoped, and one missed filter
+is a data leak rather than a bug. Feather enforces the scoping at three layers, and
+`feather check` fails the build on a tenant-scoped model queried without a tenant filter.
+
+**You'll use:** `TenantScopedMixin`, `get_current_tenant_id()`, `require_same_tenant()`,
+domain-based tenant assignment, platform admin, and a separate `Attachment` model for
+multiple files per card.
+
+## Create the project
+
+Multi-tenancy changes the user model and the admin panel, so this part starts fresh again.
+
+```bash
+feather new kanban-saas
+```
+
+Answers that matter:
+
+| Prompt | Answer | Why |
+| --- | --- | --- |
+| App type | `multi-tenant` | |
+| Database name | `kanban_saas` | Defaults to the project name, and a hyphen in a Postgres database name has to be quoted forever |
+| Redis caching | `n` | Defaults to yes, nothing here uses it |
+| Cloud storage (GCS) | keep the default yes | Attachments need it |
+| Platform admin email | one you can sign in with | `seeds.py` grants it `is_platform_admin` |
+
+There's no database *type* prompt here. Multi-tenant apps require PostgreSQL.
+
+```bash
+cd kanban-saas
+source venv/bin/activate
+
+feather db migrate -m "Initial migration"
+feather db upgrade
+python seeds.py
+```
+
+## What the scaffold already gives you
+
+The multi-tenant scaffold is meaningfully different from part 4's:
+
+| | Single-tenant | Multi-tenant |
+| --- | --- | --- |
+| User model | no `tenant_id` | has `tenant_id` |
+| Platform admin | no such thing | `is_platform_admin` field |
+| Tenant model | none | full tenant management |
+| Data isolation | per user | per tenant |
+| Admin panel | users | users and tenants |
+
+## What you'll build
+
+<Steps>
+  <Step title="Create tenant-scoped models">
+    `Kanban` swaps user ownership for `TenantScopedMixin`. `Column` and `Card` inherit
+    isolation through the board. `Attachment` becomes its own model so a card can hold
+    several files.
+  </Step>
+  <Step title="Run the migration" />
+  <Step title="Create tenant-scoped services">
+    Board, column, card and attachment services, each scoping through the tenant rather
+    than trusting an ID from the request.
+  </Step>
+  <Step title="Create the routes">
+    Dashboard, board view, and the API for moves and attachments.
+  </Step>
+  <Step title="Create the templates and JavaScript">
+    The board grid, the board itself, the drag-and-drop island, and a user menu flyout.
+  </Step>
+  <Step title="Test the isolation">
+    Sign in as two users on different email domains and confirm neither can see the other's
+    boards.
+  </Step>
+</Steps>
+
+## Prompt Claude
+
+```text
+I'm working through part 5 of the Feather Kanban tutorial series.
+
+Read the tutorial first:
+https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/05-saas-kanban.md
+
+I've scaffolded a fresh multi-tenant app called kanban-saas on PostgreSQL, with
+GCS enabled and Redis disabled. Migrations have run and seeds.py created my
+platform admin. Google OAuth and GCS credentials are in .env.
+
+Implement Build Steps 1 through 7:
+- Kanban using TenantScopedMixin, with Column and Card scoped through it
+- A separate Attachment model, so a card can have several files
+- The migration
+- Tenant-scoped services for board, column, card and attachment
+- Dashboard and board routes, plus the move and attachment API routes
+- Templates, the drag-drop island and the user menu island
+- CSS
+
+The isolation rules matter more than anything else here. Use
+get_current_tenant_id() to scope queries, and require_same_tenant() in the
+services before acting on anything fetched by ID. Do not trust a tenant_id that
+arrives in a request. Cross-tenant routes, if any, need @platform_admin_required.
+
+Show me the migration before applying it. Then run `feather check` and pay
+attention to the tenant-isolation rule specifically, since it catches queries on
+tenant-scoped models with no tenant filter.
+```
+
+<Warning>
+  A tenant admin is not a platform admin. An admin at one company must not be able to read
+  another company's data, and `require_same_tenant()` is a hard stop that admin role does
+  not bypass. If an assistant adds an admin shortcut around it, that's a bug worth
+  rejecting.
+</Warning>
+
+## Checkpoint
+
+Sign in as two accounts on different email domains, then confirm:
+
+- Each is assigned to the tenant matching its domain
+- Neither can see the other's boards
+- Fetching the other tenant's board by ID returns 403 rather than data
+- A tenant admin can manage users inside their tenant only
+- The platform admin can see `/admin/tenants` and create tenants
+- `feather check` reports no `tenant-isolation` errors
+
+## What you learned
+
+- Isolating data per organization instead of per user
+- `TenantScopedMixin` and the `for_tenant()` query it adds
+- `get_current_tenant_id()` at the route layer
+- `require_same_tenant()` as a hard stop in services
+- Isolation inherited down a hierarchy, from tenant through board to attachment
+- Assigning users to tenants by email domain
+- Platform admin versus tenant admin, and why the CLI grants the first
+
+<Card title="Next: put it on the internet" icon="ship" href="/tutorials/deploying" horizontal>
+  A VPS, Docker, automatic TLS, nightly backups and a deploy on every push.
+</Card>

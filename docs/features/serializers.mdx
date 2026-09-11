@@ -1,8 +1,11 @@
 ---
 title: "Serializers"
-description: "Turn models into JSON with camelCase conversion, typed fields, computed values and nesting."
+description: "Model to JSON, with camelCase conversion, typed fields, computed values and nesting."
 icon: "braces"
 ---
+
+Serializers turn model instances into JSON, converting `snake_case` to `camelCase` on the
+way out so your frontend gets the shape it expects.
 
 ```python
 from feather.serializers import Serializer

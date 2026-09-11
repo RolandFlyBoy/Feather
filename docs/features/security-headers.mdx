@@ -1,11 +1,11 @@
 ---
 title: "Security headers"
-description: "CSP, HSTS and the rest applied automatically in production, with per-directive overrides."
+description: "CSP, HSTS and the rest, applied in production without configuration. Override a directive when you need to."
 icon: "shield"
 ---
 
-Feather adds security headers to all responses in production, when `DEBUG=False`. They
-are on by default and skipped in development, so there is nothing to configure.
+In production, when `DEBUG=False`, Feather adds these headers to every response. They're on
+by default and skipped in development, so most apps never touch this page.
 
 | Header | Value | Purpose |
 | --- | --- | --- |

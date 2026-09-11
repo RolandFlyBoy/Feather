@@ -206,7 +206,13 @@
             "group": "Kanban series",
             "icon": "list-ordered",
             "pages": [
-              "tutorials/index"
+              "tutorials/index",
+              "tutorials/static-board-ui",
+              "tutorials/persistent-boards",
+              "tutorials/drag-and-drop",
+              "tutorials/personal-kanban",
+              "tutorials/saas-kanban",
+              "tutorials/deploying"
             ]
           }
         ]

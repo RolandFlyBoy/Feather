@@ -1,8 +1,12 @@
 ---
 title: "Rate limiting"
-description: "A decorator for single-process guards, and Flask-Limiter with Redis for limits that hold across workers."
+description: "A decorator for development, and Flask-Limiter with Redis for limits that hold up across workers."
 icon: "gauge"
 ---
+
+There are two ways to rate limit in Feather, and the difference matters more than it
+looks. The decorator is convenient. Flask-Limiter with Redis is the one that actually
+holds when you run more than one worker.
 
 ## The decorator
 

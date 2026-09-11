@@ -1,8 +1,12 @@
 ---
 title: "Events"
-description: "A pub/sub layer for decoupling components, with synchronous and background listeners."
+description: "Publish an event, subscribe somewhere else. Listeners run in the request or in the background."
 icon: "radio"
 ---
+
+Events let one part of the app announce that something happened without knowing, or
+caring, who reacts to it. Creating a user is the usual example: the signup code shouldn't
+need to know about your analytics.
 
 ## Defining an event
 

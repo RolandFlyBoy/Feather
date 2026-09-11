@@ -1,0 +1,121 @@
+---
+title: "3. Drag and drop"
+sidebarTitle: "3. Drag and drop"
+description: "The first part that needs real client-side state. Add ordering to the models and a JavaScript island that moves cards optimistically."
+icon: "move"
+---
+
+Dragging a card is the first thing in this series that HTMX can't do well. A drag has
+state that lives in the browser for as long as your finger is down, and round-tripping to
+the server on every pointer move would feel awful.
+
+So this is where islands earn their place. You'll add position columns to the models, mount
+a small JavaScript component over the board, and let it update the UI immediately while the
+save happens behind it.
+
+**You'll use:** `OrderingMixin`, `__ordering_scope__`, islands, the built-in `draggable`
+config, `this.optimistic()`, and an API route returning JSON.
+
+## Prerequisites
+
+<Tabs>
+  <Tab title="Continue from part 2">
+    Your app needs the SQLite database, the `Column` and `Card` models, the HTMX routes and
+    the two partials. Nothing else to do.
+  </Tab>
+  <Tab title="Start fresh">
+    ```bash
+    feather new kanban
+    ```
+
+    Accept `simple`, choose `sqlite`, then copy the Starting Point code from the tutorial,
+    which reprints everything part 2 produced.
+  </Tab>
+</Tabs>
+
+## What you'll build
+
+<Steps>
+  <Step title="Add OrderingMixin to both models">
+    `Column` orders globally. `Card` sets `__ordering_scope__ = ['column_id']`, so positions
+    run per column instead of across the whole board.
+  </Step>
+  <Step title="Run the migration">
+    Adding the mixin adds a column, so the schema changes.
+  </Step>
+  <Step title="Update the services">
+    Ordered queries, and a `move()` method on `CardService` that handles both reordering
+    within a column and moving between columns.
+  </Step>
+  <Step title="Add the move API route">
+    A JSON endpoint under `routes/api/`, which is what the island calls.
+  </Step>
+  <Step title="Create the island">
+    `static/islands/kanban-board.js`, using the `draggable` config rather than raw
+    pointer events.
+  </Step>
+  <Step title="Update the partials and template">
+    Drag handles, `data-id` attributes, and the island mount point on the board.
+  </Step>
+  <Step title="Add the drag CSS, then test">
+    Opacity on the dragged card, a placeholder where it will land.
+  </Step>
+</Steps>
+
+## Prompt Claude
+
+```text
+I'm working through part 3 of the Feather Kanban tutorial series.
+
+Read the tutorial first:
+https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/03-drag-and-drop.md
+
+My app is the result of part 2: Column and Card models, services, HTMX create and
+delete, and partials for column and card.
+
+Implement Build Steps 1 through 9:
+- OrderingMixin on both models, with __ordering_scope__ = ['column_id'] on Card
+- The migration
+- Ordered queries and a move() method on CardService
+- The move API route under routes/api/
+- The kanban-board island using the built-in draggable config
+- data-id attributes and drag handles on the partials
+- The island mount on the board template
+- Drag-drop CSS
+
+Two conventions matter here. Use ApiUtility from api.js rather than raw fetch, so
+CSRF is handled. And use this.optimistic() for the move, so the card lands
+immediately and rolls back if the server rejects it.
+
+Show me the migration before applying it. Then run `feather check` and fix
+anything it reports, including orphan-island or missing-island.
+```
+
+<Note>
+  `feather check` has two rules specifically for this part. `missing-island` catches a
+  template mounting an island that doesn't exist, and `orphan-island` catches an island
+  nothing mounts. Both are easy to trip while wiring this up.
+</Note>
+
+## Checkpoint
+
+- Columns and cards have stable positions
+- A card can be dragged within a column and between columns
+- The dragged card dims, and a placeholder shows where it will land
+- The card lands instantly rather than after a round trip
+- Stopping the server mid-drag rolls the card back to where it started
+- `feather check` passes
+
+## What you learned
+
+- `OrderingMixin` and what it adds to a model
+- `__ordering_scope__` for positions relative to a parent
+- Declaring and mounting an island
+- The built-in `draggable` config
+- `this.optimistic()` and rollback on failure
+- API routes that return JSON rather than HTML
+- How islands load differently in debug and production
+
+<Card title="Next: add real users" icon="user" href="/tutorials/personal-kanban" horizontal>
+  Google sign-in, roles, the admin panel, file attachments and PDF export.
+</Card>

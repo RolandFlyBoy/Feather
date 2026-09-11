@@ -1,19 +1,20 @@
 ---
 title: "Feather"
 sidebarTitle: "Introduction"
-description: "A full-stack Python web framework built on Flask, Tailwind CSS, HTMX and vanilla JavaScript. The production infrastructure is already written."
+description: "Build full-stack Python apps with Flask, Tailwind CSS and HTMX, without assembling authentication, admin and deployment yourself."
 icon: "feather"
 mode: "wide"
 ---
 
-Feather is a full-stack web framework built on proven parts: **Flask** for the backend,
-**Tailwind CSS** for styling, **HTMX** for dynamic interactions, and **vanilla
-JavaScript** for complex client-side behavior.
+Feather is a full-stack web framework. **Flask** handles the backend, **Tailwind CSS**
+the styling, **HTMX** the interactions that need the server, and **vanilla JavaScript**
+the handful that need the browser.
 
-It works with any AI coding assistant, and is tuned for
+It works with any AI coding assistant, and it's tuned for
 [Claude Code](https://claude.ai/code). Every project ships a `CLAUDE.md` and an identical
-`AGENTS.md` describing the conventions to follow. `feather check` enforces the ones that
-can be enforced, so an assistant can check its own work instead of guessing.
+`AGENTS.md` setting out the conventions, and `feather check` enforces the ones that can be
+enforced. That combination is what lets an assistant check its own work instead of
+guessing.
 
 <CardGroup cols={2}>
   <Card title="Install Feather" icon="download" href="/installation">
@@ -32,7 +33,7 @@ can be enforced, so an assistant can check its own work instead of guessing.
 
 ## What's included
 
-Every feature below is optional. Turn it on during project creation, or add it later.
+All of this is optional. Turn a feature on when you create the project, or add it later.
 
 | Feature | Options |
 | --- | --- |
@@ -53,10 +54,9 @@ Every feature below is optional. Turn it on during project creation, or add it l
 
 ## The three-layer frontend
 
-Feather builds UIs in three layers, each solving a different problem. Start with
-components for anything static. Reach for HTMX when you need server data without a page
-reload. Use islands only when you need state on the client. Most features need nothing
-past the first two.
+Start with components for anything static. Reach for HTMX when you need server data
+without a page reload. Use islands only when state has to live in the browser. Most
+features never get past the first two.
 
 <CardGroup cols={3}>
   <Card title="Components" icon="box" href="/ui/components">

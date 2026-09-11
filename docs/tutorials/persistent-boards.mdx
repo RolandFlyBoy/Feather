@@ -1,0 +1,144 @@
+---
+title: "2. Persistent boards"
+sidebarTitle: "2. Persistent boards"
+description: "Add a database, models and services, then wire the buttons up with HTMX so columns and cards survive a refresh."
+icon: "database"
+---
+
+The board from part 1 forgets everything when you reload. Here you give it a database and
+make the buttons work, and you'll do it without writing any frontend JavaScript.
+
+That last point is the one worth paying attention to. Creating and deleting cards is
+exactly the kind of interaction people reach for React to handle. HTMX does it by asking
+the server for a fragment of HTML and swapping it into the page.
+
+**You'll use:** SQLAlchemy models with mixins, Alembic migrations, services with
+`@transactional`, dependency injection, HTMX attributes, and partial templates.
+
+## Prerequisites
+
+<Tabs>
+  <Tab title="Continue from part 1">
+    Part 1 scaffolded with no database, so the app has no `models/` package, no
+    `migrations/` directory and no `DATABASE_URL`. Add them:
+
+    ```bash
+    cd kanban
+    source venv/bin/activate
+
+    echo 'DATABASE_URL=sqlite:///kanban.db' >> .env
+
+    mkdir -p models
+    cat > models/__init__.py <<'EOF'
+    """SQLAlchemy models - Auto-discovered by Feather."""
+
+    from feather.db import db, Model
+    EOF
+
+    feather db init
+    ```
+
+    <Note>
+      This is the one situation `feather db init` exists for. In an app scaffolded with a
+      database it fails, because `migrations/` is already there.
+    </Note>
+  </Tab>
+  <Tab title="Start fresh">
+    ```bash
+    feather new kanban
+    ```
+
+    Accept `simple` for the app type, then type `sqlite` at the database prompt. Leave
+    background jobs at the default.
+
+    Then copy the Starting Point code from the tutorial, which reprints the route,
+    template and CSS from part 1.
+  </Tab>
+</Tabs>
+
+## What you'll build
+
+<Steps>
+  <Step title="Create the models">
+    `Column` and `Card`, both using `UUIDMixin` and `TimestampMixin`.
+  </Step>
+  <Step title="Generate and run the migration">
+    `feather db migrate -m "..."` then `feather db upgrade`. Read the generated migration
+    before you apply it.
+  </Step>
+  <Step title="Create the services">
+    `ColumnService` and `CardService` hold the business logic, with `@transactional` doing
+    the commit and rollback.
+  </Step>
+  <Step title="Update the board route">
+    Swap the hardcoded lists for real queries, injected with `@inject`.
+  </Step>
+  <Step title="Create the partial templates">
+    `partials/column.html` and `partials/card.html`, the fragments HTMX swaps in.
+  </Step>
+  <Step title="Add HTMX to the board template">
+    `hx-post`, `hx-delete` and `hx-swap` on the buttons, with `hx-confirm` on the
+    destructive ones.
+  </Step>
+  <Step title="Add the new CSS, then test">
+    Create a column, add cards, delete both, and refresh to confirm it all persisted.
+  </Step>
+</Steps>
+
+## Prompt Claude
+
+```text
+I'm working through part 2 of the Feather Kanban tutorial series.
+
+Read the tutorial first:
+https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/02-persistent-boards.md
+
+My app is the result of part 1: a static board with hardcoded columns in
+routes/pages/home.py. I've added DATABASE_URL for SQLite, created the models/
+package and run `feather db init`.
+
+Implement Build Steps 1 through 7:
+- Column and Card models with UUIDMixin and TimestampMixin
+- The migration
+- ColumnService and CardService, using @transactional
+- The board route querying real data with @inject
+- Partial templates for column and card
+- HTMX wiring on the board template, with hx-confirm on deletes
+- The new CSS classes
+
+Conventions from CLAUDE.md that matter here: keep the route handlers thin and put
+the logic in services, use the prompt modal rather than window.prompt, and keep
+styles as @apply classes in app.css.
+
+Stop before running the migration and show me the generated file. After I approve
+it, run `feather db upgrade`, then `feather check`, and fix anything it reports.
+```
+
+<Warning>
+  Asking it to pause at the migration is deliberate. Feather keeps migrations manual so you
+  see what Alembic inferred from your models before it touches the database, and that's
+  worth preserving when an assistant is writing the models.
+</Warning>
+
+## Checkpoint
+
+- Columns and cards are stored in SQLite
+- Creating and deleting either one happens without a page reload
+- Deletes ask for confirmation first
+- Everything survives a refresh
+- `feather check` passes
+
+## What you learned
+
+- Models built from `UUIDMixin` and `TimestampMixin`
+- Generating and applying migrations
+- Services as the home for business logic
+- `@transactional` for commit and rollback
+- `@inject` for getting a service into a handler
+- HTMX attributes for create and delete
+- Partial templates as HTMX responses
+- `window.showPrompt()` instead of the native dialog
+
+<Card title="Next: drag and drop" icon="move" href="/tutorials/drag-and-drop" horizontal>
+  Add ordering to the models and a JavaScript island to move cards between columns.
+</Card>

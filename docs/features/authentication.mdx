@@ -1,12 +1,12 @@
 ---
 title: "Authentication"
-description: "Google OAuth with no passwords to store, approval workflows, roles, permissions, and callbacks for custom onboarding."
+description: "Google OAuth, so there are no passwords to store, plus approval workflows, roles, permissions and hooks for onboarding."
 icon: "key-round"
 ---
 
 Feather authenticates with **Google OAuth**, so there are no passwords to store and no
 signup form to build. One flow covers both login and registration: the user authorizes
-the app, and Feather creates their account if it does not exist. That removes the whole
+the app, and Feather creates their account if it doesn't exist. That removes the whole
 signup, login and password-reset surface.
 
 <Note>
@@ -259,6 +259,6 @@ updating existing users rather than duplicating them.
 
     A returned string blocks registration, shows the message as a toast error, and creates
     no user record. `None` lets registration proceed. Errors raised inside the callback
-    are logged but do not block signups.
+    are logged but don't block signups.
   </Accordion>
 </AccordionGroup>

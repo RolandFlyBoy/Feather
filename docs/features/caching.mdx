@@ -1,8 +1,11 @@
 ---
 title: "Caching"
-description: "Function and response caching with argument-keyed invalidation, backed by memory or Redis."
+description: "Cache a function's results or a whole response, backed by memory or Redis."
 icon: "zap"
 ---
+
+Pick a backend in `.env`. Memory is fine while you're developing; Redis is what you want
+once more than one process is serving requests.
 
 ```bash .env
 CACHE_BACKEND=memory       # in-memory, single process, cleared on restart

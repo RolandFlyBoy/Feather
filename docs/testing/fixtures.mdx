@@ -1,10 +1,11 @@
 ---
 title: "Fixtures"
-description: "Two test clients, one of them CSRF-aware, and how to add your own fixtures for common test data."
+description: "Two test clients, one of which handles CSRF for you, and how to add fixtures of your own."
 icon: "plug"
 ---
 
-The scaffolded `conftest.py` provides two test clients.
+The scaffolded `conftest.py` gives you two test clients. Which one you reach for depends on
+whether the request needs a CSRF token.
 
 | Fixture | Use for | CSRF handling |
 | --- | --- | --- |
@@ -25,7 +26,7 @@ def test_create_item(csrf_client):
 
 <Note>
   Feather enables CSRF protection by default, which is why there are two clients. The
-  `csrf_client` fixture fetches and includes the token so your tests do not have to.
+  `csrf_client` fixture fetches and includes the token so your tests don't have to.
 </Note>
 
 ## Adding your own

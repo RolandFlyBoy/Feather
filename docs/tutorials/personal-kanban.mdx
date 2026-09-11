@@ -1,0 +1,183 @@
+---
+title: "4. Personal Kanban"
+sidebarTitle: "4. Personal Kanban"
+description: "The longest part. Google sign-in, roles, an admin panel, multiple boards per user, GCS attachments and PDF export."
+icon: "user"
+---
+
+This is the part where the toy becomes an application. It's also the longest, because it
+introduces authentication, cloud storage and the admin panel together, and each of those
+needs credentials before you can start.
+
+Set aside more time than the earlier parts, and get the credentials sorted first. Nothing
+below works without them.
+
+**You'll use:** Google OAuth, `@auth_required` and `@login_only`, roles, the scaffolded
+admin panel, GCS file storage, and WeasyPrint for PDF export.
+
+## Credentials you need first
+
+| Credential | Where | What you need |
+| --- | --- | --- |
+| **PostgreSQL** | `brew install postgresql` | A local server running |
+| **Google OAuth** | [Cloud Console credentials](https://console.cloud.google.com/apis/credentials) | Client ID and secret |
+| **GCS bucket** | [Cloud Storage](https://console.cloud.google.com/storage/browser) | A bucket name |
+| **Service account** | [IAM service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) | A JSON key |
+
+For OAuth, create a Web application client and add
+`http://localhost:5173/auth/google/callback` as an authorized redirect URI.
+
+For storage, grant the service account the **Storage Object Admin** role, then create a
+JSON key.
+
+## Create the project
+
+This part needs a different app type, so start fresh.
+
+```bash
+feather new kanban
+```
+
+Answers that matter:
+
+| Prompt | Answer | Why |
+| --- | --- | --- |
+| App type | `single-tenant` | You need user accounts |
+| Database | `postgresql` | Defaults to sqlite, so type it |
+| Redis caching | `n` | Defaults to yes, and nothing here uses it |
+| Cloud storage (GCS) | keep the default yes | Attachments need it |
+| Admin email | the Gmail you'll sign in with | `seeds.py` grants it the admin role |
+
+```bash
+cd kanban
+source venv/bin/activate
+
+feather db migrate -m "Initial migration"
+feather db upgrade
+python seeds.py
+```
+
+Then add your credentials to `.env`:
+
+```bash .env
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+GCS_BUCKET=your-bucket-name
+GCS_CREDENTIALS_JSON={"type":"service_account","project_id":"...","private_key":"..."}
+```
+
+<Warning>
+  `GCS_CREDENTIALS_JSON` has to be the whole JSON key on a single line. Copy it out of the
+  downloaded file and strip the line breaks, or the app will fail to authenticate against
+  the bucket with an error that doesn't obviously point here.
+</Warning>
+
+## What you'll build
+
+<Steps>
+  <Step title="Clear out the scaffolded demo files">
+    The scaffold ships a home page you're about to replace.
+  </Step>
+  <Step title="Create the models">
+    A `Kanban` board model owned by a user, with `Column` and `Card` hanging off it, and
+    `attachment_path` on the card.
+  </Step>
+  <Step title="Create the services">
+    Board, column and card services, with role checks in the card service.
+  </Step>
+  <Step title="Create the routes">
+    A dashboard listing the user's boards, the board view itself, and the API routes for
+    moving cards and exporting.
+  </Step>
+  <Step title="Create the templates">
+    Login, pending approval, dashboard grid, board, and the modals for uploading and
+    viewing PDFs.
+  </Step>
+  <Step title="Wire up attachments and export">
+    Upload to GCS, view in a modal, and generate a PDF of the board with WeasyPrint.
+  </Step>
+  <Step title="Point OAuth at the app, then test">
+    Sign in, get approved, create a board, attach a PDF, export one.
+  </Step>
+</Steps>
+
+## Prompt Claude
+
+Because this part is long, run it in two passes. The first gets you a working app behind
+sign-in, and the second adds files and export.
+
+<Tabs>
+  <Tab title="Pass 1: auth and boards">
+    ```text
+    I'm working through part 4 of the Feather Kanban tutorial series.
+
+    Read the tutorial first:
+    https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/04-personal-kanban.md
+
+    I've scaffolded a fresh single-tenant app on PostgreSQL with GCS storage
+    enabled and Redis caching disabled. Migrations have run and seeds.py created my
+    admin user. GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GCS_BUCKET and
+    GCS_CREDENTIALS_JSON are all set in .env.
+
+    Implement Build Steps 0 through 5, stopping before attachments and PDF export:
+    - Remove the scaffolded demo home page
+    - Kanban, Column and Card models, with boards owned by a user
+    - The services, including the role checks on CardService
+    - Dashboard and board routes, plus the move API route
+    - Login, pending, dashboard and board templates
+
+    Conventions: use @auth_required for pages that need an approved user, and
+    @login_only for the pending-approval page, since a pending user is authenticated
+    but not active. Keep logic in services. No inline scripts or styles.
+
+    Show me the migration before applying it. Then run `feather check` and fix what
+    it reports.
+    ```
+  </Tab>
+  <Tab title="Pass 2: attachments and export">
+    ```text
+    Continuing part 4 of the Feather Kanban tutorial.
+
+    Sign-in works, the dashboard lists boards, and the board view works with
+    drag-and-drop.
+
+    Now implement Build Steps 6 through 9 from the same tutorial:
+    - PDF attachments on cards, stored in GCS via feather.storage
+    - The upload modal and the PDF viewer modal
+    - PDF export of a board using WeasyPrint
+    - The OAuth redirect configuration
+
+    Use get_storage() rather than talking to GCS directly, so the local backend still
+    works if I switch STORAGE_BACKEND. Use the modal component rather than a new
+    dialog implementation.
+
+    Then run `feather check` and confirm the checkpoint in the tutorial.
+    ```
+  </Tab>
+</Tabs>
+
+## Checkpoint
+
+- Google sign-in works, and a new account lands on the pending page until approved
+- The dashboard shows your boards in a grid
+- A board opens with columns, cards and working drag-and-drop
+- `/admin/` is reachable as an admin and refused otherwise
+- A PDF attaches to a card and opens in the viewer modal
+- Exporting a board produces a PDF
+- `feather check` passes
+
+## What you learned
+
+- Google OAuth end to end, including the approval gate
+- `@auth_required` versus `@login_only`, and why the pending page needs the second
+- Reading `current_user` and its role
+- Roles in practice, with admin, editor and user all doing something
+- The scaffolded admin panel, and who can reach it
+- File storage through `get_storage()` rather than a cloud SDK
+- PDF generation with WeasyPrint
+- Modal dialogs from the component library
+
+<Card title="Next: turn it into a SaaS" icon="building-2" href="/tutorials/saas-kanban" horizontal>
+  Tenant isolation, platform admin, and queries that can't leak across organizations.
+</Card>

@@ -1,6 +1,6 @@
 ---
 title: "Background jobs"
-description: "Three backends chosen by goal rather than environment, with concurrency limits, retries, scheduling, and workers that survive deploys."
+description: "Three backends, picked by what you need rather than by which environment you happen to be in."
 icon: "clock"
 ---
 
@@ -242,7 +242,7 @@ loop such as a scheduler or a billing tick, which must not run twice.
 - Workers share the image, environment variables and database with the web service
 - Scale them independently, or dedicate workers to specific queues
 - Each worker connects to Redis for job pickup and to your database for business logic
-- Restarting the web service does not interrupt running jobs
+- Restarting the web service doesn't interrupt running jobs
 
 <Warning>
   Set `JOB_SERIALIZER=json` for RQ. Pickle payloads are code execution for anyone who can

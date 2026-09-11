@@ -1,10 +1,11 @@
 ---
 title: "Email"
-description: "Transactional email through Resend, with toast notifications wired to the HTMX response."
+description: "Transactional email through Resend, with the result reported back to the user as a toast."
 icon: "mail"
 ---
 
-Available for authenticated apps, single-tenant or multi-tenant.
+Email is available to authenticated apps, single-tenant or multi-tenant. Feather sends it
+through [Resend](https://resend.com), so you need an API key and a verified sender address.
 
 ```bash .env
 RESEND_API_KEY=re_xxxx                      # from https://resend.com/api-keys

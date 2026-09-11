@@ -1,36 +1,124 @@
 ---
 title: "Kanban tutorial series"
 sidebarTitle: "Overview"
-description: "Build a Kanban board from a static page to a deployed multi-tenant SaaS, covering every major Feather feature."
-icon: "graduation-cap"
+description: "Six parts that take a Kanban board from a hardcoded HTML page to a multi-tenant SaaS running on your own domain."
+icon: "list-ordered"
 mode: "wide"
 ---
 
-Each part builds on the one before it.
+You'll build one application across six parts, and each part adds a layer of Feather you
+haven't used yet. By the end you'll have a Kanban board with drag-and-drop, Google sign-in,
+role-based permissions, file attachments, PDF export, tenant isolation, and a deploy that
+runs on every push to `main`.
+
+Work through them in order if you're learning the framework. If you already know which
+piece you need, jump to that part and use its starting point.
 
 <CardGroup cols={2}>
-  <Card title="1. Static board UI" icon="layout-template" href="https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/01-static-board-ui.md">
-    Templates, components and Tailwind. A board that looks right before it does anything.
+  <Card title="1. Static board UI" icon="layout-template" href="/tutorials/static-board-ui">
+    Templates, component macros and Tailwind. A board that looks finished and does nothing.
   </Card>
-  <Card title="2. Persistent boards" icon="database" href="https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/02-persistent-boards.md">
-    Models, HTMX and partials. Cards that survive a refresh.
+  <Card title="2. Persistent boards" icon="database" href="/tutorials/persistent-boards">
+    Models, migrations, services and HTMX. The buttons start working.
   </Card>
-  <Card title="3. Drag and drop" icon="move" href="https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/03-drag-and-drop.md">
+  <Card title="3. Drag and drop" icon="move" href="/tutorials/drag-and-drop">
     Islands, `OrderingMixin` and optimistic updates.
   </Card>
-  <Card title="4. Personal Kanban" icon="user" href="https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/04-personal-kanban.md">
-    Auth, the admin panel, GCS storage and background jobs.
+  <Card title="4. Personal Kanban" icon="user" href="/tutorials/personal-kanban">
+    Google OAuth, roles, the admin panel, GCS attachments and PDF export.
   </Card>
-  <Card title="5. SaaS Kanban" icon="building-2" href="https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/05-saas-kanban.md">
-    Multi-tenancy and platform admin.
+  <Card title="5. SaaS Kanban" icon="building-2" href="/tutorials/saas-kanban">
+    Tenant isolation, platform admin and tenant-scoped queries.
   </Card>
-  <Card title="6. Deploying" icon="ship" href="https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/06-deploying.md">
-    Docker, Caddy, a VPS, backups and CI/CD.
+  <Card title="6. Deploying" icon="ship" href="/tutorials/deploying">
+    Docker, Caddy, a VPS, nightly backups and GitHub Actions.
   </Card>
 </CardGroup>
 
+## Scaffolding answers by part
+
+Parts 1 through 3 build on each other. Parts 4 and 5 each want a fresh project, because
+they change the app type.
+
+| Part | App type | Database | Auth | Jobs | Cache | Storage |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | simple | none | no | default | no | no |
+| 2 | simple | sqlite | no | default | no | no |
+| 3 | continues from part 2 | | | | | |
+| 4 | single-tenant | postgresql | yes | default | no | yes (GCS) |
+| 5 | multi-tenant | postgresql | yes | default | no | yes (GCS) |
+| 6 | deploys the app from part 4 or 5 | | | | | |
+
+<Warning>
+  Redis caching defaults to yes in the prompts. Answer **n** for parts 4 and 5. Nothing in
+  the series uses the cache, and saying yes makes the app expect a Redis server that isn't
+  running. Background jobs can stay at the default, since the thread backend runs
+  in-process.
+</Warning>
+
+## What you'll need
+
+<Tabs>
+  <Tab title="Parts 1 to 3">
+    - Python 3.11+ and Node.js 22+
+    - The Feather CLI
+    - No database for part 1, SQLite from part 2 on
+  </Tab>
+  <Tab title="Parts 4 and 5">
+    - PostgreSQL running locally
+    - Google OAuth credentials, a client ID and secret
+    - A Google Cloud Storage bucket and a service account JSON key
+  </Tab>
+  <Tab title="Part 6">
+    - A working app from part 4 or 5
+    - A domain whose DNS you control
+    - A VPS you can SSH into as root. Two vCPU and 4 GB is enough to start
+  </Tab>
+</Tabs>
+
+## Building these with Claude
+
+Every part of the series is written to be handed to a coding assistant. Two things make
+that work.
+
+The first is the **Starting Point** section in each tutorial, which spells out the state
+of the app before that part begins: the models, the routes, the templates and the CSS. An
+assistant reading it has the context it needs without you pasting your codebase.
+
+The second is that the conventions are checkable. Your project's `CLAUDE.md` describes
+them, and `feather check` enforces the ones that can be enforced, so the assistant can
+verify its own work rather than handing you code you have to review line by line.
+
+<Steps>
+  <Step title="Scaffold the project yourself">
+    Run `feather new` with the answers from the table above. The prompts are interactive,
+    so this is the one step worth doing by hand.
+  </Step>
+  <Step title="Point the assistant at the tutorial">
+    Each part's page has a **Prompt Claude** section with the prompt to use. Give it the
+    tutorial URL rather than pasting the file, so it reads the current version.
+  </Step>
+  <Step title="Ask it to verify">
+    Every prompt in the series ends by asking for `feather check` and the part's
+    checkpoint. A convention violation comes back with a file, a line and a fix, which the
+    assistant can act on without you.
+  </Step>
+</Steps>
+
+<Tip>
+  Working in Claude Code from inside the project directory is the smoothest path. It can
+  read your `CLAUDE.md`, run `feather check` and `feather dev` directly, and see the
+  errors it needs to fix.
+</Tip>
+
+## How long each part takes
+
+Roughly 30 to 60 minutes by hand, or 10 to 15 minutes with an assistant doing the typing.
+Part 4 is the longest, since it introduces OAuth, storage and the admin panel at once.
+
 <Note>
-  The tutorials live in the
-  [Feather repository](https://github.com/RolandFlyBoy/Feather/tree/main/tutorials) as
-  Markdown. Each card links to its source.
+  The full tutorials, with every code block, live in the
+  [Feather repository](https://github.com/RolandFlyBoy/Feather/tree/main/tutorials). The
+  pages here cover what you're building, what to answer at each prompt, how to drive an
+  assistant through it, and how to tell it worked.
 </Note>
