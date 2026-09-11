@@ -436,8 +436,13 @@ def test(
         click.echo(click.style("\nRunning tests...", fg="cyan", bold=True))
         click.echo()
 
-        # Build pytest command
-        cmd = ["pytest", path]
+        # Run pytest through an interpreter, not as a bare name on PATH.
+        # `pytest` resolves to whichever one comes first, which in a shell
+        # with another project's venv active is that project's pytest, and
+        # the run dies on its missing imports rather than the app's. The
+        # project's own venv wins; otherwise use the interpreter running
+        # Feather, which is the app's when Feather is installed into it.
+        cmd = [_project_python(), "-m", "pytest", path]
 
         if verbose:
             cmd.append("-v")
@@ -457,3 +462,17 @@ def test(
                 "pip install 'feather-framework[test]' "
                 "(or: pip install pytest pytest-cov)"
             )
+
+
+def _project_python(project_path: Path = None) -> str:
+    """Interpreter to run the project's tests with.
+
+    Prefers the project's own virtualenv so that `feather test` behaves the
+    same as the documented `venv/bin/python -m pytest`, whichever venv the
+    caller happens to have active.
+    """
+    root = Path(project_path or Path.cwd())
+    for candidate in (root / "venv" / "bin" / "python", root / ".venv" / "bin" / "python"):
+        if candidate.exists():
+            return str(candidate)
+    return sys.executable
