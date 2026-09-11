@@ -5,9 +5,9 @@ description: "The longest part. Google sign-in, roles, an admin panel, multiple 
 icon: "user"
 ---
 
-This is the part where the toy becomes an application. It's also the longest, because it
-introduces authentication, cloud storage and the admin panel together, and each of those
-needs credentials before you can start.
+This is the part where the toy becomes an application. It's also the longest, because
+authentication, cloud storage and the admin panel all arrive together, and each needs
+credentials before you can start.
 
 Set aside more time than the earlier parts, and get the credentials sorted first. Nothing
 below works without them.
@@ -24,11 +24,20 @@ admin panel, GCS file storage, and WeasyPrint for PDF export.
 | **GCS bucket** | [Cloud Storage](https://console.cloud.google.com/storage/browser) | A bucket name |
 | **Service account** | [IAM service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) | A JSON key |
 
-For OAuth, create a Web application client and add
-`http://localhost:5173/auth/google/callback` as an authorized redirect URI.
-
-For storage, grant the service account the **Storage Object Admin** role, then create a
-JSON key.
+<AccordionGroup>
+  <Accordion title="Google OAuth setup" icon="key-round">
+    1. Open [APIs and Credentials](https://console.cloud.google.com/apis/credentials).
+    2. Create an OAuth 2.0 Client ID of type **Web application**.
+    3. Add `http://localhost:5173/auth/google/callback` as an authorized redirect URI.
+    4. Copy the client ID and secret.
+  </Accordion>
+  <Accordion title="GCS setup" icon="hard-drive">
+    1. Create a bucket in [Cloud Storage](https://console.cloud.google.com/storage/browser).
+    2. Create a service account in [IAM](https://console.cloud.google.com/iam-admin/serviceaccounts).
+    3. Grant it the **Storage Object Admin** role.
+    4. Create a JSON key and copy the entire contents.
+  </Accordion>
+</AccordionGroup>
 
 ## Create the project
 
@@ -38,13 +47,13 @@ This part needs a different app type, so start fresh.
 feather new kanban
 ```
 
-Answers that matter:
+Four answers matter:
 
 | Prompt | Answer | Why |
 | --- | --- | --- |
 | App type | `single-tenant` | You need user accounts |
 | Database | `postgresql` | Defaults to sqlite, so type it |
-| Redis caching | `n` | Defaults to yes, and nothing here uses it |
+| Redis caching | `n` | Defaults to yes, and nothing here uses the cache |
 | Cloud storage (GCS) | keep the default yes | Attachments need it |
 | Admin email | the Gmail you'll sign in with | `seeds.py` grants it the admin role |
 
@@ -57,8 +66,6 @@ feather db upgrade
 python seeds.py
 ```
 
-Then add your credentials to `.env`:
-
 ```bash .env
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
@@ -69,43 +76,710 @@ GCS_CREDENTIALS_JSON={"type":"service_account","project_id":"...","private_key":
 
 <Warning>
   `GCS_CREDENTIALS_JSON` has to be the whole JSON key on a single line. Copy it out of the
-  downloaded file and strip the line breaks, or the app will fail to authenticate against
-  the bucket with an error that doesn't obviously point here.
+  downloaded file and strip the line breaks, or the app fails to authenticate against the
+  bucket with an error that doesn't obviously point back here.
 </Warning>
 
-## What you'll build
+## Step 0: Clear out the demo files
 
-<Steps>
-  <Step title="Clear out the scaffolded demo files">
-    The scaffold ships a home page you're about to replace.
-  </Step>
-  <Step title="Create the models">
-    A `Kanban` board model owned by a user, with `Column` and `Card` hanging off it, and
-    `attachment_path` on the card.
-  </Step>
-  <Step title="Create the services">
-    Board, column and card services, with role checks in the card service.
-  </Step>
-  <Step title="Create the routes">
-    A dashboard listing the user's boards, the board view itself, and the API routes for
-    moving cards and exporting.
-  </Step>
-  <Step title="Create the templates">
-    Login, pending approval, dashboard grid, board, and the modals for uploading and
-    viewing PDFs.
-  </Step>
-  <Step title="Wire up attachments and export">
-    Upload to GCS, view in a modal, and generate a PDF of the board with WeasyPrint.
-  </Step>
-  <Step title="Point OAuth at the app, then test">
-    Sign in, get approved, create a board, attach a PDF, export one.
-  </Step>
-</Steps>
+```bash
+rm routes/pages/home.py
+rm templates/pages/home.html
+rm tests/test_home.py
+rm static/islands/counter.js
+```
+
+`tests/test_home.py` goes with the route it tests. Leave it behind and `feather test` fails
+on a 404 the moment you delete `routes/pages/home.py`.
+
+Leave `models/__init__.py` alone for now. The `Log`, `Account` and `AccountUser` imports
+already in it have to stay.
+
+## Step 1: The models
+
+A board now belongs to a user, and columns belong to a board.
+
+```python models/kanban.py
+"""Kanban board model - each user can have multiple boards."""
+
+from feather.db import db, Model
+from feather.db.mixins import UUIDMixin, TimestampMixin
+
+
+class Kanban(UUIDMixin, TimestampMixin, Model):
+    """Kanban board owned by a user."""
+
+    __tablename__ = "kanbans"
+
+    title = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(
+        db.String(36),
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True
+    )
+
+    columns = db.relationship(
+        "Column",
+        backref="kanban",
+        cascade="all, delete-orphan",
+        order_by="Column.position"
+    )
+    user = db.relationship("User", backref="kanbans")
+
+    def __repr__(self):
+        return f"<Kanban {self.title}>"
+```
+
+```python models/column.py
+"""Column model for Kanban board."""
+
+from feather.db import db, Model
+from feather.db.mixins import UUIDMixin, TimestampMixin, OrderingMixin
+
+
+class Column(UUIDMixin, TimestampMixin, OrderingMixin, Model):
+    """Kanban column with position-based ordering."""
+
+    __tablename__ = "columns"
+    __ordering_scope__ = ["kanban_id"]  # position scoped per board
+
+    title = db.Column(db.String(100), nullable=False)
+    kanban_id = db.Column(
+        db.String(36),
+        db.ForeignKey("kanbans.id"),
+        nullable=False,
+        index=True
+    )
+
+    cards = db.relationship(
+        "Card",
+        backref="column",
+        cascade="all, delete-orphan",
+        order_by="Card.position"
+    )
+
+    def __repr__(self):
+        return f"<Column {self.title}>"
+```
+
+```python models/card.py
+"""Card model for Kanban board."""
+
+from feather.db import db, Model
+from feather.db.mixins import UUIDMixin, TimestampMixin, OrderingMixin
+
+
+class Card(UUIDMixin, TimestampMixin, OrderingMixin, Model):
+    """Kanban card with optional PDF attachment."""
+
+    __tablename__ = "cards"
+    __ordering_scope__ = ["column_id"]
+
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    column_id = db.Column(
+        db.String(36),
+        db.ForeignKey("columns.id"),
+        nullable=False
+    )
+    attachment_path = db.Column(db.String(500))
+
+    def __repr__(self):
+        return f"<Card {self.title}>"
+```
+
+```python models/__init__.py
+"""SQLAlchemy models - Auto-discovered by Feather."""
+
+from feather.db import db, Model
+from models.user import User
+from models.log import Log
+from models.account import Account, AccountUser
+from models.kanban import Kanban
+from models.column import Column
+from models.card import Card
+
+__all__ = [
+    "db", "Model",
+    "Account", "AccountUser", "Log", "User",
+    "Kanban", "Column", "Card",
+]
+```
+
+<Warning>
+  Import order matters here. Alembic creates tables in the order the models are imported,
+  and a foreign key can't point at a table that doesn't exist yet.
+</Warning>
+
+## Step 2: The migration
+
+```bash
+feather db migrate -m "Add kanbans, columns, and cards"
+feather db upgrade
+```
+
+## Step 3: The services
+
+A word about roles before the code. Feather ships four of them, `admin`, `editor`,
+`moderator` and `user`, and those are the only ones the scaffolded admin panel can assign
+from its dropdown. So this tutorial uses them as they are: **editors and admins can change
+boards, everyone else gets a read-only view.** New users arrive as `user`, and you promote
+someone from `/admin/users`.
+
+<Accordion title="Adding a role of your own" icon="users">
+  Add it to `ROLE_INHERITS` in `feather/auth/roles.py`, then to the `valid_roles` list in
+  `services/admin_service.py`, and to the `<select>` in
+  `templates/pages/admin/user_detail.html` so the panel can assign it. The `role` column is
+  a plain string, so no migration is needed.
+</Accordion>
+
+```python services/kanban_service.py
+"""KanbanService - Business logic for kanban boards."""
+
+from feather import Service
+from feather.exceptions import NotFoundError, AuthorizationError
+from flask_login import current_user
+from models import Kanban
+
+
+class KanbanService(Service):
+    """Kanban service - user-scoped operations."""
+
+    def list_for_user(self, user_id: str) -> list[Kanban]:
+        """List all kanbans for a user, newest first."""
+        return Kanban.query.filter_by(user_id=user_id).order_by(
+            Kanban.created_at.desc()
+        ).all()
+
+    def get_by_id(self, id: str, user_id: str) -> Kanban:
+        """Get kanban by ID, ensuring user ownership."""
+        kanban = Kanban.query.get(id)
+        if not kanban:
+            raise NotFoundError("Kanban", id)
+        if kanban.user_id != user_id:
+            raise AuthorizationError("You don't have access to this board")
+        return kanban
+
+    def create(self, user_id: str, title: str) -> Kanban:
+        """Create a new kanban for a user."""
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to create boards")
+        kanban = Kanban(user_id=user_id, title=title)
+        self.save(kanban)
+        return kanban
+
+    def delete(self, id: str, user_id: str) -> None:
+        """Delete a kanban (user must own it)."""
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to delete boards")
+        kanban = self.get_by_id(id, user_id)
+        self.db.delete(kanban)
+        self.db.commit()
+```
+
+```python services/column_service.py
+"""ColumnService - Business logic for columns."""
+
+from feather import Service
+from feather.exceptions import NotFoundError, AuthorizationError
+from flask_login import current_user
+from models import Column, Kanban
+
+
+class ColumnService(Service):
+    """Column service - kanban-scoped operations."""
+
+    def list_for_kanban(self, kanban_id: str) -> list[Column]:
+        """List all columns for a kanban in order."""
+        return Column.query_ordered(kanban_id=kanban_id).all()
+
+    def get_by_id(self, id: str, user_id: str) -> Column:
+        """Get column by ID, ensuring ownership via the board."""
+        column = Column.query.get(id)
+        if not column:
+            raise NotFoundError("Column", id)
+        if column.kanban.user_id != user_id:
+            raise AuthorizationError("You don't have access to this column")
+        return column
+
+    def create(self, kanban_id: str, user_id: str, title: str) -> Column:
+        """Create a new column in a kanban."""
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to create columns")
+        kanban = Kanban.query.get(kanban_id)
+        if not kanban or kanban.user_id != user_id:
+            raise AuthorizationError("You don't have access to this board")
+
+        column = Column(kanban_id=kanban_id, title=title)
+        column.insert_at_end()
+        self.save(column)
+        return column
+
+    def delete(self, id: str, user_id: str) -> None:
+        """Delete a column."""
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to delete columns")
+        column = self.get_by_id(id, user_id)
+        kanban_id = column.kanban_id
+        self.db.delete(column)
+        self.db.commit()
+        Column.reorder_all(kanban_id=kanban_id)
+        self.db.commit()
+```
+
+```python services/card_service.py
+"""CardService - Business logic for cards."""
+
+from feather import Service
+from feather.exceptions import NotFoundError, AuthorizationError
+from flask_login import current_user
+from models import Card, Column
+
+
+class CardService(Service):
+    """Card service with attachment support."""
+
+    def get_by_id(self, id: str, user_id: str) -> Card:
+        """Get card by ID, ensuring ownership via the board."""
+        card = Card.query.get(id)
+        if not card:
+            raise NotFoundError("Card", id)
+        if card.column.kanban.user_id != user_id:
+            raise AuthorizationError("You don't have access to this card")
+        return card
+
+    def create(self, column_id: str, user_id: str, title: str) -> Card:
+        """Create a new card in a column."""
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to create cards")
+        column = Column.query.get(column_id)
+        if not column or column.kanban.user_id != user_id:
+            raise AuthorizationError("You don't have access to this column")
+
+        card = Card(column_id=column_id, title=title)
+        card.insert_at_end()
+        self.save(card)
+        return card
+
+    def delete(self, id: str, user_id: str) -> None:
+        """Delete a card."""
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to delete cards")
+        card = self.get_by_id(id, user_id)
+        column_id = card.column_id
+        self.db.delete(card)
+        self.db.commit()
+        Card.reorder_all(column_id=column_id)
+        self.db.commit()
+
+    def move(self, card_id: str, user_id: str, to_column_id: str, to_position: int) -> Card:
+        """Move a card to a new position."""
+        if current_user.role not in ("editor", "admin"):
+            raise AuthorizationError("You need the editor role to move cards")
+        card = self.get_by_id(card_id, user_id)
+
+        to_column = Column.query.get(to_column_id)
+        if not to_column or to_column.kanban.user_id != user_id:
+            raise AuthorizationError("You don't have access to the target column")
+
+        old_column_id = card.column_id
+
+        if to_column_id != old_column_id:
+            card.column_id = to_column_id
+            max_pos = Card.get_max_position(column_id=to_column_id)
+            card.position = max_pos + 1
+            self.db.commit()
+            Card.reorder_all(column_id=old_column_id)
+            self.db.commit()
+
+        card.move_to(to_position)
+        self.db.commit()
+        return card
+```
+
+```python services/__init__.py
+"""Business logic services - Auto-discovered by Feather."""
+
+from services.kanban_service import KanbanService
+from services.column_service import ColumnService
+from services.card_service import CardService
+```
+
+Notice that every check goes through the relationship rather than trusting an ID from the
+request. A card's owner is `card.column.kanban.user_id`, and that chain is what makes the
+authorization hold.
+
+## Step 4: The routes
+
+```python routes/pages/dashboard.py
+"""Dashboard routes - home page, login, and board management."""
+
+from flask import render_template, request, redirect, url_for
+from flask_login import current_user
+from feather import page, auth_required, login_only, inject
+from services import KanbanService
+
+
+@page.get("/login")
+def login():
+    """Show login page for unauthenticated users."""
+    if current_user.is_authenticated:
+        return redirect(url_for("page.home"))
+    return render_template("pages/login.html")
+
+
+@page.get("/pending")
+@login_only
+def pending():
+    """Show pending approval page for users awaiting admin approval."""
+    if current_user.is_active:
+        return redirect(url_for("page.home"))
+    return render_template("pages/pending.html")
+
+
+@page.get("/")
+@inject(KanbanService)
+def home(kanban_service: KanbanService):
+    """Render the user's board dashboard."""
+    if not current_user.is_authenticated:
+        return redirect(url_for("page.login"))
+
+    if not current_user.is_active:
+        return redirect(url_for("page.pending"))
+
+    kanbans = kanban_service.list_for_user(current_user.id)
+    return render_template("pages/dashboard.html", kanbans=kanbans)
+
+
+@page.post("/htmx/kanbans")
+@auth_required
+@inject(KanbanService)
+def create_kanban(kanban_service: KanbanService):
+    """Create a new kanban board."""
+    title = request.form.get("title", "").strip() or "Untitled Board"
+    kanban = kanban_service.create(user_id=current_user.id, title=title)
+    return render_template("partials/kanban_card.html", kanban=kanban)
+
+
+@page.delete("/htmx/kanbans/<kanban_id>")
+@auth_required
+@inject(KanbanService)
+def delete_kanban(kanban_service: KanbanService, kanban_id: str):
+    """Delete a kanban board."""
+    kanban_service.delete(kanban_id, user_id=current_user.id)
+    return ""
+```
+
+<Note>
+  **Why the pending page uses `@login_only`.** `@auth_required` blocks a suspended user
+  with a 403, which would make the pending page unreachable by exactly the people who need
+  it. `@login_only` checks only that there's an authenticated session, without looking at
+  `active` or role.
+</Note>
+
+```python routes/pages/board.py
+"""Kanban board routes."""
+
+from flask import render_template, request
+from flask_login import current_user
+from feather import page, auth_required, inject
+from services import KanbanService, ColumnService, CardService
+
+
+@page.get("/kanban/<kanban_id>")
+@auth_required
+@inject(KanbanService, ColumnService)
+def board(kanban_service: KanbanService, column_service: ColumnService, kanban_id: str):
+    """Render a specific Kanban board."""
+    kanban = kanban_service.get_by_id(kanban_id, current_user.id)
+    columns = column_service.list_for_kanban(kanban_id)
+    return render_template("pages/board.html", kanban=kanban, columns=columns)
+
+
+@page.post("/htmx/kanbans/<kanban_id>/columns")
+@auth_required
+@inject(ColumnService)
+def create_column(column_service: ColumnService, kanban_id: str):
+    """Create a new column in a kanban."""
+    title = request.form.get("title", "").strip() or "New Column"
+    column = column_service.create(
+        kanban_id=kanban_id,
+        user_id=current_user.id,
+        title=title
+    )
+    return render_template("partials/column.html", column=column, kanban=column.kanban)
+
+
+@page.delete("/htmx/columns/<column_id>")
+@auth_required
+@inject(ColumnService)
+def delete_column(column_service: ColumnService, column_id: str):
+    """Delete a column."""
+    column_service.delete(column_id, user_id=current_user.id)
+    return ""
+
+
+@page.post("/htmx/columns/<column_id>/cards")
+@auth_required
+@inject(CardService)
+def create_card(card_service: CardService, column_id: str):
+    """Create a new card."""
+    title = request.form.get("title", "").strip()
+    if not title:
+        return "", 400
+    card = card_service.create(
+        column_id=column_id,
+        user_id=current_user.id,
+        title=title
+    )
+    return render_template("partials/card.html", card=card)
+
+
+@page.delete("/htmx/cards/<card_id>")
+@auth_required
+@inject(CardService)
+def delete_card(card_service: CardService, card_id: str):
+    """Delete a card."""
+    card_service.delete(card_id, user_id=current_user.id)
+    return ""
+```
+
+### The API routes
+
+Move, export and attachments all live here.
+
+```python routes/api/board.py
+"""API routes for Kanban board."""
+
+from flask import request, send_file, render_template
+from flask_login import current_user
+from feather import api, auth_required, inject
+from services import CardService, KanbanService
+from io import BytesIO
+from datetime import datetime
+
+
+@api.post("/cards/move")
+@auth_required
+@inject(CardService)
+def move_card(card_service: CardService):
+    """Move a card to a new position."""
+    data = request.get_json()
+    card = card_service.move(
+        card_id=data["cardId"],
+        user_id=current_user.id,
+        to_column_id=data["toColumnId"],
+        to_position=data["toPosition"]
+    )
+    return {"success": True, "card": {"id": card.id, "position": card.position}}
+
+
+@api.get("/kanbans/<kanban_id>/export")
+@auth_required
+@inject(KanbanService)
+def export_pdf(kanban_service: KanbanService, kanban_id: str):
+    """Export a Kanban board to PDF (generated inline)."""
+    from weasyprint import HTML
+    from models import Column, Card
+
+    kanban = kanban_service.get_by_id(kanban_id, current_user.id)
+    columns = Column.query_ordered(kanban_id=kanban_id).all()
+
+    columns_html = ""
+    for column in columns:
+        cards = Card.query_ordered(column_id=column.id).all()
+        cards_html = "".join(f'<div class="card">{card.title}</div>' for card in cards)
+        if not cards:
+            cards_html = '<div class="empty">(No cards)</div>'
+        columns_html += f'<div class="column"><h2>{column.title}</h2>{cards_html}</div>'
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: sans-serif; margin: 40px; }}
+            h1 {{ color: #1f2937; margin-bottom: 5px; }}
+            .date {{ color: #6b7280; margin-bottom: 20px; }}
+            .column {{ margin-bottom: 20px; }}
+            h2 {{ color: #374151; font-size: 16px; margin-bottom: 10px; }}
+            .card {{ background: #f9fafb; border: 1px solid #d1d5db; padding: 8px;
+                     margin-bottom: 5px; font-size: 12px; color: #111827; }}
+            .empty {{ color: #9ca3af; font-style: italic; }}
+        </style>
+    </head>
+    <body>
+        <h1>{kanban.title}</h1>
+        <div class="date">Exported on {datetime.now().strftime('%B %d, %Y')}</div>
+        {columns_html}
+    </body>
+    </html>
+    """
+
+    buffer = BytesIO()
+    HTML(string=html_content).write_pdf(buffer)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'{kanban.title}.pdf'
+    )
+
+
+@api.post("/cards/<card_id>/attachment")
+@auth_required
+@inject(CardService)
+def upload_attachment(card_service: CardService, card_id: str):
+    """Upload a PDF attachment to a card."""
+    from feather.storage import get_storage
+    from feather.exceptions import ValidationError
+    import uuid
+
+    card = card_service.get_by_id(card_id, user_id=current_user.id)
+
+    if 'file' not in request.files:
+        raise ValidationError("No file provided")
+
+    file = request.files['file']
+    if not file.filename.lower().endswith('.pdf'):
+        raise ValidationError("Only PDF files are allowed")
+
+    storage = get_storage()
+    if card.attachment_path:
+        storage.delete(card.attachment_path)
+
+    filename = f"cards/{card_id}/{uuid.uuid4()}.pdf"
+    storage.upload(file, filename, content_type='application/pdf')
+
+    card.attachment_path = filename
+    card_service.save(card)
+
+    return {"success": True, "path": filename}
+
+
+@api.delete("/cards/<card_id>/attachment")
+@auth_required
+@inject(CardService)
+def delete_attachment(card_service: CardService, card_id: str):
+    """Delete a card's PDF attachment."""
+    from feather.storage import get_storage
+
+    card = card_service.get_by_id(card_id, user_id=current_user.id)
+
+    if card.attachment_path:
+        storage = get_storage()
+        storage.delete(card.attachment_path)
+        card.attachment_path = None
+        card_service.save(card)
+
+    return render_template("partials/card.html", card=card)
+```
+
+The upload never touches a Google SDK. `get_storage()` returns whichever backend
+`STORAGE_BACKEND` names, so the same code works against the local filesystem if you switch
+it.
+
+## Steps 5 and 6: Templates and CSS
+
+This part adds seven templates and a sizeable stylesheet: login, pending, the dashboard
+grid, the board, and partials for the board card, the column, the card, the PDF viewer
+modal and the upload modal.
+
+They're mostly presentation, and reproducing four hundred lines of CSS here wouldn't teach
+you anything the earlier parts didn't. Copy them from
+[Steps 5 and 6 of the source tutorial](https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/04-personal-kanban.md).
+
+The one pattern worth calling out is how the templates gate on role:
+
+```html
+{% if current_user.role in ["editor", "admin"] %}
+<button id="add-column-btn" class="btn-primary">
+    {{ icon("add", size="sm") }} Add Column
+</button>
+{% endif %}
+```
+
+The service already refuses the action. Hiding the button as well means a read-only user
+never sees a control that would fail.
+
+## Step 7: The island
+
+Unchanged from part 3, other than living in a new project.
+
+```javascript static/islands/kanban-board.js
+/**
+ * Kanban Board Island
+ */
+island("kanban-board", {
+  draggable: {
+    items: ".kanban-card",
+    zones: ".column-cards",
+    handle: ".drag-handle",
+
+    onDrop(item, zone, info, e) {
+      this.optimistic(
+        () => {},
+        () => this.api.post("/api/cards/move", {
+          cardId: info.itemId,
+          toColumnId: info.toZoneId,
+          toPosition: info.toIndex
+        })
+      ).catch(err => {
+        console.error("Failed to move card:", err);
+        window.location.reload();
+      });
+    }
+  }
+});
+```
+
+## Step 8: The export button
+
+The route already exists, so this is a link in the board header.
+
+```html templates/pages/board.html
+<div class="kanban-header-right">
+    <a href="/api/kanbans/{{ kanban.id }}/export" class="btn-secondary">
+        {{ icon("picture_as_pdf", size="sm") }} Export PDF
+    </a>
+    {% if current_user.role in ["editor", "admin"] %}
+    <button id="add-column-btn" class="btn-primary">
+        {{ icon("add", size="sm") }} Add Column
+    </button>
+    {% endif %}
+</div>
+```
+
+## Steps 9 and 10: OAuth and testing
+
+Confirm your Google credentials list `http://localhost:5173/auth/google/callback` as a
+redirect URI, then:
+
+```bash
+feather dev
+```
+
+Work through it in this order:
+
+1. Sign in with Google.
+2. Create a board from the dashboard.
+3. Add columns and cards.
+4. Go back and create a second board.
+5. Open `/admin/` as an admin.
+6. Attach a PDF to a card, then open it in the viewer.
+7. Export the board.
+
+Then check the roles behave: an **admin** gets everything including `/admin/`, an
+**editor** can create and edit, and a plain **user** sees the boards with no create, edit
+or delete controls.
 
 ## Prompt Claude
 
-Because this part is long, run it in two passes. The first gets you a working app behind
-sign-in, and the second adds files and export.
+Run this in two passes. The first gets you a working app behind sign-in, the second adds
+files and export.
 
 <Tabs>
   <Tab title="Pass 1: auth and boards">
@@ -121,15 +795,19 @@ sign-in, and the second adds files and export.
     GCS_CREDENTIALS_JSON are all set in .env.
 
     Implement Build Steps 0 through 5, stopping before attachments and PDF export:
-    - Remove the scaffolded demo home page
+    - Remove the scaffolded demo home page, template, test and counter island
     - Kanban, Column and Card models, with boards owned by a user
-    - The services, including the role checks on CardService
+    - The services, with the editor/admin checks on create, delete and move
     - Dashboard and board routes, plus the move API route
     - Login, pending, dashboard and board templates
 
-    Conventions: use @auth_required for pages that need an approved user, and
-    @login_only for the pending-approval page, since a pending user is authenticated
-    but not active. Keep logic in services. No inline scripts or styles.
+    Conventions: use @auth_required for pages needing an approved user, and
+    @login_only for the pending page, since a pending user is authenticated but not
+    active. Check ownership through the relationship (card.column.kanban.user_id)
+    rather than trusting an ID from the request. Keep logic in services.
+
+    Watch the import order in models/__init__.py, since Alembic creates tables in
+    that order and the foreign keys depend on it.
 
     Show me the migration before applying it. Then run `feather check` and fix what
     it reports.
@@ -143,14 +821,18 @@ sign-in, and the second adds files and export.
     drag-and-drop.
 
     Now implement Build Steps 6 through 9 from the same tutorial:
-    - PDF attachments on cards, stored in GCS via feather.storage
+    - PDF attachments on cards, stored through feather.storage
     - The upload modal and the PDF viewer modal
-    - PDF export of a board using WeasyPrint
+    - PDF export of a board using WeasyPrint, returned as a download
     - The OAuth redirect configuration
 
-    Use get_storage() rather than talking to GCS directly, so the local backend still
-    works if I switch STORAGE_BACKEND. Use the modal component rather than a new
-    dialog implementation.
+    Use get_storage() rather than talking to GCS directly, so the local backend
+    still works if I switch STORAGE_BACKEND. Reject anything that isn't a PDF, and
+    delete the old attachment before writing a new one. Use the modal component
+    rather than writing a new dialog.
+
+    Also gate the create, edit and delete controls in the templates on
+    current_user.role, so a read-only user never sees a button that would fail.
 
     Then run `feather check` and confirm the checkpoint in the tutorial.
     ```
@@ -165,6 +847,7 @@ sign-in, and the second adds files and export.
 - `/admin/` is reachable as an admin and refused otherwise
 - A PDF attaches to a card and opens in the viewer modal
 - Exporting a board produces a PDF
+- A plain `user` sees no create or delete controls
 - `feather check` passes
 
 ## What you learned
@@ -172,11 +855,11 @@ sign-in, and the second adds files and export.
 - Google OAuth end to end, including the approval gate
 - `@auth_required` versus `@login_only`, and why the pending page needs the second
 - Reading `current_user` and its role
-- Roles in practice, with admin, editor and user all doing something
+- Checking ownership through relationships rather than request parameters
 - The scaffolded admin panel, and who can reach it
 - File storage through `get_storage()` rather than a cloud SDK
 - PDF generation with WeasyPrint
-- Modal dialogs from the component library
+- Gating UI controls on role so they match what the services allow
 
 <Card title="Next: turn it into a SaaS" icon="building-2" href="/tutorials/saas-kanban" horizontal>
   Tenant isolation, platform admin, and queries that can't leak across organizations.

@@ -5,26 +5,23 @@ description: "Rebuild the app so each organization's data is isolated, with a pl
 icon: "building-2"
 ---
 
-Part 4 gave every user their own boards. That's not the same thing as a SaaS, where a
-company signs up and its people share data that nobody outside the company can reach.
+Part 4 gave every user their own boards. That isn't the same thing as a SaaS, where a
+company signs up and its people share data nobody outside the company can reach.
 
 The difference sounds small and isn't. Every query has to be scoped, and one missed filter
 is a data leak rather than a bug. Feather enforces the scoping at three layers, and
-`feather check` fails the build on a tenant-scoped model queried without a tenant filter.
+`feather check` fails on a tenant-scoped model queried without a tenant filter.
 
 **You'll use:** `TenantScopedMixin`, `get_current_tenant_id()`, `require_same_tenant()`,
-domain-based tenant assignment, platform admin, and a separate `Attachment` model for
-multiple files per card.
+domain-based tenant assignment, platform admin, and a separate `Attachment` model.
 
 ## Create the project
 
-Multi-tenancy changes the user model and the admin panel, so this part starts fresh again.
+Multi-tenancy changes the user model and the admin panel, so start fresh again.
 
 ```bash
 feather new kanban-saas
 ```
-
-Answers that matter:
 
 | Prompt | Answer | Why |
 | --- | --- | --- |
@@ -34,7 +31,7 @@ Answers that matter:
 | Cloud storage (GCS) | keep the default yes | Attachments need it |
 | Platform admin email | one you can sign in with | `seeds.py` grants it `is_platform_admin` |
 
-There's no database *type* prompt here. Multi-tenant apps require PostgreSQL.
+There's no database *type* prompt this time. Multi-tenant apps require PostgreSQL.
 
 ```bash
 cd kanban-saas
@@ -47,8 +44,6 @@ python seeds.py
 
 ## What the scaffold already gives you
 
-The multi-tenant scaffold is meaningfully different from part 4's:
-
 | | Single-tenant | Multi-tenant |
 | --- | --- | --- |
 | User model | no `tenant_id` | has `tenant_id` |
@@ -57,30 +52,480 @@ The multi-tenant scaffold is meaningfully different from part 4's:
 | Data isolation | per user | per tenant |
 | Admin panel | users | users and tenants |
 
-## What you'll build
+## Step 1: Tenant-scoped models
+
+The important line is `TenantScopedMixin` on `Kanban`. Columns and cards inherit isolation
+through their relationship to a board, so they don't carry a `tenant_id` of their own.
+
+```python models/kanban.py
+"""Kanban board model - tenant scoped."""
+
+from feather.db import db, Model
+from feather.db.mixins import UUIDMixin, TimestampMixin, TenantScopedMixin
+
+
+class Kanban(UUIDMixin, TimestampMixin, TenantScopedMixin, Model):
+    """Kanban board owned by a tenant."""
+
+    __tablename__ = "kanbans"
+
+    title = db.Column(db.String(100), nullable=False, default="My Board")
+
+    columns = db.relationship(
+        "Column",
+        backref="kanban",
+        cascade="all, delete-orphan",
+        order_by="Column.position"
+    )
+
+    def __repr__(self):
+        return f"<Kanban {self.title}>"
+```
+
+```python models/column.py
+"""Column model for Kanban board."""
+
+from feather.db import db, Model
+from feather.db.mixins import UUIDMixin, TimestampMixin, OrderingMixin
+
+
+class Column(UUIDMixin, TimestampMixin, OrderingMixin, Model):
+    """Kanban column with position-based ordering."""
+
+    __tablename__ = "columns"
+    __ordering_scope__ = ["kanban_id"]
+
+    title = db.Column(db.String(100), nullable=False)
+    kanban_id = db.Column(
+        db.String(36),
+        db.ForeignKey("kanbans.id"),
+        nullable=False,
+        index=True
+    )
+
+    cards = db.relationship(
+        "Card",
+        backref="column",
+        cascade="all, delete-orphan",
+        order_by="Card.position"
+    )
+
+    def __repr__(self):
+        return f"<Column {self.title}>"
+```
+
+```python models/card.py
+"""Card model for Kanban board."""
+
+from feather.db import db, Model
+from feather.db.mixins import UUIDMixin, TimestampMixin, OrderingMixin
+
+
+class Card(UUIDMixin, TimestampMixin, OrderingMixin, Model):
+    """Kanban card."""
+
+    __tablename__ = "cards"
+    __ordering_scope__ = ["column_id"]
+
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    column_id = db.Column(
+        db.String(36),
+        db.ForeignKey("columns.id"),
+        nullable=False
+    )
+
+    attachments = db.relationship(
+        "Attachment",
+        backref="card",
+        cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<Card {self.title}>"
+```
+
+```python models/attachment.py
+"""Attachment model for card files."""
+
+from feather.db import db, Model
+from feather.db.mixins import UUIDMixin, TimestampMixin
+
+
+class Attachment(UUIDMixin, TimestampMixin, Model):
+    """File attachment on a card."""
+
+    __tablename__ = "attachments"
+
+    filename = db.Column(db.String(255), nullable=False)
+    content_type = db.Column(db.String(100))
+    size = db.Column(db.Integer)
+    storage_path = db.Column(db.String(500), nullable=False)
+    card_id = db.Column(
+        db.String(36),
+        db.ForeignKey("cards.id"),
+        nullable=False
+    )
+
+    def __repr__(self):
+        return f"<Attachment {self.filename}>"
+```
+
+```python models/__init__.py
+"""SQLAlchemy models - Auto-discovered by Feather."""
+
+from feather.db import db, Model
+
+# Import order matters for migrations - dependencies first
+from models.tenant import Tenant
+from models.user import User
+from models.log import Log
+from models.account import Account, AccountUser
+from models.kanban import Kanban
+from models.column import Column
+from models.card import Card
+from models.attachment import Attachment
+
+__all__ = [
+    "db", "Model",
+    "Tenant", "User", "Log", "Account", "AccountUser",
+    "Kanban", "Column", "Card", "Attachment",
+]
+```
+
+<Note>
+  `Account` and `AccountUser` both live in `models/account.py`, and there is no
+  `models/account_user.py`. Keep them along with `Log`. The scaffolded
+  `services/admin_service.py` and `seeds.py` import all three, and the app won't start
+  without them.
+</Note>
+
+Part 4 stored a single `attachment_path` on the card. Here attachments become their own
+model, which is what lets a card hold several files.
+
+## Step 2: The migration
+
+```bash
+feather db migrate -m "Add kanbans, columns, cards, and attachments"
+feather db upgrade
+```
+
+## Step 3: Tenant-scoped services
+
+Two functions carry the isolation. `get_current_tenant_id()` reads the tenant off the
+signed-in user, and `require_same_tenant()` raises if a resource belongs to anyone else.
+
+```python services/kanban_service.py
+"""KanbanService - Tenant-scoped board operations."""
+
+from feather import Service, get_current_tenant_id
+from feather.exceptions import NotFoundError
+from feather.auth import require_same_tenant
+from models import Kanban
+
+
+class KanbanService(Service):
+    """Kanban board service - tenant-scoped operations."""
+
+    def list_for_tenant(self) -> list[Kanban]:
+        """List all boards for current tenant, newest first."""
+        tenant_id = get_current_tenant_id()
+        return Kanban.for_tenant(tenant_id).order_by(
+            Kanban.created_at.desc()
+        ).all()
+
+    def get_by_id(self, id: str) -> Kanban:
+        """Get board by ID, enforcing tenant isolation."""
+        kanban = Kanban.query.get(id)
+        if not kanban:
+            raise NotFoundError("Kanban", id)
+        require_same_tenant(kanban.tenant_id)
+        return kanban
+
+    def create(self, title: str = "My Board") -> Kanban:
+        """Create a new board for current tenant."""
+        tenant_id = get_current_tenant_id()
+        kanban = Kanban(tenant_id=tenant_id, title=title)
+        self.save(kanban)
+        return kanban
+
+    def delete(self, id: str) -> None:
+        """Delete a board (must belong to current tenant)."""
+        kanban = self.get_by_id(id)
+        self.db.delete(kanban)
+        self.db.commit()
+```
+
+```python services/column_service.py
+"""ColumnService - Column operations with tenant isolation via kanban."""
+
+from feather import Service
+from feather.exceptions import NotFoundError
+from feather.auth import require_same_tenant
+from models import Column, Kanban
+
+
+class ColumnService(Service):
+    """Column service - operations scoped via kanban's tenant."""
+
+    def list_for_kanban(self, kanban_id: str) -> list[Column]:
+        """List all columns for a kanban board in order."""
+        kanban = Kanban.query.get(kanban_id)
+        if not kanban:
+            raise NotFoundError("Kanban", kanban_id)
+        require_same_tenant(kanban.tenant_id)
+        return Column.query_ordered(kanban_id=kanban_id).all()
+
+    def get_by_id(self, id: str) -> Column:
+        """Get column by ID, enforcing tenant isolation via kanban."""
+        column = Column.query.get(id)
+        if not column:
+            raise NotFoundError("Column", id)
+        require_same_tenant(column.kanban.tenant_id)
+        return column
+
+    def create(self, kanban_id: str, title: str) -> Column:
+        """Create a new column in a board."""
+        kanban = Kanban.query.get(kanban_id)
+        if not kanban:
+            raise NotFoundError("Kanban", kanban_id)
+        require_same_tenant(kanban.tenant_id)
+
+        column = Column(kanban_id=kanban_id, title=title)
+        column.insert_at_end()
+        self.save(column)
+        return column
+
+    def delete(self, id: str) -> None:
+        """Delete a column (must belong to current tenant's board)."""
+        column = self.get_by_id(id)
+        kanban_id = column.kanban_id
+        self.db.delete(column)
+        self.db.commit()
+        Column.reorder_all(kanban_id=kanban_id)
+        self.db.commit()
+```
+
+```python services/card_service.py
+"""CardService - Card operations with tenant isolation."""
+
+from feather import Service
+from feather.exceptions import NotFoundError
+from feather.auth import require_same_tenant
+from models import Card, Column
+
+
+class CardService(Service):
+    """Card service with tenant isolation via columns and kanbans."""
+
+    def get_by_id(self, id: str) -> Card:
+        """Get card by ID, enforcing tenant isolation via kanban."""
+        card = Card.query.get(id)
+        if not card:
+            raise NotFoundError("Card", id)
+        require_same_tenant(card.column.kanban.tenant_id)
+        return card
+
+    def create(self, column_id: str, title: str) -> Card:
+        """Create a card in a column (must be in current tenant)."""
+        column = Column.query.get(column_id)
+        if not column:
+            raise NotFoundError("Column", column_id)
+        require_same_tenant(column.kanban.tenant_id)
+
+        card = Card(column_id=column_id, title=title)
+        card.insert_at_end()
+        self.save(card)
+        return card
+
+    def delete(self, id: str) -> None:
+        """Delete a card (must belong to current tenant)."""
+        card = self.get_by_id(id)
+        column_id = card.column_id
+        self.db.delete(card)
+        self.db.commit()
+        Card.reorder_all(column_id=column_id)
+        self.db.commit()
+
+    def move(self, card_id: str, to_column_id: str, to_position: int) -> Card:
+        """Move a card to a new position."""
+        card = self.get_by_id(card_id)
+
+        # the target column has to be in the same tenant too
+        to_column = Column.query.get(to_column_id)
+        if not to_column:
+            raise NotFoundError("Column", to_column_id)
+        require_same_tenant(to_column.kanban.tenant_id)
+
+        old_column_id = card.column_id
+
+        if to_column_id != old_column_id:
+            card.column_id = to_column_id
+            max_pos = Card.get_max_position(column_id=to_column_id)
+            card.position = max_pos + 1
+            self.db.commit()
+            Card.reorder_all(column_id=old_column_id)
+            self.db.commit()
+
+        card.move_to(to_position)
+        self.db.commit()
+        return card
+```
+
+<Warning>
+  `move()` checks the target column as well as the card. Checking only the card would let
+  someone move their own card into another tenant's board, which is the kind of gap that
+  looks fine in testing and isn't.
+</Warning>
+
+```python services/attachment_service.py
+"""AttachmentService - File upload handling with tenant isolation."""
+
+from feather import Service, get_current_tenant_id
+from feather.exceptions import NotFoundError, ValidationError
+from feather.auth import require_same_tenant
+from feather.storage import get_storage
+from models import Attachment, Card
+import uuid
+
+
+class AttachmentService(Service):
+    """Attachment service with GCS storage and tenant isolation."""
+
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    ALLOWED_TYPES = {
+        "image/jpeg", "image/png", "image/gif", "image/webp",
+        "application/pdf",
+        "text/plain", "text/csv",
+    }
+
+    def upload(self, card_id: str, file) -> Attachment:
+        """Upload a file attachment to a card."""
+        card = Card.query.get(card_id)
+        if not card:
+            raise NotFoundError("Card", card_id)
+        require_same_tenant(card.column.kanban.tenant_id)
+
+        if not file or not file.filename:
+            raise ValidationError("No file provided")
+
+        content_type = file.content_type
+        if content_type not in self.ALLOWED_TYPES:
+            raise ValidationError(f"File type {content_type} not allowed")
+
+        file_data = file.read()
+        if len(file_data) > self.MAX_FILE_SIZE:
+            raise ValidationError("File too large (max 10MB)")
+
+        # the tenant id goes in the path, so storage is isolated too
+        tenant_id = get_current_tenant_id()
+        storage = get_storage()
+        storage_path = f"tenants/{tenant_id}/attachments/{card_id}/{uuid.uuid4()}/{file.filename}"
+        storage.upload(file_data, storage_path, content_type=content_type)
+
+        attachment = Attachment(
+            card_id=card_id,
+            filename=file.filename,
+            content_type=content_type,
+            size=len(file_data),
+            storage_path=storage_path
+        )
+        self.save(attachment)
+        return attachment
+
+    def get_url(self, attachment_id: str) -> str:
+        """Get a signed URL for downloading an attachment."""
+        attachment = Attachment.query.get(attachment_id)
+        if not attachment:
+            raise NotFoundError("Attachment", attachment_id)
+        require_same_tenant(attachment.card.column.kanban.tenant_id)
+
+        storage = get_storage()
+        return storage.get_url(attachment.storage_path, expires_in=3600)
+
+    def delete(self, attachment_id: str) -> None:
+        """Delete an attachment."""
+        attachment = Attachment.query.get(attachment_id)
+        if not attachment:
+            raise NotFoundError("Attachment", attachment_id)
+        require_same_tenant(attachment.card.column.kanban.tenant_id)
+
+        storage = get_storage()
+        storage.delete(attachment.storage_path)
+
+        self.db.delete(attachment)
+        self.db.commit()
+```
+
+```python services/__init__.py
+"""Business logic services - Auto-discovered by Feather."""
+
+from services.kanban_service import KanbanService
+from services.column_service import ColumnService
+from services.card_service import CardService
+from services.attachment_service import AttachmentService
+```
+
+Isolation flows down the chain: tenant to board to column to card to attachment. Note the
+storage path carries the tenant ID as well, so two tenants can't collide in the bucket
+even by accident.
+
+## Steps 4 to 7: Routes, templates and CSS
+
+Delete the scaffolded home page first, since the dashboard replaces it:
+
+```bash
+rm routes/pages/home.py
+```
+
+The routes follow part 4 closely, with the user-ownership checks swapped for tenant ones,
+so the services above already show the pattern. The templates and stylesheet are
+presentation, including a dashboard grid, the board, the drag-drop island and a user menu
+flyout.
+
+Copy them from
+[Steps 4 through 7 of the source tutorial](https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/05-saas-kanban.md).
+
+## Step 8: Test the isolation
+
+```bash
+feather dev
+```
 
 <Steps>
-  <Step title="Create tenant-scoped models">
-    `Kanban` swaps user ownership for `TenantScopedMixin`. `Column` and `Card` inherit
-    isolation through the board. `Attachment` becomes its own model so a card can hold
-    several files.
+  <Step title="Sign in as the platform admin">
+    You get an empty dashboard. Create a board, open it, add columns and cards. Then visit
+    Admin, then Tenants.
   </Step>
-  <Step title="Run the migration" />
-  <Step title="Create tenant-scoped services">
-    Board, column, card and attachment services, each scoping through the tenant rather
-    than trusting an ID from the request.
+  <Step title="Create a tenant">
+    Name "Acme Corp", slug "acme", domain "acme.com", set to Active.
   </Step>
-  <Step title="Create the routes">
-    Dashboard, board view, and the API for moves and attachments.
+  <Step title="Sign in as an acme.com user in a private window">
+    They land on the pending approval page, because new users need approving.
   </Step>
-  <Step title="Create the templates and JavaScript">
-    The board grid, the board itself, the drag-and-drop island, and a user menu flyout.
+  <Step title="Promote them to tenant admin">
+    As platform admin, go to Admin, Tenants, Acme Corp, Users. Set their role to admin and
+    activate them.
   </Step>
-  <Step title="Test the isolation">
-    Sign in as two users on different email domains and confirm neither can see the other's
-    boards.
+  <Step title="Create boards as that user">
+    They're isolated from every other tenant.
+  </Step>
+  <Step title="Approve a second acme.com user">
+    Sign in as one in another private window, then approve them from Admin, Users as the
+    Acme tenant admin rather than as the platform admin.
   </Step>
 </Steps>
+
+| User type | Can reach |
+| --- | --- |
+| Tenant user | Their tenant's boards only |
+| Tenant admin | Admin, Users. Approve and suspend inside their own tenant |
+| Platform admin | Admin, Tenants. Create tenants, but not approve users |
+
+<Note>
+  Platform admins manage tenants, not users. Approving new signups is each tenant admin's
+  job, which is what keeps a platform operator out of a customer's user list.
+</Note>
 
 ## Prompt Claude
 
@@ -106,7 +551,12 @@ Implement Build Steps 1 through 7:
 The isolation rules matter more than anything else here. Use
 get_current_tenant_id() to scope queries, and require_same_tenant() in the
 services before acting on anything fetched by ID. Do not trust a tenant_id that
-arrives in a request. Cross-tenant routes, if any, need @platform_admin_required.
+arrives in a request. In move(), check the target column as well as the card, or
+someone can move a card into another tenant's board. Put the tenant id in the
+storage path too.
+
+Keep Tenant, User, Log, Account and AccountUser in models/__init__.py, and watch
+the import order, since Alembic creates tables in it.
 
 Show me the migration before applying it. Then run `feather check` and pay
 attention to the tenant-isolation rule specifically, since it catches queries on
@@ -114,10 +564,9 @@ tenant-scoped models with no tenant filter.
 ```
 
 <Warning>
-  A tenant admin is not a platform admin. An admin at one company must not be able to read
-  another company's data, and `require_same_tenant()` is a hard stop that admin role does
-  not bypass. If an assistant adds an admin shortcut around it, that's a bug worth
-  rejecting.
+  A tenant admin is not a platform admin. An admin at one company must not reach another
+  company's data, and `require_same_tenant()` is a hard stop the admin role does not
+  bypass. If an assistant adds an admin shortcut around it, reject the change.
 </Warning>
 
 ## Checkpoint
@@ -127,6 +576,7 @@ Sign in as two accounts on different email domains, then confirm:
 - Each is assigned to the tenant matching its domain
 - Neither can see the other's boards
 - Fetching the other tenant's board by ID returns 403 rather than data
+- A card cannot be moved into another tenant's board
 - A tenant admin can manage users inside their tenant only
 - The platform admin can see `/admin/tenants` and create tenants
 - `feather check` reports no `tenant-isolation` errors
@@ -138,8 +588,9 @@ Sign in as two accounts on different email domains, then confirm:
 - `get_current_tenant_id()` at the route layer
 - `require_same_tenant()` as a hard stop in services
 - Isolation inherited down a hierarchy, from tenant through board to attachment
+- Putting the tenant ID in storage paths as well as the database
 - Assigning users to tenants by email domain
-- Platform admin versus tenant admin, and why the CLI grants the first
+- Platform admin versus tenant admin, and why approval belongs to the tenant
 
 <Card title="Next: put it on the internet" icon="ship" href="/tutorials/deploying" horizontal>
   A VPS, Docker, automatic TLS, nightly backups and a deploy on every push.

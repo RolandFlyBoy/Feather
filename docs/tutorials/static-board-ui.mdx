@@ -21,8 +21,25 @@ macro, Tailwind with `@apply`, and Vite's hot reload.
 feather new kanban
 ```
 
-Press Enter at every prompt. The defaults are what you want: a `simple` app, no database,
-and background jobs on the thread backend that this part never touches.
+Press Enter at every prompt. The defaults are what you want here:
+
+```text
+App Type
+  Simple        - Static pages, no authentication
+  Single-tenant - One organization, user accounts
+  Multi-tenant  - Multiple organizations (SaaS)
+
+  Select type [simple]:
+
+Database
+  Type (none, sqlite, postgresql) [none]:
+
+Background Jobs
+  Include background jobs? [Y/n]:
+```
+
+A `simple` app with no database is all this part needs. Background jobs cost nothing at
+the default, since the thread backend requires no Redis.
 
 ```bash
 cd kanban
@@ -32,29 +49,274 @@ feather dev
 
 Open [http://localhost:5173](http://localhost:5173) and you'll get the welcome page.
 
-## What you'll build
+## Step 1: The project structure
 
-<Steps>
-  <Step title="Read the project structure">
-    Learn where routes, templates and CSS live, and which directories Feather discovers on
-    its own.
-  </Step>
-  <Step title="Create the board route">
-    A page route in `routes/pages/home.py` that hands the template a hardcoded list of
-    columns and cards.
-  </Step>
-  <Step title="Create the board template">
-    `templates/pages/board.html`, extending the scaffolded base layout and looping over the
-    columns.
-  </Step>
-  <Step title="Add the CSS">
-    Kanban classes in `static/css/app.css`, written with `@apply` and carrying `dark:`
-    variants.
-  </Step>
-  <Step title="Run and view it">
-    Vite reloads as you save. Check both themes with the toggle in the header.
-  </Step>
-</Steps>
+```text
+kanban/
+├── app.py                # Entry point
+├── config.py             # Configuration
+├── routes/
+│   ├── api/              # API routes (empty for now)
+│   └── pages/
+│       └── home.py       # Home page route
+├── templates/
+│   ├── base.html         # Base template with Vite/HTMX
+│   ├── components/       # For custom components
+│   ├── partials/         # HTMX response fragments
+│   └── pages/
+│       └── home.html     # Home page template
+├── static/
+│   ├── css/app.css       # Tailwind entry point
+│   ├── js/               # Shared JavaScript
+│   └── islands/          # Interactive JS components
+├── tests/
+├── package.json          # Vite + Tailwind deps
+└── vite.config.js
+```
+
+Four of these directories matter for this part:
+
+| Path | Holds |
+| --- | --- |
+| `routes/pages/` | Page routes, discovered automatically |
+| `routes/api/` | API routes, discovered automatically |
+| `templates/pages/` | Full page templates |
+| `static/css/app.css` | Tailwind styles written with `@apply` |
+
+## Step 2: The board route
+
+Replace `routes/pages/home.py`:
+
+```python routes/pages/home.py
+"""Kanban board page route."""
+
+from flask import render_template
+from feather import page
+
+
+@page.get("/")
+def board():
+    """Render the Kanban board."""
+    # Hardcoded data for now - we'll add persistence in part 2
+    columns = [
+        {
+            "id": "1",
+            "title": "To Do",
+            "cards": [
+                {"id": "1", "title": "Research competitors"},
+                {"id": "2", "title": "Write project brief"},
+            ]
+        },
+        {
+            "id": "2",
+            "title": "In Progress",
+            "cards": [
+                {"id": "3", "title": "Design mockups"},
+            ]
+        },
+        {
+            "id": "3",
+            "title": "Done",
+            "cards": []
+        }
+    ]
+    return render_template("pages/board.html", columns=columns)
+```
+
+## Step 3: The board template
+
+Create `templates/pages/board.html`:
+
+```html templates/pages/board.html
+{% extends "base.html" %}
+{% from "components/icon.html" import icon %}
+
+{% block title %}Kanban Board{% endblock %}
+
+{% block content %}
+<div class="kanban-container">
+    <header class="kanban-header">
+        <h1 class="kanban-title">
+            {{ icon("view_kanban", size="lg") }} Kanban Board
+        </h1>
+        <div class="kanban-header-right">
+            <button class="btn-primary">
+                {{ icon("add", size="sm") }} Add Column
+            </button>
+            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
+                <span class="material-symbols-outlined icon-light">bedtime</span>
+                <span class="material-symbols-outlined icon-dark">sunny</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="kanban-board">
+        {% for column in columns %}
+            <div class="kanban-column">
+                <div class="column-header">
+                    <h2 class="column-title">{{ column.title }}</h2>
+                    <span class="card-count">{{ column.cards|length }}</span>
+                </div>
+
+                <div class="column-cards">
+                    {% for card in column.cards %}
+                        <div class="kanban-card">
+                            <p class="card-title">{{ card.title }}</p>
+                        </div>
+                    {% else %}
+                        <p class="empty-column">No cards yet</p>
+                    {% endfor %}
+                </div>
+
+                <div class="column-footer">
+                    <button class="btn-add-card">
+                        {{ icon("add", size="sm") }} Add Card
+                    </button>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+```
+
+Five Jinja2 constructs are doing the work:
+
+| Construct | What it does |
+| --- | --- |
+| `{% extends "base.html" %}` | Inherits the scaffolded base layout |
+| `{% from "components/icon.html" import icon %}` | Imports the icon macro |
+| `{{ icon("view_kanban") }}` | Renders a Material Icon |
+| `{% for ... %}` | Loops over the data |
+| `{% else %}` after a `for` | Renders when the list is empty |
+
+## Step 4: The CSS
+
+Add this to `static/css/app.css`, after the existing content:
+
+```css static/css/app.css
+@layer components {
+    /* Dark Mode Toggle */
+    .dark-mode-toggle {
+        @apply p-2 rounded-lg text-gray-500 hover:bg-gray-200
+               dark:text-gray-400 dark:hover:bg-gray-700 transition-colors;
+    }
+
+    .dark-mode-toggle .icon-light {
+        @apply dark:hidden;
+    }
+
+    .dark-mode-toggle .icon-dark {
+        @apply hidden dark:inline;
+    }
+
+    /* Kanban Layout */
+    .kanban-container {
+        @apply min-h-screen bg-gray-100 dark:bg-gray-900 p-6;
+    }
+
+    .kanban-header {
+        @apply mb-6 flex items-center justify-between;
+    }
+
+    .kanban-header-right {
+        @apply flex items-center gap-3;
+    }
+
+    .kanban-title {
+        @apply text-2xl font-bold text-gray-900 dark:text-gray-100
+               flex items-center gap-2;
+    }
+
+    .kanban-board {
+        @apply flex gap-4 overflow-x-auto pb-4;
+        min-height: 500px;
+    }
+
+    /* Columns */
+    .kanban-column {
+        @apply flex-shrink-0 w-72 bg-gray-200 dark:bg-gray-800
+               rounded-lg p-3 flex flex-col;
+    }
+
+    .column-header {
+        @apply flex items-center justify-between mb-3;
+    }
+
+    .column-title {
+        @apply font-semibold text-gray-700 dark:text-gray-300;
+    }
+
+    .card-count {
+        @apply text-sm text-gray-500 dark:text-gray-400
+               bg-gray-300 dark:bg-gray-700 px-2 py-0.5 rounded-full;
+    }
+
+    .column-cards {
+        @apply space-y-2 min-h-[100px] flex-1;
+    }
+
+    .column-footer {
+        @apply mt-3 pt-3 border-t border-gray-300 dark:border-gray-600;
+    }
+
+    .empty-column {
+        @apply text-sm text-gray-400 dark:text-gray-500 text-center py-4;
+    }
+
+    /* Cards */
+    .kanban-card {
+        @apply bg-white dark:bg-gray-700 rounded-lg shadow-sm p-3
+               cursor-pointer hover:shadow-md transition-shadow;
+    }
+
+    .card-title {
+        @apply text-sm text-gray-800 dark:text-gray-200;
+    }
+
+    /* Buttons */
+    .btn-primary {
+        @apply inline-flex items-center gap-2 px-4 py-2
+               bg-indigo-600 text-white rounded-lg
+               hover:bg-indigo-700 transition-colors;
+    }
+
+    .btn-add-card {
+        @apply w-full flex items-center justify-center gap-1
+               text-sm text-gray-500 dark:text-gray-400 py-2 rounded
+               hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors;
+    }
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Why not utility classes in the markup?" icon="palette">
+    Feather prefers CSS classes with `@apply`. Templates stay readable, styles get reused
+    across templates, and a restyle happens in one file rather than twenty. `feather check`
+    reports utility classes in markup as the `inline-tailwind` warning.
+  </Accordion>
+  <Accordion title="How dark mode works here" icon="moon">
+    Every colour-related `@apply` carries a `dark:` variant. The scaffolded `base.html`
+    loads Feather's `dark-mode.js`, which toggles a `.dark` class on `<html>` when anything
+    with `data-toggle-dark-mode` is clicked.
+
+    The toggle button holds two icon spans, `icon-light` and `icon-dark`, and CSS decides
+    which is visible. No custom JavaScript.
+  </Accordion>
+</AccordionGroup>
+
+## Step 5: Run it
+
+```bash
+feather dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) and you should see the board.
+
+Worth trying while you're here, because it's the difference between the two reload paths:
+
+1. Change a column title in `home.py`, and watch the browser reload.
+2. Change a colour in `app.css`, and watch it update without a reload.
 
 ## Prompt Claude
 
@@ -92,15 +354,13 @@ You're done when:
 
 - Three columns render, each with its cards
 - The page is styled in both light and dark mode
-- The dark mode toggle in the header switches between them
-- Material icons render on the column headers and cards
+- The toggle in the header switches between them
+- Material icons render on the header and the buttons
 - `feather check` passes
 
 The buttons don't work yet. That's expected.
 
-Files you touched:
-
-```text
+```text Files you touched
 routes/pages/home.py          # board route with hardcoded data
 templates/pages/board.html    # new
 static/css/app.css            # Kanban classes added
@@ -111,7 +371,7 @@ static/css/app.css            # Kanban classes added
 - Scaffolding a project with `feather new`
 - Template inheritance with `extends` and `block`
 - Importing and calling component macros
-- The `icon` macro and its four sizes
+- The `icon` macro and its sizes
 - Writing Tailwind as `@apply` classes instead of markup utilities
 - Dark mode through `dark:` variants
 - Jinja2 loops, including the `{% else %}` branch for an empty list
