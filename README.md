@@ -2893,6 +2893,54 @@ style.
 
 ---
 
+## Upgrading
+
+Apps pin the framework (`feather-framework[extras]==X.Y.Z` in
+`requirements.txt`) and move when they bump the pin, so an upgrade never
+happens by surprise. `CHANGELOG.md` carries an "Upgrade notes" block for every
+release that needs one; read the blocks between your pin and your target.
+
+The upgrade itself:
+
+```bash
+# 1. bump the pin, then
+pip install -r requirements.txt
+feather check            # conventions, exit 1 on error
+feather security-check   # secrets, cookies, debug, dependency floors
+feather env check        # env keys config.py reads vs what is set
+pytest                   # the app's own suite
+```
+
+Two changes account for most upgrade breakage:
+
+**Extras (0.9.8).** A bare install no longer brings WeasyPrint,
+google-cloud-storage, psycopg2, redis, rq, resend, gunicorn or pytest. An app
+that used any of them must name the extra, or the first import fails with a
+message naming the install command. See [Dependencies](#dependencies) for the
+table. `feather-framework[all]` reproduces the pre-0.9.8 install if you would
+rather not work out the list now.
+
+**The Tailwind `@source` path (0.9.7).** Covered just above. It fails silently
+rather than loudly, which is why it is worth checking even if everything looks
+fine locally.
+
+After that, the things worth grepping for, all of which the changelog explains
+in full:
+
+| Look for | Because |
+|----------|---------|
+| `_queue_instance`, `_cache_instance` | Backends moved to `app.extensions["feather"]`; assigning to the old names does nothing. Use `feather.core.registry.set_backend` |
+| `href="/auth/logout"` | `GET /auth/logout` is deprecated; POST it |
+| `"AUTHORIZATION_ERROR"` in string comparisons | A suspended user now reports `ACCOUNT_SUSPENDED` |
+| `@job` functions taking `timeout`, `retry`, `concurrency`, `delay` or `queue_name` | Those names are reserved by the enqueue call |
+| `cache_response` on public pages | It varies on the current user by default now; pass `vary_on_user=False` |
+| A broken module under `models/`, `services/` or `routes/` | Discovery is strict: it stops the app rather than silently dropping the module. `FEATHER_LENIENT_DISCOVERY=1` restores the old behaviour while you fix it |
+
+A framework upgrade is a good moment to run `feather security-check`, which
+fails on dependency versions below the floors each release sets.
+
+---
+
 ## Troubleshooting
 
 **Tail logs in a second terminal:** `tail -f logs/app.log` — shows detailed Flask output.
