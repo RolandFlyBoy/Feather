@@ -3,6 +3,7 @@ title: "1. Static board UI"
 sidebarTitle: "1. Static board UI"
 description: "Scaffold a project and prompt your way to a styled Kanban board. No database, no persistence, and nothing to type out."
 icon: "layout-template"
+mode: "wide"
 ---
 
 The board you finish this part with looks like the real thing. Three columns, cards inside
@@ -57,27 +58,28 @@ I'm working through part 1 of the Feather Kanban tutorial series.
 Read the tutorial first:
 https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/01-static-board-ui.md
 
-I've already run `feather new kanban` and accepted the defaults: simple app type,
-no database. The dev server runs and shows the welcome page.
+I've already run `feather new kanban` and accepted the defaults: simple
+app type, no database. The dev server runs and shows the welcome page.
 
 Build the static board from Build Steps 2 through 4:
 
-- Replace routes/pages/home.py with a board route that passes three hardcoded
-  columns ("To Do", "In Progress", "Done") to the template, with a couple of cards
-  in the first two and none in the last.
-- Create templates/pages/board.html, extending base.html, importing the icon
-  macro, and looping over the columns. Include an empty state for a column with no
-  cards, an "Add Column" button in the header and an "Add Card" button per column.
-  They don't need to do anything yet.
+- Replace routes/pages/home.py with a board route that passes three
+  hardcoded columns ("To Do", "In Progress", "Done") to the template,
+  with a couple of cards in the first two and none in the last.
+- Create templates/pages/board.html, extending base.html, importing the
+  icon macro, and looping over the columns. Include an empty state for a
+  column with no cards, an "Add Column" button in the header and an "Add
+  Card" button per column. They don't need to do anything yet.
 - Add the Kanban CSS classes to static/css/app.css.
 
-Follow the conventions in CLAUDE.md. Specifically: no inline styles, no inline
-script blocks, and write the styling as CSS classes with @apply in
-static/css/app.css rather than utility classes in the markup. Every colour class
-needs a dark: variant, and the dark mode toggle belongs in the header.
+Follow the conventions in CLAUDE.md. Specifically: no inline styles, no
+inline script blocks, and write the styling as CSS classes with @apply
+in static/css/app.css rather than utility classes in the markup. Every
+colour class needs a dark: variant, and the dark mode toggle belongs in
+the header.
 
-When you're done, run `feather check` and fix anything it reports. Then tell me
-what you changed and why, file by file.
+When you're done, run `feather check` and fix anything it reports. Then
+tell me what you changed and why, file by file.
 ```
 
 <Tip>

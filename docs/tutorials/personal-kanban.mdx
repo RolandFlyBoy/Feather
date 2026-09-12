@@ -3,6 +3,7 @@ title: "4. Personal Kanban"
 sidebarTitle: "4. Personal Kanban"
 description: "The big one. Google sign-in, roles, an admin panel, multiple boards, cloud storage and PDF export, across two prompts."
 icon: "user"
+mode: "wide"
 ---
 
 This is where the toy becomes an application, and it's the longest part, because
@@ -116,37 +117,41 @@ I'm working through part 4 of the Feather Kanban tutorial series.
 Read the tutorial first:
 https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/04-personal-kanban.md
 
-I've scaffolded a fresh single-tenant app on PostgreSQL with GCS storage enabled
-and Redis caching disabled. Migrations have run and seeds.py created my admin
-user. GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GCS_BUCKET and GCS_CREDENTIALS_JSON
-are all set in .env.
+I've scaffolded a fresh single-tenant app on PostgreSQL with GCS storage
+enabled and Redis caching disabled. Migrations have run and seeds.py
+created my admin user. GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+GCS_BUCKET and GCS_CREDENTIALS_JSON are all set in .env.
 
-Build the authenticated app from Build Steps 0 through 5, stopping before
-attachments and PDF export:
+Build the authenticated app from Build Steps 0 through 5, stopping
+before attachments and PDF export:
 
-- Remove the scaffolded demo home page, its template, its test and the counter
-  island. The test goes with the route it tests.
-- Kanban, Column and Card models, where a board belongs to a user and columns
-  belong to a board. Keep the existing Log, Account and AccountUser imports in
-  models/__init__.py, and watch the import order, because Alembic creates tables in
-  that order and the foreign keys depend on it.
-- Services for board, column and card. Editors and admins can create, delete and
-  move; everyone else gets read-only. Check ownership by walking the relationship
-  (card.column.kanban.user_id), never by trusting an ID from the request.
-- A dashboard route listing the user's boards, a board route, and the move API
-  route.
-- Templates for login, pending approval, the dashboard grid and the board.
+- Remove the scaffolded demo home page, its template, its test and the
+  counter island. The test goes with the route it tests.
+- Kanban, Column and Card models, where a board belongs to a user and
+  columns belong to a board. Keep the existing Log, Account and
+  AccountUser imports in models/__init__.py, and watch the import order,
+  because Alembic creates tables in that order and the foreign keys
+  depend on it.
+- Services for board, column and card. Editors and admins can create,
+  delete and move; everyone else gets read-only. Check ownership by
+  walking the relationship (card.column.kanban.user_id), never by
+  trusting an ID from the request.
+- A dashboard route listing the user's boards, a board route, and the
+  move API route.
+- Templates for login, pending approval, the dashboard grid and the
+  board.
 
-Use @auth_required for pages that need an approved user, and @login_only for the
-pending page, since a pending user is authenticated but not active. Gate the
-create and delete controls in the templates on current_user.role, so a read-only
-user never sees a button that would fail.
+Use @auth_required for pages that need an approved user, and @login_only
+for the pending page, since a pending user is authenticated but not
+active. Gate the create and delete controls in the templates on
+current_user.role, so a read-only user never sees a button that would
+fail.
 
-Show me the migration before applying it. Then run `feather check` and fix what it
-reports.
+Show me the migration before applying it. Then run `feather check` and
+fix what it reports.
 
-Then explain how a brand new Google account moves from first sign-in to seeing a
-board, and which decorator or field gates each step.
+Then explain how a brand new Google account moves from first sign-in to
+seeing a board, and which decorator or field gates each step.
 ```
 
 ## Step 4: Run the second prompt
@@ -161,20 +166,21 @@ drag-and-drop.
 
 Now build Build Steps 6 through 9 from the same tutorial:
 
-- PDF attachments on cards, stored through feather.storage. Reject anything that
-  isn't a PDF, and delete the previous attachment before writing a new one.
-- An upload modal and a PDF viewer modal, using the modal component rather than a
-  new dialog implementation.
+- PDF attachments on cards, stored through feather.storage. Reject
+  anything that isn't a PDF, and delete the previous attachment before
+  writing a new one.
+- An upload modal and a PDF viewer modal, using the modal component
+  rather than a new dialog implementation.
 - PDF export of a whole board with WeasyPrint, returned as a download.
 - Confirm the OAuth redirect URI configuration.
 
-Use get_storage() rather than talking to GCS directly, so the same code still works
-if I switch STORAGE_BACKEND to local.
+Use get_storage() rather than talking to GCS directly, so the same code
+still works if I switch STORAGE_BACKEND to local.
 
 Then run `feather check` and confirm the checkpoint in the tutorial.
 
-Finally, tell me where the uploaded file actually lives and what would change if I
-set STORAGE_BACKEND=local.
+Finally, tell me where the uploaded file actually lives and what would
+change if I set STORAGE_BACKEND=local.
 ```
 
 ## Step 5: Test it

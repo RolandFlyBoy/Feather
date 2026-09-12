@@ -3,6 +3,7 @@ title: "3. Drag and drop"
 sidebarTitle: "3. Drag and drop"
 description: "The first part that needs state in the browser. One prompt adds ordering to the models and an island that moves cards optimistically."
 icon: "move"
+mode: "wide"
 ---
 
 Dragging a card is the first thing in this series HTMX can't do well. A drag holds state
@@ -61,33 +62,36 @@ I'm working through part 3 of the Feather Kanban tutorial series.
 Read the tutorial first:
 https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/03-drag-and-drop.md
 
-My app is the result of part 2: Column and Card models, services, HTMX create and
-delete, and partials for column and card.
+My app is the result of part 2: Column and Card models, services, HTMX
+create and delete, and partials for column and card.
 
 Build drag-and-drop from Build Steps 1 through 9:
 
-- Add OrderingMixin to both models. Card needs
-  __ordering_scope__ = ["column_id"] so positions run per column rather than across
-  the whole table.
+- Add OrderingMixin to both models. Card needs __ordering_scope__ =
+  ["column_id"] so positions run per column rather than across the whole
+  table.
 - A migration for the position columns.
-- Update the services to query in position order, and add a move() method to
-  CardService. It has to handle a card crossing between columns, not just
-  reordering within one, and close the gap in the column it left.
+- Update the services to query in position order, and add a move()
+  method to CardService. It has to handle a card crossing between
+  columns, not just reordering within one, and close the gap in the
+  column it left.
 - An API route under routes/api/ that takes the move as JSON.
-- A kanban-board island using the built-in draggable config, with a drag handle.
-- data-id on the cards and on the drop zones, and the island mount on the board
-  template with its own islands block.
+- A kanban-board island using the built-in draggable config, with a drag
+  handle.
+- data-id on the cards and on the drop zones, and the island mount on
+  the board template with its own islands block.
 - The drag-drop CSS.
 
-Two conventions matter here. Use this.api from inside the island rather than raw
-fetch, so CSRF is handled for you. And use this.optimistic() for the move, so the
-card lands immediately and rolls back if the server rejects it.
+Two conventions matter here. Use this.api from inside the island rather
+than raw fetch, so CSRF is handled for you. And use this.optimistic()
+for the move, so the card lands immediately and rolls back if the server
+rejects it.
 
-Show me the migration before applying it. Then run `feather check` and fix
-anything it reports, including orphan-island or missing-island.
+Show me the migration before applying it. Then run `feather check` and
+fix anything it reports, including orphan-island or missing-island.
 
-Then explain two things: why Card needs an ordering scope and Column doesn't, and
-what happens in the UI if the API call fails.
+Then explain two things: why Card needs an ordering scope and Column
+doesn't, and what happens in the UI if the API call fails.
 ```
 
 ## Step 3: Test it

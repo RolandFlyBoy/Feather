@@ -3,6 +3,7 @@ title: "6. Deploying"
 sidebarTitle: "6. Deploying"
 description: "Your app on your domain, over real HTTPS, with backups and a deploy on every push. One prompt for the repo, your hands on the server."
 icon: "ship"
+mode: "wide"
 ---
 
 Everything so far ran on your laptop. This part puts it on the internet properly: your
@@ -70,32 +71,35 @@ I'm working through part 6 of the Feather Kanban tutorial series.
 Read the tutorial first:
 https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/06-deploying.md
 
-My app is the result of part 5 and runs locally with `feather dev`. My domain is
-kanban.example.com and my server is a fresh Ubuntu 24.04 box at <IP>.
+My app is the result of part 5 and runs locally with `feather dev`. My
+domain is kanban.example.com and my server is a fresh Ubuntu 24.04 box
+at <IP>.
 
-Do the repository-side work only. Do not SSH anywhere and do not run anything
-against the server.
+Do the repository-side work only. Do not SSH anywhere and do not run
+anything against the server.
 
-1. Run `feather docker init --domain kanban.example.com` and tell me what it
-   generated and what it skipped.
-2. Walk me through the generated Dockerfile. I specifically want to understand why
-   feather installs on its own layer before the rest of requirements.txt, and why
-   there is no `feather db upgrade` in CMD.
-3. Bring Postgres and Redis up locally with docker-compose.dev.yml, run my
-   migrations against them, and confirm `feather dev` still hot-reloads.
-4. Build the production image and run `feather security-check` inside it. Fix what
-   it reports that is fixable in the repo, and list what I have to fix on the
-   server.
-5. Write .github/workflows/deploy.yml from Step 8 of the tutorial: a test job using
-   real Postgres and Redis service containers, running `feather db upgrade`,
-   `feather check` and `feather test`, then a deploy job that SSHes in and runs
-   ./deploy/deploy.sh --pull. Include the concurrency block so a deploy is never
-   cancelled mid-migration.
+1. Run `feather docker init --domain kanban.example.com` and tell me
+   what it generated and what it skipped.
+2. Walk me through the generated Dockerfile. I specifically want to
+   understand why feather installs on its own layer before the rest of
+   requirements.txt, and why there is no `feather db upgrade` in CMD.
+3. Bring Postgres and Redis up locally with docker-compose.dev.yml, run
+   my migrations against them, and confirm `feather dev` still
+   hot-reloads.
+4. Build the production image and run `feather security-check` inside
+   it. Fix what it reports that is fixable in the repo, and list what I
+   have to fix on the server.
+5. Write .github/workflows/deploy.yml from Step 8 of the tutorial: a
+   test job using real Postgres and Redis service containers, running
+   `feather db upgrade`, `feather check` and `feather test`, then a
+   deploy job that SSHes in and runs ./deploy/deploy.sh --pull. Include
+   the concurrency block so a deploy is never cancelled mid-migration.
 
-Then give me the server commands as a numbered list I can work through myself: DNS,
-the deploy user, Docker, the firewall, SSH hardening, the clone, and the production
-.env. For each one tell me what it does and how I know it worked. Flag anything
-that would lock me out if I get it wrong.
+Then give me the server commands as a numbered list I can work through
+myself: DNS, the deploy user, Docker, the firewall, SSH hardening, the
+clone, and the production .env. For each one tell me what it does and
+how I know it worked. Flag anything that would lock me out if I get it
+wrong.
 ```
 
 ## Step 3: Set up the server yourself
@@ -154,15 +158,17 @@ Worth a second prompt once it's live.
 ```text Pre-launch review prompt
 The app is deployed at https://kanban.example.com and responding.
 
-Work through the pre-launch checklist in Step 9 of the tutorial and the one at
+Work through the pre-launch checklist in Step 9 of the tutorial and the
+one at
 https://docs.featherframework.org/deployment/checklist.
 
-For each item, tell me how to verify it rather than assuming it. Where you can
-check from the repository, check it. Where it needs a command on the server, give
-me the command and tell me what a passing result looks like.
+For each item, tell me how to verify it rather than assuming it. Where
+you can check from the repository, check it. Where it needs a command on
+the server, give me the command and tell me what a passing result looks
+like.
 
-Flag anything that looks wrong, particularly TRUSTED_HOSTS, OAUTH_CALLBACK_URL and
-JOB_SERIALIZER.
+Flag anything that looks wrong, particularly TRUSTED_HOSTS,
+OAUTH_CALLBACK_URL and JOB_SERIALIZER.
 ```
 
 <Warning>

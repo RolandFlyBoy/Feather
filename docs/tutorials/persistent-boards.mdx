@@ -3,6 +3,7 @@ title: "2. Persistent boards"
 sidebarTitle: "2. Persistent boards"
 description: "Add a database and make the buttons work. One prompt takes you from hardcoded lists to columns and cards that survive a refresh."
 icon: "database"
+mode: "wide"
 ---
 
 The board from part 1 forgets everything when you reload. This part gives it a database
@@ -83,32 +84,38 @@ Read the tutorial first:
 https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/02-persistent-boards.md
 
 My app is the result of part 1: a static board with hardcoded columns in
-routes/pages/home.py. I've added DATABASE_URL for SQLite, created the models/
-package and run `feather db init`.
+routes/pages/home.py. I've added DATABASE_URL for SQLite, created the
+models/ package and run `feather db init`.
 
 Build the persistent board from Build Steps 1 through 7:
 
-- Column and Card models using UUIDMixin and TimestampMixin, with cards cascading
-  from their column.
+- Column and Card models using UUIDMixin and TimestampMixin, with cards
+  cascading from their column.
 - A migration for them.
-- ColumnService and CardService holding the create, delete and list logic. Raise
-  NotFoundError for a missing row rather than returning None.
-- Update the board route to query real data, injecting the services with @inject.
-- Partial templates for a column and a card, which are what the HTMX routes return.
-- HTMX wiring: create and delete for both columns and cards, with hx-confirm on the
-  destructive ones, and the card form clearing itself after a successful submit.
+- ColumnService and CardService holding the create, delete and list
+  logic. Raise NotFoundError for a missing row rather than returning
+  None.
+- Update the board route to query real data, injecting the services with
+  @inject.
+- Partial templates for a column and a card, which are what the HTMX
+  routes return.
+- HTMX wiring: create and delete for both columns and cards, with
+  hx-confirm on the destructive ones, and the card form clearing itself
+  after a successful submit.
 - The new CSS classes.
 
-Conventions from CLAUDE.md that matter here: keep route handlers thin and put the
-logic in services, use window.showPrompt() rather than window.prompt for the "Add
-Column" dialog, keep JavaScript in static/js/ rather than inline, and keep styles
-as @apply classes.
+Conventions from CLAUDE.md that matter here: keep route handlers thin
+and put the logic in services, use window.showPrompt() rather than
+window.prompt for the "Add Column" dialog, keep JavaScript in static/js/
+rather than inline, and keep styles as @apply classes.
 
-Stop before running the migration and show me the generated file. After I approve
-it, run `feather db upgrade`, then `feather check`, and fix anything it reports.
+Stop before running the migration and show me the generated file. After
+I approve it, run `feather db upgrade`, then `feather check`, and fix
+anything it reports.
 
-Then walk me through what you built: the models, why the services exist separately
-from the routes, and how each HTMX attribute on the board maps to a route.
+Then walk me through what you built: the models, why the services exist
+separately from the routes, and how each HTMX attribute on the board
+maps to a route.
 ```
 
 <Warning>

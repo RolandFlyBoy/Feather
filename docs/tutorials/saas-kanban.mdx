@@ -3,6 +3,7 @@ title: "5. SaaS Kanban"
 sidebarTitle: "5. SaaS Kanban"
 description: "One prompt turns per-user boards into per-company ones, with isolation that a buggy query can't accidentally break."
 icon: "building-2"
+mode: "wide"
 ---
 
 Part 4 gave every user their own boards. That isn't a SaaS, where a company signs up and
@@ -83,18 +84,20 @@ I'm working through part 5 of the Feather Kanban tutorial series.
 Read the tutorial first:
 https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/05-saas-kanban.md
 
-I've scaffolded a fresh multi-tenant app called kanban-saas on PostgreSQL, with
-GCS enabled and Redis disabled. Migrations have run and seeds.py created my
-platform admin. Google OAuth and GCS credentials are in .env.
+I've scaffolded a fresh multi-tenant app called kanban-saas on
+PostgreSQL, with GCS enabled and Redis disabled. Migrations have run and
+seeds.py created my platform admin. Google OAuth and GCS credentials are
+in .env.
 
 Build the multi-tenant app from Build Steps 1 through 7:
 
-- Kanban using TenantScopedMixin. Column and Card inherit isolation through their
-  relationship to the board rather than carrying a tenant_id of their own.
+- Kanban using TenantScopedMixin. Column and Card inherit isolation
+  through their relationship to the board rather than carrying a
+  tenant_id of their own.
 - A separate Attachment model, so a card can hold several files.
 - The migration. Keep Tenant, User, Log, Account and AccountUser in
-  models/__init__.py, and watch the import order, since Alembic creates tables in
-  it.
+  models/__init__.py, and watch the import order, since Alembic creates
+  tables in it.
 - Tenant-scoped services for board, column, card and attachment.
 - Dashboard and board routes, plus the move and attachment API routes.
 - Templates, the drag-drop island and a user menu island.
@@ -103,19 +106,20 @@ Build the multi-tenant app from Build Steps 1 through 7:
 The isolation rules matter more than anything else here:
 
 - Scope every list query with get_current_tenant_id().
-- Call require_same_tenant() in the services before acting on anything fetched by
-  ID, and let it raise rather than filtering silently.
+- Call require_same_tenant() in the services before acting on anything
+  fetched by ID, and let it raise rather than filtering silently.
 - Never trust a tenant_id that arrives in a request.
-- In move(), check the target column as well as the card. Checking only the card
-  lets someone move their own card into another company's board.
+- In move(), check the target column as well as the card. Checking only
+  the card lets someone move their own card into another company's
+  board.
 - Put the tenant ID in the storage path, so the bucket is isolated too.
 - Any genuinely cross-tenant route needs @platform_admin_required.
 
-Show me the migration before applying it. Then run `feather check` and pay
-attention to the tenant-isolation rule specifically.
+Show me the migration before applying it. Then run `feather check` and
+pay attention to the tenant-isolation rule specifically.
 
-Then show me every place a query touches a tenant-scoped model, and tell me what
-enforces isolation at each one.
+Then show me every place a query touches a tenant-scoped model, and tell
+me what enforces isolation at each one.
 ```
 
 <Warning>
