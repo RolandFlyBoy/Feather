@@ -105,6 +105,19 @@
             ]
           },
           {
+            "group": "Tutorial: build a Kanban app",
+            "icon": "graduation-cap",
+            "pages": [
+              "tutorials/index",
+              "tutorials/static-board-ui",
+              "tutorials/persistent-boards",
+              "tutorials/drag-and-drop",
+              "tutorials/personal-kanban",
+              "tutorials/saas-kanban",
+              "tutorials/deploying"
+            ]
+          },
+          {
             "group": "Building the UI",
             "icon": "layout-template",
             "pages": [
@@ -194,25 +207,6 @@
               "reference/configuration",
               "reference/upgrading",
               "reference/troubleshooting"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Tutorials",
-        "icon": "graduation-cap",
-        "groups": [
-          {
-            "group": "Kanban series",
-            "icon": "list-ordered",
-            "pages": [
-              "tutorials/index",
-              "tutorials/static-board-ui",
-              "tutorials/persistent-boards",
-              "tutorials/drag-and-drop",
-              "tutorials/personal-kanban",
-              "tutorials/saas-kanban",
-              "tutorials/deploying"
             ]
           }
         ]

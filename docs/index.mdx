@@ -23,11 +23,12 @@ guessing.
   <Card title="Build your first app" icon="rocket" href="/quickstart">
     Scaffold, migrate and run a working app in about five minutes.
   </Card>
+  <Card title="Build a real app, step by step" icon="graduation-cap" href="/tutorials/index">
+    Six parts, from a static page to a deployed multi-tenant SaaS. Includes the prompts to
+    hand Claude at each step.
+  </Card>
   <Card title="Why Feather exists" icon="lightbulb" href="/why-feather">
     The gap between Django and the SPA world, and how Feather fills it.
-  </Card>
-  <Card title="Deploy it" icon="ship" href="/deployment/overview">
-    Docker and Caddy on a single VPS, in eight files.
   </Card>
 </CardGroup>
 
@@ -70,7 +71,26 @@ features never get past the first two.
   </Card>
 </CardGroup>
 
+## Learning the framework
+
+The [Kanban tutorial](/tutorials/index) is the fastest way in. It's one application built
+across six parts, starting with a hardcoded HTML page and ending with a multi-tenant SaaS
+on your own domain. Each part introduces one layer, carries the full code, and gives you
+the prompt to hand a coding assistant if you'd rather not type it.
+
+<CardGroup cols={3}>
+  <Card title="1 to 3: the basics" icon="layout-template" href="/tutorials/static-board-ui">
+    Templates, a database, HTMX, then drag-and-drop.
+  </Card>
+  <Card title="4 to 5: a real app" icon="user" href="/tutorials/personal-kanban">
+    Google sign-in, roles, file storage, then tenant isolation.
+  </Card>
+  <Card title="6: ship it" icon="ship" href="/tutorials/deploying">
+    Docker, Caddy, backups and CI on one VPS.
+  </Card>
+</CardGroup>
+
 <Note>
-  New here? Read [Why Feather](/why-feather) for the reasoning behind the stack, then go
-  to the [Quickstart](/quickstart).
+  Prefer the reference route? Read [Why Feather](/why-feather) for the reasoning behind the
+  stack, then go to the [Quickstart](/quickstart).
 </Note>
