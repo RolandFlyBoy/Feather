@@ -10,6 +10,32 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.12 (2026-09-12) — one home for the documentation
+
+Documentation only. No code changed, so upgrading from 0.9.11 is a pin bump
+with nothing to check.
+
+- **The README is now 108 lines instead of 2,994.** It covers what Feather
+  is, how to install it, what is included, and where the documentation
+  lives. Everything it used to hold is at
+  [docs.featherframework.org](https://docs.featherframework.org), which is
+  built from `docs/` in this repository.
+
+  The docs site was generated from the README, so every change had to be
+  made twice and the two had started to disagree: the README still
+  advertised `feather deploy`, removed in 0.9.7. One source removes that
+  failure mode. The old text remains in git history.
+
+- **Package metadata points at the documentation.** `Documentation` was
+  `github.com/RolandFlyBoy/Feather#readme`, which is now a page that
+  deliberately says very little. PyPI's sidebar now links
+  docs.featherframework.org, and `Homepage` is the website rather than the
+  repository.
+
+- **This release exists to update the PyPI page.** Its metadata is fixed
+  per release and cannot be edited after upload, so 0.9.11 will keep
+  serving the old README for as long as it is the latest version.
+
 ## 0.9.11 (2026-09-11) — a way to say "not here"
 
 - **`feather check` takes a `feather: allow <rule>` marker** on the
