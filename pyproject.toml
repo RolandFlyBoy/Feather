@@ -82,8 +82,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/RolandFlyBoy/Feather"
-Documentation = "https://github.com/RolandFlyBoy/Feather#readme"
+Homepage = "https://www.featherframework.org"
+Documentation = "https://docs.featherframework.org"
 Repository = "https://github.com/RolandFlyBoy/Feather"
 Issues = "https://github.com/RolandFlyBoy/Feather/issues"
 

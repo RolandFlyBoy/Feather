@@ -104,8 +104,9 @@ Dispatch events for loose coupling::
     # In your service:
     dispatch(UserCreatedEvent(user_id=user.id))
 
-For more information, see README.md and the docstrings of each module
-(feather.core.app, feather.services, feather.jobs, feather.events, ...).
+Full documentation is at https://docs.featherframework.org. See also the
+docstrings of each module (feather.core.app, feather.services, feather.jobs,
+feather.events, ...).
 """
 
 __version__ = "0.9.11"
