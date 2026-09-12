@@ -1,478 +1,61 @@
 ---
 title: "3. Drag and drop"
 sidebarTitle: "3. Drag and drop"
-description: "The first part that needs real client-side state. Add ordering to the models and a JavaScript island that moves cards optimistically."
+description: "The first part that needs state in the browser. One prompt adds ordering to the models and an island that moves cards optimistically."
 icon: "move"
 ---
 
-Dragging a card is the first thing in this series that HTMX can't do well. A drag has
-state that lives in the browser for as long as your finger is down, and round-tripping to
-the server on every pointer move would feel awful.
+Dragging a card is the first thing in this series HTMX can't do well. A drag holds state
+for as long as your finger is down, and asking the server about it on every pointer move
+would feel awful.
 
-So this is where islands earn their place. You'll add position columns to the models,
-mount a small JavaScript component over the board, and let it update the UI immediately
-while the save happens behind it.
+So this is where islands earn their place: a small piece of JavaScript over the board,
+updating the UI immediately while the save happens behind it.
 
-**You'll use:** `OrderingMixin`, `__ordering_scope__`, islands, the built-in `draggable`
-config, `this.optimistic()`, and an API route returning JSON.
+## What you'll have
 
-## Prerequisites
+- Columns and cards with stable positions
+- Cards you can drag within a column and between columns
+- Visual feedback while dragging, and a marker showing where the card will land
+- A card that moves instantly and rolls back if the server refuses
+
+## Which parts of Feather this uses
+
+<CardGroup cols={2}>
+  <Card title="Islands" icon="component" href="/ui/islands">
+    The `draggable` config and `this.optimistic()`, rather than hand-written pointer events.
+  </Card>
+  <Card title="OrderingMixin" icon="database" href="/backend/models">
+    A position column, and `__ordering_scope__` to make it per-column.
+  </Card>
+  <Card title="API routes" icon="route" href="/backend/routes">
+    The first route in the series that returns JSON rather than HTML.
+  </Card>
+  <Card title="feather check" icon="circle-check" href="/tooling/check">
+    Two rules here catch an island nothing mounts, or a mount with no island.
+  </Card>
+</CardGroup>
+
+## Step 1: Scaffold
 
 <Tabs>
   <Tab title="Continue from part 2">
-    Your app needs the SQLite database, the `Column` and `Card` models, the HTMX routes
-    and the two partials. Nothing else to do.
+    Nothing to do. You need the SQLite database, the `Column` and `Card` models, the HTMX
+    routes and the two partials, all of which part 2 produced.
   </Tab>
   <Tab title="Start fresh">
     ```bash
     feather new kanban
     ```
 
-    Accept `simple`, choose `sqlite`, then copy the part 2 code from the
-    [Starting Point section](https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/03-drag-and-drop.md)
-    of the source tutorial.
+    Accept `simple`, choose `sqlite`. The prompt below tells the assistant to rebuild
+    part 2 first from the tutorial's Starting Point section.
   </Tab>
 </Tabs>
 
-## Step 1: Add OrderingMixin
+## Step 2: Run the prompt
 
-`OrderingMixin` adds a `position` column and the methods to shuffle it.
-
-```python models/column.py
-"""Column model for Kanban board."""
-
-from feather.db import db, Model
-from feather.db.mixins import UUIDMixin, TimestampMixin, OrderingMixin
-
-
-class Column(UUIDMixin, TimestampMixin, OrderingMixin, Model):
-    """Kanban column with position-based ordering."""
-
-    __tablename__ = "columns"
-
-    title = db.Column(db.String(100), nullable=False)
-    cards = db.relationship(
-        "Card",
-        backref="column",
-        cascade="all, delete-orphan",
-        order_by="Card.position"  # changed from created_at
-    )
-
-    def __repr__(self):
-        return f"<Column {self.title}>"
-```
-
-```python models/card.py
-"""Card model for Kanban board."""
-
-from feather.db import db, Model
-from feather.db.mixins import UUIDMixin, TimestampMixin, OrderingMixin
-
-
-class Card(UUIDMixin, TimestampMixin, OrderingMixin, Model):
-    """Kanban card with position scoped per column."""
-
-    __tablename__ = "cards"
-    __ordering_scope__ = ["column_id"]  # position is unique per column
-
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    column_id = db.Column(
-        db.String(36),
-        db.ForeignKey("columns.id"),
-        nullable=False
-    )
-
-    def __repr__(self):
-        return f"<Card {self.title}>"
-```
-
-| Method | What it does |
-| --- | --- |
-| `position` | The integer column the mixin adds |
-| `insert_at_end()` | Sets position to the current max plus one |
-| `move_to(n)` | Moves to position n, shifting everything else |
-| `query_ordered()` | Queries sorted by position |
-| `reorder_all()` | Closes gaps after a delete |
-| `get_max_position()` | Returns the highest position |
-
-`__ordering_scope__` is the line that matters. Without it, positions would be unique
-across the whole table, and cards in different columns would fight over them. With it,
-each column's cards start again at zero.
-
-## Step 2: The migration
-
-```bash
-feather db migrate -m "Add position to columns and cards"
-feather db upgrade
-```
-
-## Step 3: Update the services
-
-```python services/column_service.py
-"""ColumnService - Business logic for columns."""
-
-from feather import Service
-from feather.exceptions import NotFoundError
-from models import Column
-
-
-class ColumnService(Service):
-    """Column service."""
-
-    def list_all(self) -> list[Column]:
-        """List all columns in order."""
-        return Column.query_ordered().all()
-
-    def get_by_id(self, id: str) -> Column:
-        """Get column by ID or raise NotFoundError."""
-        column = Column.query.get(id)
-        if not column:
-            raise NotFoundError("Column", id)
-        return column
-
-    def create(self, title: str) -> Column:
-        """Create a new column at the end."""
-        column = Column(title=title)
-        column.insert_at_end()
-        self.save(column)
-        return column
-
-    def delete(self, id: str) -> None:
-        """Delete a column and its cards."""
-        column = self.get_by_id(id)
-        self.db.delete(column)
-        self.db.commit()
-        # close the gap left behind
-        Column.reorder_all()
-        self.db.commit()
-```
-
-```python services/card_service.py
-"""CardService - Business logic for cards."""
-
-from feather import Service
-from feather.exceptions import NotFoundError
-from models import Card
-
-
-class CardService(Service):
-    """Card service."""
-
-    def get_by_id(self, id: str) -> Card:
-        """Get card by ID or raise NotFoundError."""
-        card = Card.query.get(id)
-        if not card:
-            raise NotFoundError("Card", id)
-        return card
-
-    def create(self, column_id: str, title: str) -> Card:
-        """Create a new card at the end of a column."""
-        card = Card(column_id=column_id, title=title)
-        card.insert_at_end()
-        self.save(card)
-        return card
-
-    def delete(self, id: str) -> None:
-        """Delete a card and reorder the rest."""
-        card = self.get_by_id(id)
-        column_id = card.column_id
-        self.db.delete(card)
-        self.db.commit()
-        Card.reorder_all(column_id=column_id)
-        self.db.commit()
-
-    def move(self, card_id: str, to_column_id: str, to_position: int) -> Card:
-        """Move a card, possibly into a different column."""
-        card = self.get_by_id(card_id)
-        old_column_id = card.column_id
-
-        if to_column_id != old_column_id:
-            # move it across, parked at the end for now
-            card.column_id = to_column_id
-            max_pos = Card.get_max_position(column_id=to_column_id)
-            card.position = max_pos + 1
-            self.db.commit()
-
-            # close the gap in the column it left
-            Card.reorder_all(column_id=old_column_id)
-            self.db.commit()
-
-        card.move_to(to_position)
-        self.db.commit()
-
-        return card
-```
-
-`move()` handles the awkward case. A card crossing between columns has to leave one
-ordering scope and join another, so it moves across first, parks at the end, and only then
-slots into position.
-
-## Step 4: The move API route
-
-```python routes/api/board.py
-"""API routes for Kanban board."""
-
-from flask import request
-from feather import api
-from feather.services import inject
-from services import CardService
-
-
-@api.post("/cards/move")
-@inject(CardService)
-def move_card(card_service: CardService):
-    """Move a card to a new position."""
-    data = request.get_json()
-    card = card_service.move(
-        card_id=data["cardId"],
-        to_column_id=data["toColumnId"],
-        to_position=data["toPosition"]
-    )
-    return {
-        "success": True,
-        "card": {"id": card.id, "position": card.position}
-    }
-```
-
-This is the first API route in the series, and the distinction is worth stating plainly.
-HTMX routes return HTML because the browser is going to insert it. This route returns JSON
-because the island already moved the element and only needs to report where it landed.
-
-## Step 5: The island
-
-```javascript static/islands/kanban-board.js
-/**
- * Kanban Board Island
- *
- * Handles drag-and-drop of cards between columns with optimistic updates.
- */
-island("kanban-board", {
-  draggable: {
-    items: ".kanban-card",           // what can be dragged
-    zones: ".column-cards",          // where it can be dropped
-    handle: ".drag-handle",          // restrict dragging to this element
-
-    onDrop(item, zone, info, e) {
-      // the DOM has already moved; now make it stick
-
-      this.optimistic(
-        // nothing extra to do optimistically, the drag system moved it
-        () => {},
-        // persist
-        () => this.api.post("/api/cards/move", {
-          cardId: info.itemId,
-          toColumnId: info.toZoneId,
-          toPosition: info.toIndex
-        })
-      ).catch(err => {
-        console.error("Failed to move card:", err);
-        window.location.reload();
-      });
-    }
-  }
-});
-```
-
-| Config | Meaning |
-| --- | --- |
-| `items` | Selector for draggable elements |
-| `zones` | Selector for drop targets |
-| `handle` | Optional, restricts the grab area |
-| `onDrop` | Runs after the drop, with `info` carrying `itemId`, `fromIndex`, `toIndex`, `fromZoneId` and `toZoneId` |
-| `this.optimistic()` | Applies the change now, rolls back if the call fails |
-| `this.api` | The CSRF-aware helper, so you never call `fetch` directly |
-
-## Step 6: Add the drag handle
-
-```html templates/partials/card.html
-{#
-Card Partial
-============
-Renders a single Kanban card (draggable).
-#}
-{% from "components/icon.html" import icon %}
-
-<div id="card-{{ card.id }}"
-     class="kanban-card"
-     data-id="{{ card.id }}">
-    <div class="card-content">
-        <span class="drag-handle">
-            {{ icon("drag_indicator", size="sm") }}
-        </span>
-        <p class="card-title">{{ card.title }}</p>
-        <button hx-delete="/htmx/cards/{{ card.id }}"
-                hx-target="#card-{{ card.id }}"
-                hx-swap="outerHTML"
-                hx-confirm="Delete this card?"
-                class="btn-icon-subtle">
-            {{ icon("close", size="sm") }}
-        </button>
-    </div>
-</div>
-```
-
-Two changes: `data-id` so the island can identify the card, and the handle itself.
-
-## Step 7: Make the column a drop zone
-
-```html templates/partials/column.html
-{#
-Column Partial
-==============
-Renders a single Kanban column with its cards.
-#}
-{% from "components/icon.html" import icon %}
-
-<div id="column-{{ column.id }}" class="kanban-column">
-    <div class="column-header">
-        <h2 class="column-title">{{ column.title }}</h2>
-        <button hx-delete="/htmx/columns/{{ column.id }}"
-                hx-target="#column-{{ column.id }}"
-                hx-swap="outerHTML"
-                hx-confirm="Delete this column and all its cards?"
-                class="btn-icon-danger">
-            {{ icon("close", size="sm") }}
-        </button>
-    </div>
-
-    <!-- Cards container (drop zone) - needs data-id for Islands -->
-    <div id="column-{{ column.id }}-cards"
-         class="column-cards"
-         data-id="{{ column.id }}">
-        {% for card in column.cards %}
-            {% include "partials/card.html" %}
-        {% else %}
-            <p class="empty-column empty-placeholder">No cards yet</p>
-        {% endfor %}
-    </div>
-
-    <form hx-post="/htmx/columns/{{ column.id }}/cards"
-          hx-target="#column-{{ column.id }}-cards"
-          hx-swap="beforeend"
-          hx-on::after-request="if(event.detail.successful) { this.reset(); this.closest('.kanban-column').querySelector('.empty-placeholder')?.remove(); }"
-          class="column-footer">
-        <input type="text"
-               name="title"
-               placeholder="Add a card..."
-               class="input-card-title">
-    </form>
-</div>
-```
-
-The `data-id` on `.column-cards` is what makes it a drop zone. The `empty-placeholder`
-class exists so the "No cards yet" line disappears when a card arrives.
-
-## Step 8: Mount the island
-
-```html templates/pages/board.html
-{% extends "base.html" %}
-{% from "components/icon.html" import icon %}
-
-{% block title %}Kanban Board{% endblock %}
-
-{% block content %}
-<div class="kanban-container">
-    <header class="kanban-header">
-        <h1 class="kanban-title">
-            {{ icon("view_kanban", size="lg") }} Kanban Board
-        </h1>
-        <div class="kanban-header-right">
-            <button id="add-column-btn" class="btn-primary">
-                {{ icon("add", size="sm") }} Add Column
-            </button>
-            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
-                <span class="material-symbols-outlined icon-light">bedtime</span>
-                <span class="material-symbols-outlined icon-dark">sunny</span>
-            </button>
-        </div>
-    </header>
-
-    <!-- data-island mounts the kanban-board island here -->
-    <div data-island="kanban-board" class="kanban-board-wrapper">
-        <div id="kanban-board" class="kanban-board">
-            {% for column in columns %}
-                {% include "partials/column.html" %}
-            {% endfor %}
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-{% if config.DEBUG %}
-<script type="module" src="http://localhost:5173/static/js/board.js"></script>
-{% else %}
-<script src="{{ url_for('static', filename='js/board.js') }}"></script>
-{% endif %}
-{% endblock %}
-
-{% block islands %}
-{% if config.DEBUG %}
-<script type="module" src="http://localhost:5173/static/islands/kanban-board.js"></script>
-{% else %}
-<script src="{{ feather_asset('islands/kanban-board') }}"></script>
-{% endif %}
-{% endblock %}
-```
-
-<Note>
-  Islands load from the Vite dev server in debug, for hot reload, and through
-  `feather_asset()` in production, which resolves the content-hashed build output. That's
-  why islands get their own block rather than sitting in `scripts`.
-</Note>
-
-## Step 9: The drag CSS
-
-```css static/css/app.css
-    /* Drag handle */
-    .drag-handle {
-        @apply text-gray-300 dark:text-gray-600
-               hover:text-gray-500 dark:hover:text-gray-400 cursor-grab;
-    }
-
-    /* Dragging state (added by Islands) */
-    .kanban-card.dragging {
-        @apply opacity-50 shadow-lg;
-    }
-
-    /* Drop zone hover state (added by Islands) */
-    .column-cards.drag-over {
-        @apply bg-gray-300 dark:bg-gray-700 ring-1 ring-indigo-400 ring-inset;
-    }
-
-    /* Drop placeholder (added by Islands) */
-    .feather-drop-placeholder {
-        @apply h-0.5 bg-indigo-400 rounded my-1;
-    }
-
-    /* Board wrapper for island */
-    .kanban-board-wrapper {
-        @apply overflow-x-auto;
-    }
-```
-
-The islands runtime adds three classes for you: `.dragging` on the element in flight,
-`.drag-over` on the zone under the pointer, and `.feather-drop-placeholder` on the marker
-showing where it will land. The scaffolded `app.css` has base styles for all three, and
-these are the Kanban-specific overrides. Add them inside the existing
-`@layer components` block.
-
-## Step 10: Test it
-
-```bash
-feather dev
-```
-
-1. Grab a card by its six-dot handle and drag it.
-2. Drop it above or below another card in the same column.
-3. Drag one into a different column.
-4. Watch it land immediately rather than after a round trip.
-5. Refresh. The positions held.
-
-## Prompt Claude
-
-```text
+```text The prompt
 I'm working through part 3 of the Feather Kanban tutorial series.
 
 Read the tutorial first:
@@ -481,76 +64,79 @@ https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/03-drag-and-drop.md
 My app is the result of part 2: Column and Card models, services, HTMX create and
 delete, and partials for column and card.
 
-Implement Build Steps 1 through 9:
-- OrderingMixin on both models, with __ordering_scope__ = ['column_id'] on Card
-- The migration
-- Ordered queries and a move() method on CardService that handles moving between
-  columns, not just within one
-- The move API route under routes/api/
-- The kanban-board island using the built-in draggable config
-- data-id attributes and a drag handle on the partials, data-id on the drop zone
-- The island mount and the islands block on the board template
-- Drag-drop CSS
+Build drag-and-drop from Build Steps 1 through 9:
 
-Two conventions matter here. Use this.api from the island rather than raw fetch, so
-CSRF is handled. And use this.optimistic() for the move, so the card lands
-immediately and rolls back if the server rejects it.
+- Add OrderingMixin to both models. Card needs
+  __ordering_scope__ = ["column_id"] so positions run per column rather than across
+  the whole table.
+- A migration for the position columns.
+- Update the services to query in position order, and add a move() method to
+  CardService. It has to handle a card crossing between columns, not just
+  reordering within one, and close the gap in the column it left.
+- An API route under routes/api/ that takes the move as JSON.
+- A kanban-board island using the built-in draggable config, with a drag handle.
+- data-id on the cards and on the drop zones, and the island mount on the board
+  template with its own islands block.
+- The drag-drop CSS.
+
+Two conventions matter here. Use this.api from inside the island rather than raw
+fetch, so CSRF is handled for you. And use this.optimistic() for the move, so the
+card lands immediately and rolls back if the server rejects it.
 
 Show me the migration before applying it. Then run `feather check` and fix
 anything it reports, including orphan-island or missing-island.
+
+Then explain two things: why Card needs an ordering scope and Column doesn't, and
+what happens in the UI if the API call fails.
 ```
 
-<Note>
-  `feather check` has two rules aimed at exactly this part. `missing-island` catches a
-  template mounting an island that doesn't exist, and `orphan-island` catches an island
-  nothing mounts. Both are easy to trip while wiring this up.
-</Note>
+## Step 3: Test it
 
-## Checkpoint
-
-- Columns and cards have stable positions
-- A card can be dragged within a column and between columns
-- The dragged card dims, and a placeholder shows where it will land
-- The card lands instantly rather than after a round trip
-- Positions survive a refresh
-- `feather check` passes
-
-```text Files you created or changed
-models/
-├── column.py               # OrderingMixin
-└── card.py                 # OrderingMixin + scope
-
-services/
-├── column_service.py       # ordered queries
-└── card_service.py         # move()
-
-routes/
-└── api/board.py            # new
-
-templates/
-├── pages/board.html        # island mount
-└── partials/
-    ├── column.html         # data-id drop zone
-    └── card.html           # data-id + drag handle
-
-static/
-├── css/app.css             # drag styles
-└── islands/
-    └── kanban-board.js     # new
-
-migrations/                 # generated
+```bash
+feather dev
 ```
 
-## What you learned
+1. Grab a card by its handle and drag it. The card should dim while it moves.
+2. Drop it above or below another card in the same column.
+3. Drag one into a different column.
+4. Watch it land immediately rather than after a pause.
+5. Refresh. The positions held.
 
-- `OrderingMixin` and the methods it adds
-- `__ordering_scope__` for positions relative to a parent
-- Declaring and mounting an island
-- The built-in `draggable` config
-- `this.optimistic()` and rollback on failure
-- API routes that return JSON rather than HTML
-- How islands load differently in debug and production
+Then break it on purpose, because this is the interesting bit:
+
+```bash
+# stop the server while the browser is still open, then drag a card
+```
+
+The card should snap back where it came from rather than sitting in a position the
+database doesn't know about.
+
+```bash
+feather check
+```
+
+## What the framework did
+
+**Ordering is a mixin, not a column you manage.** `OrderingMixin` brought `position`,
+`move_to()`, `insert_at_end()` and `reorder_all()`. The service calls them; nothing
+recalculates indexes by hand. See [Models](/backend/models).
+
+**`__ordering_scope__` is the line that matters.** Without it, positions would be unique
+across the whole cards table and two columns would fight over them. With it, each column's
+cards start again at zero.
+
+**The island didn't call `fetch`.** `this.api` is the CSRF-aware helper, and raw `fetch`
+is a [`feather check`](/tooling/check) error, because a POST without the token fails in
+production and works in nobody's test. See [Islands](/ui/islands).
+
+**Optimism is a wrapper, not a pattern you implement.** `this.optimistic()` takes the
+instant change and the server call, and rolls the first back if the second fails. That's
+the rollback you tested above.
+
+**The route returned JSON.** Every other route so far returned HTML because the browser
+was going to insert it. Here the island already moved the element and only needs to report
+where it landed, so `routes/api/` is the right home. See [Routes](/backend/routes).
 
 <Card title="Next: add real users" icon="user" href="/tutorials/personal-kanban" horizontal>
-  Google sign-in, roles, the admin panel, file attachments and PDF export.
+  Google sign-in, roles, an admin panel, file attachments and PDF export.
 </Card>

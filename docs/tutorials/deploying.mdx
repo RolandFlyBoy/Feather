@@ -1,565 +1,198 @@
 ---
 title: "6. Deploying"
 sidebarTitle: "6. Deploying"
-description: "Put the app on a server at your own domain, with automatic HTTPS, nightly backups and a deploy that runs on every push."
+description: "Your app on your domain, over real HTTPS, with backups and a deploy on every push. One prompt for the repo, your hands on the server."
 icon: "ship"
 ---
 
-Everything so far has run on your laptop. This part puts it on the internet properly: your
-domain, a real certificate, a database that gets backed up, and a deploy you trigger with
-one command or a merge to `main`.
+Everything so far ran on your laptop. This part puts it on the internet properly: your
+domain, a real certificate, a database that gets backed up, and a deploy that runs on a
+merge to `main`.
 
-The whole thing runs on one machine for about €7 a month. The app, Postgres, Redis and TLS
-termination all share the box.
+It's about €7 a month, on one machine. The app, Postgres, Redis and TLS termination all
+share the box, and the deployment is eight files `feather new` already put in your
+repository.
 
-**You'll use:** `feather docker init`, multi-stage builds, `docker-compose.dev.yml`,
-one-shot migrations, health-gated deploys, Caddy, `deploy/backup.sh` and GitHub Actions.
+This part splits differently from the others. The repository work is a prompt like any
+other. The server work is a set of commands you run yourself, and the prompt is told not
+to touch them.
 
-## What you need
+## What you'll have
+
+- The app at `https://your-domain`, with a certificate that renews itself
+- A deploy script that migrates once, swaps containers and waits for health
+- Nightly database dumps with retention
+- A GitHub Actions workflow that tests, then deploys, on every push to `main`
+
+## Which parts of Feather this uses
+
+<CardGroup cols={2}>
+  <Card title="Docker layout" icon="container" href="/deployment/docker">
+    What `feather docker init` writes, and the two details worth not breaking.
+  </Card>
+  <Card title="Health checks" icon="heart-pulse" href="/features/health-checks">
+    `/health` checks the database, which is what makes a health-gated deploy meaningful.
+  </Card>
+  <Card title="Security check" icon="shield-check" href="/tooling/security-check">
+    A config audit that exits non-zero, so it works as a pre-launch gate.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/reference/configuration">
+    `TRUSTED_HOSTS`, `OAUTH_CALLBACK_URL` and the keys compose sets for you.
+  </Card>
+</CardGroup>
+
+## Step 1: What you need
 
 - A working app from part 4 or part 5
 - A domain whose DNS you control
-- A VPS you can SSH into as root. Hetzner, DigitalOcean and Vultr all work. Two vCPU and
-  4 GB is enough to start
-- Docker locally, which step 2 uses
+- A VPS you can SSH into as root. Two vCPU and 4 GB is enough to start
+- Docker locally
 
-Check whether your app already has the deployment files:
+Check whether the deployment files are already there:
 
 ```bash
 ls Dockerfile docker-compose.yml docker-compose.dev.yml deploy/
 ```
 
-If that errors, add them. It never overwrites an existing file, so it's safe in a project
-you've been working in.
+If that errors, add them. It never overwrites an existing file.
 
 ```bash
 feather docker init --domain kanban.example.com
 ```
 
-## Step 1: What you're deploying
+## Step 2: Run the prompt
 
-Eight files. Read them once now and every later step makes sense.
+This covers the repository side and prepares the commands you'll run on the server.
 
-| File | What it does |
-| --- | --- |
-| `Dockerfile` | Builds two images from one file. The `web` target runs `feather start` under Gunicorn, the `worker` target runs `feather worker --fork` |
-| `.dockerignore` | Keeps `venv/`, `node_modules/`, `.git/`, `.env` and `static/dist/` out of the build context |
-| `docker-compose.yml` | The production stack: `caddy`, `web`, `worker`, `db`, `redis` |
-| `docker-compose.dev.yml` | Postgres and Redis for your laptop, nothing else |
-| `deploy/Caddyfile` | TLS and reverse proxy config |
-| `deploy/deploy.sh` | Build, migrate, swap, verify |
-| `deploy/backup.sh` | `pg_dump` for cron |
-| `.env.example` | Every key this app reads, secrets blanked |
+```text The prompt
+I'm working through part 6 of the Feather Kanban tutorial series.
 
-<AccordionGroup>
-  <Accordion title="The frontend builds in its own stage" icon="layers">
-    Node compiles Tailwind and bundles your islands, then only the built `static/dist` is
-    copied into the runtime image. There's no Node in the container that serves traffic.
+Read the tutorial first:
+https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/06-deploying.md
 
-    That stage also copies Feather's own templates out of the Python layer, because
-    Tailwind has to scan them to find the class names the framework components use. Without
-    it, every `button()` and `modal()` renders unstyled in production and nowhere else.
-  </Accordion>
-  <Accordion title="Migrations don't run when the container starts" icon="database">
-    Look at the last line of the Dockerfile:
+My app is the result of part 5 and runs locally with `feather dev`. My domain is
+kanban.example.com and my server is a fresh Ubuntu 24.04 box at <IP>.
 
-    ```dockerfile
-    CMD ["feather", "start"]
-    ```
+Do the repository-side work only. Do not SSH anywhere and do not run anything
+against the server.
 
-    No `feather db upgrade`. That's deliberate, and step 5 explains why.
-  </Accordion>
-</AccordionGroup>
+1. Run `feather docker init --domain kanban.example.com` and tell me what it
+   generated and what it skipped.
+2. Walk me through the generated Dockerfile. I specifically want to understand why
+   feather installs on its own layer before the rest of requirements.txt, and why
+   there is no `feather db upgrade` in CMD.
+3. Bring Postgres and Redis up locally with docker-compose.dev.yml, run my
+   migrations against them, and confirm `feather dev` still hot-reloads.
+4. Build the production image and run `feather security-check` inside it. Fix what
+   it reports that is fixable in the repo, and list what I have to fix on the
+   server.
+5. Write .github/workflows/deploy.yml from Step 8 of the tutorial: a test job using
+   real Postgres and Redis service containers, running `feather db upgrade`,
+   `feather check` and `feather test`, then a deploy job that SSHes in and runs
+   ./deploy/deploy.sh --pull. Include the concurrency block so a deploy is never
+   cancelled mid-migration.
 
-## Step 2: Run the dependencies locally
-
-Before touching a server, move your local Postgres and Redis into containers. The app
-stays on your machine, so `feather dev` keeps Vite's hot reload.
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-feather dev
+Then give me the server commands as a numbered list I can work through myself: DNS,
+the deploy user, Docker, the firewall, SSH hardening, the clone, and the production
+.env. For each one tell me what it does and how I know it worked. Flag anything
+that would lock me out if I get it wrong.
 ```
 
-The ports and credentials match the `DATABASE_URL` and `REDIS_URL` already in your `.env`.
-Your data now lives in the container's volume, so run the migrations against it:
+## Step 3: Set up the server yourself
 
-```bash
-feather db upgrade
-python seeds.py
-```
-
-Two variations worth knowing. Bring up one service alone:
-
-```bash
-docker compose -f docker-compose.dev.yml up -d db
-```
-
-And throw the local data away when a migration experiment goes wrong:
-
-```bash
-docker compose -f docker-compose.dev.yml down -v
-docker compose -f docker-compose.dev.yml up -d
-feather db upgrade && python seeds.py
-```
-
-While you're here, build the production image and audit it:
-
-```bash
-docker compose build web
-docker compose run --rm web feather security-check
-```
-
-<Tip>
-  Fix what `security-check` finds now, on your laptop, rather than at 11pm on a server.
-</Tip>
-
-## Step 3: Prepare the server
-
-**DNS first.** Add an `A` record for the hostname you'll use, pointing at the server's IP,
-TTL 300 until you're confident. Caddy asks Let's Encrypt for a certificate the moment it
-starts, and Let's Encrypt checks that the name resolves to the machine asking.
-
-```bash
-dig +short kanban.example.com
-```
-
-Then set the box up, over SSH as root:
-
-```bash
-# A non-root user to deploy as
-adduser deploy && usermod -aG sudo deploy
-mkdir -p /home/deploy/.ssh
-cp ~/.ssh/authorized_keys /home/deploy/.ssh/
-chown -R deploy:deploy /home/deploy/.ssh
-chmod 700 /home/deploy/.ssh && chmod 600 /home/deploy/.ssh/authorized_keys
-
-# Basics
-apt update && apt install -y ca-certificates curl git ufw fail2ban unattended-upgrades
-
-# Docker
-curl -fsSL https://get.docker.com | sh
-usermod -aG docker deploy
-
-# Firewall: SSH, HTTP, HTTPS, and HTTP/3 over UDP
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw allow 443/udp
-ufw enable
-```
-
-Now set `PermitRootLogin no` and `PasswordAuthentication no` in `/etc/ssh/sshd_config`,
-then `systemctl restart ssh`.
+Work through the list the prompt gave you. Two things are worth stating here because
+getting them wrong is expensive.
 
 <Warning>
-  Open a second terminal and confirm `ssh deploy@<ip>` works **before** you close the first
-  one. Getting this wrong locks you out of your own server.
+  **DNS before anything else.** Caddy asks Let's Encrypt for a certificate the moment it
+  starts, and Let's Encrypt checks the name resolves to the machine asking. Confirm with
+  `dig +short kanban.example.com` before you deploy.
 </Warning>
-
-## Step 4: Code and secrets on the server
-
-As `deploy`:
-
-```bash
-sudo mkdir -p /opt/kanban && sudo chown deploy:deploy /opt/kanban
-git clone git@github.com:you/kanban.git /opt/kanban
-cd /opt/kanban
-```
-
-The production `.env` is the single source of truth for secrets. It's git-ignored, never
-baked into the image, and never leaves the server.
-
-```bash
-cp .env.example .env
-chmod 600 .env
-nano .env
-```
-
-```bash .env
-DOMAIN=kanban.example.com
-POSTGRES_PASSWORD=          # python -c "import secrets; print(secrets.token_urlsafe(32))"
-SECRET_KEY=                 # python -c "import secrets; print(secrets.token_urlsafe(48))"
-
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-OAUTH_CALLBACK_URL=https://kanban.example.com/auth/google/callback
-TRUSTED_HOSTS=kanban.example.com
-
-GCS_BUCKET=
-GCS_CREDENTIALS_JSON=       # the service account JSON, on one line
-```
-
-Some of that needs explaining.
-
-`DOMAIN` and `POSTGRES_PASSWORD` are read by `docker-compose.yml` itself, not just by the
-app. Compose interpolates them into the Caddy service and into `DATABASE_URL`, which is
-why you write the database password exactly once and never assemble a connection string by
-hand.
-
-`OAUTH_CALLBACK_URL` and `TRUSTED_HOSTS` are what stop a forged `Host` header from
-redirecting your users' sign-in somewhere else. Without the callback URL, Feather derives
-the redirect URI from whatever `Host` the client sent. Set both, and add the same callback
-string to your OAuth client in Google Cloud Console.
 
 <Warning>
-  Don't put `FLASK_CONFIG`, `PORT`, `WEB_CONCURRENCY`, `DATABASE_URL`, `REDIS_URL` or
-  `JOB_BACKEND` here. Compose sets them on the container, and a copy in `.env` is one more
-  place for them to disagree.
+  **Keep a second terminal open while hardening SSH.** After you set `PermitRootLogin no`
+  and `PasswordAuthentication no` and restart ssh, confirm `ssh deploy@<ip>` works in the
+  second terminal before closing the first. Otherwise you've locked yourself out of your
+  own server.
 </Warning>
+
+The production `.env` is the one file that never enters git and never goes into the image.
+At minimum it needs `DOMAIN`, `POSTGRES_PASSWORD`, `SECRET_KEY`, your Google credentials,
+`OAUTH_CALLBACK_URL` and `TRUSTED_HOSTS`. Leave `FLASK_CONFIG`, `DATABASE_URL`,
+`REDIS_URL` and `JOB_BACKEND` out of it, because compose sets those on the container and a
+duplicate is one more thing to disagree.
 
 ```bash
 feather env check
 ```
 
-That lists the keys your `config.py` actually reads and which are missing.
-
-## Step 5: Deploy
+Then deploy:
 
 ```bash
 ./deploy/deploy.sh
 ```
 
-It takes a few minutes the first time, while Docker pulls base images and builds Node
-dependencies. Watch for `Healthy. Deploy complete.`
+## Step 4: Test it
 
-Here's what it did, in order, and why the order matters:
+1. `https://your-domain` loads over a valid certificate.
+2. Sign in with Google. If this works, your proxy headers are right.
+3. `curl https://your-domain/health` returns healthy, including the database check.
+4. Push a commit to `main` and watch the workflow test, then deploy.
+5. Run `./deploy/backup.sh`, then restore the dump into the database.
 
-<Steps>
-  <Step title="docker compose build">
-    Builds *every* service. Web and worker are separate images even though they come from
-    one Dockerfile. Build only `web` and your worker keeps running last week's code, which
-    is a bug you'll spend an afternoon on.
-  </Step>
-  <Step title="docker compose up -d db redis">
-    Dependencies first, so there's a database to migrate.
-  </Step>
-  <Step title="docker compose run --rm web feather db upgrade">
-    The migrations, once, in a throwaway container built from the *new* image, while the
-    *old* containers still serve traffic. A migration that fails here stops the deploy and
-    leaves your site up.
-
-    This is why the Dockerfile's `CMD` doesn't run migrations. If it did, and you ever ran
-    two web containers, both would start `feather db upgrade` at the same moment against
-    the same database. Alembic doesn't arbitrate that. One process applies half a migration
-    while the other applies the same one, and you spend the evening repairing
-    `alembic_version` by hand.
-  </Step>
-  <Step title="docker compose up -d --remove-orphans">
-    Now swap the containers.
-  </Step>
-  <Step title="Wait for health">
-    The script polls Docker's health status for the `web` container for up to 120 seconds.
-    That healthcheck runs `curl /health`, which checks the database, so "healthy" means the
-    app can serve a request rather than that Python is running. Unhealthy or timed out, and
-    it dumps the last 50 log lines and exits non-zero.
-  </Step>
-</Steps>
-
-Open `https://kanban.example.com`. If the certificate isn't there yet:
+Then the gate before you tell anyone the URL:
 
 ```bash
-docker compose logs -f caddy
+feather security-check --env-file .env
+feather env check
 ```
 
-Caddy says plainly what Let's Encrypt told it. Nearly always it's DNS.
+## Step 5: The pre-launch review
 
-**Deploying again**, after you push a change:
+Worth a second prompt once it's live.
 
-```bash
-cd /opt/kanban && ./deploy/deploy.sh --pull
+```text Pre-launch review prompt
+The app is deployed at https://kanban.example.com and responding.
+
+Work through the pre-launch checklist in Step 9 of the tutorial and the one at
+https://docs.featherframework.org/deployment/checklist.
+
+For each item, tell me how to verify it rather than assuming it. Where you can
+check from the repository, check it. Where it needs a command on the server, give
+me the command and tell me what a passing result looks like.
+
+Flag anything that looks wrong, particularly TRUSTED_HOSTS, OAUTH_CALLBACK_URL and
+JOB_SERIALIZER.
 ```
-
-**When a deploy goes wrong**, there's no automatic rollback. Check out the previous commit
-and deploy again. Migrations that already applied are not undone by that, so reverse them
-deliberately:
-
-```bash
-feather db downgrade
-```
-
-And check what the database thinks it's at:
-
-```bash
-docker compose exec -T db psql -U kanban -d kanban \
-    -c "SELECT version_num FROM alembic_version;"
-```
-
-## Step 6: TLS and the proxy headers
-
-You didn't run certbot and there's no renewal cron. Caddy obtains and renews certificates
-for every hostname in `deploy/Caddyfile`.
-
-```caddy deploy/Caddyfile
-{$DOMAIN} {
-	encode gzip zstd
-
-	reverse_proxy web:8000 {
-		header_up X-Real-IP {remote_host}
-	}
-}
-```
-
-To serve `www` too, add a block. Each hostname in the file gets its own certificate.
-
-```caddy
-www.kanban.example.com {
-	redir https://kanban.example.com{uri} permanent
-}
-```
-
-That `header_up X-Real-IP` line isn't decoration. Caddy sets `Host` and
-`X-Forwarded-Proto` by default, which is what Feather's ProxyFix reads. Without them your
-OAuth flow builds an `http://` redirect URI and your secure session cookies get dropped on
-every response. But Caddy does *not* set `X-Real-IP`, and rate limiting reads it. Delete
-that line and your rate limits quietly start counting every request as coming from the
-same address.
-
-```bash
-docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile
-docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
-```
-
-## Step 7: Backups
-
-`deploy/backup.sh` dumps Postgres in `pg_dump` custom format and keeps 14 days. Put it in
-cron on the host, as `deploy`, with `crontab -e`:
-
-```text
-0 3 * * * /opt/kanban/deploy/backup.sh >> /var/log/kanban-backup.log 2>&1
-```
-
-Run it once by hand first:
-
-```bash
-./deploy/backup.sh
-ls -lh backups/
-```
-
-Then test a restore, because a backup you've never restored is a hypothesis:
-
-```bash
-docker compose exec -T db pg_restore -U kanban -d kanban --clean \
-    < backups/kanban-<stamp>.dump
-```
-
-<Warning>
-  A dump on the same disk as the database is not a backup. Add a step that copies it
-  elsewhere, and encrypt it on the way out:
-
-  ```bash
-  openssl enc -aes-256-cbc -pbkdf2 -pass file:/root/.backup.key \
-      -in "$dump" -out "$dump.enc" && rm "$dump"
-  ```
-</Warning>
-
-Everything that matters is in Postgres and GCS. The containers and Redis are disposable.
-The dumps are not.
-
-## Step 8: Deploy from GitHub Actions
-
-Deploying by SSH is fine. Deploying on every merge to `main` is better, because then
-nobody has to remember.
-
-```yaml .github/workflows/deploy.yml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-    paths-ignore: ["**.md"]
-  workflow_dispatch:
-
-# Never cancel a deploy in flight: a half-applied migration is worse
-# than a queued release.
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: kanban_ci
-        options: >-
-          --health-cmd pg_isready --health-interval 10s
-          --health-timeout 5s --health-retries 5
-        ports: ["5432:5432"]
-      redis:
-        image: valkey/valkey:8
-        options: >-
-          --health-cmd "valkey-cli ping" --health-interval 10s
-          --health-timeout 5s --health-retries 5
-        ports: ["6379:6379"]
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kanban_ci
-      REDIS_URL: redis://localhost:6379/0
-      SECRET_KEY: ci-not-a-real-secret
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11", cache: pip }
-      - uses: actions/setup-node@v4
-        with: { node-version: "22", cache: npm }
-      - run: pip install -r requirements.txt
-      - run: npm ci --ignore-scripts && npm run build
-      - run: feather db upgrade      # proves migrations apply from scratch
-      - run: feather check
-      - run: feather test
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Load the deploy key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
-      - name: Build, migrate and restart
-        run: ssh deploy@${{ secrets.SSH_HOST }} 'cd /opt/kanban && ./deploy/deploy.sh --pull'
-```
-
-Two repository secrets cover it: `SSH_KEY` for the `deploy@` private key, and `SSH_HOST`.
-The server builds its own images, so CI needs no registry and holds no application
-secrets.
-
-<Tip>
-  Running `feather db upgrade` against an empty Postgres in CI is the cheapest migration
-  test there is. It catches a chain that no longer applies before that chain reaches
-  production.
-</Tip>
-
-### Hardening the CI key
-
-A key that can run any command is a key that can read your `.env`. Lock it to one command
-in the server's `~deploy/.ssh/authorized_keys`:
-
-```text
-command="/opt/kanban/deploy/deploy.sh --pull",no-agent-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA... github-actions
-```
-
-The workflow's `ssh` argument is then ignored, and the key can't open a shell.
-
-## Step 9: The pre-launch checklist
-
-<Check>`feather security-check --env-file .env` passes on the server</Check>
-<Check>`SECRET_KEY` is a real random value, not the scaffolded placeholder</Check>
-<Check>`docker compose exec web printenv FLASK_CONFIG` prints `production`</Check>
-<Check>`TRUSTED_HOSTS` lists every hostname you serve</Check>
-<Check>`OAUTH_CALLBACK_URL` is `https://`, exact, and matches Google Cloud Console</Check>
-<Check>`JOB_SERIALIZER=json`, which the generated compose file sets. `pickle` will execute whatever it finds on the queue if Redis is ever compromised</Check>
-<Check>`.env` is `chmod 600` and not in git</Check>
-<Check>`feather env check` reports nothing missing</Check>
-<Check>`deploy/backup.sh` is in cron, and you've restored one dump</Check>
-<Check>An uptime monitor points at `https://kanban.example.com/health`</Check>
-<Check>Server snapshots or backups enabled at your provider too</Check>
-
-## Step 10: Day-to-day operations
-
-```bash
-cd /opt/kanban
-
-./deploy/deploy.sh --pull            # deploy the latest main
-docker compose logs -f web           # follow the app log
-docker compose logs -f worker        # follow the job worker
-docker compose ps                    # what's running, and is it healthy
-docker compose exec db psql -U kanban kanban    # a psql prompt
-docker compose restart worker        # safe: RQ shuts down warm on SIGTERM
-./deploy/backup.sh                   # a backup right now
-```
-
-For a one-off task, use a throwaway container so you don't disturb the running one:
-
-```bash
-docker compose run --rm web feather shell
-docker compose run --rm web python seeds.py
-```
-
-<Note>
-  Docker's default log driver grows until the disk fills. The generated compose file caps
-  every service at `max-size: 20m` and `max-file: 3`. If you add a service of your own,
-  anchor `logging: *default-logging` onto it too.
-</Note>
-
-## Prompt Claude
-
-Deployment differs from the earlier parts, because much of it happens on a server rather
-than in your repository. Split it accordingly.
-
-<Tabs>
-  <Tab title="Repository work">
-    ```text
-    I'm working through part 6 of the Feather Kanban tutorial series.
-
-    Read the tutorial first:
-    https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/06-deploying.md
-
-    My app is the result of part 5 and runs locally with `feather dev`. My domain is
-    kanban.example.com and my server is a fresh Ubuntu 24.04 box.
-
-    Do the repository-side work only, nothing that touches the server:
-    - Run `feather docker init --domain kanban.example.com` and show me what it
-      generated or skipped
-    - Walk me through the Dockerfile, especially why feather installs on its own
-      layer before the rest of requirements.txt, and why migrations are not in CMD
-    - Write the GitHub Actions workflow from Step 8, with the test job using real
-      Postgres and Redis service containers
-    - Add `feather check` and `feather security-check` to the test job
-
-    Then give me the exact commands to run on the server myself, in order, with a
-    note on what each one does. Do not run anything over SSH.
-    ```
-  </Tab>
-  <Tab title="Pre-launch review">
-    ```text
-    Continuing part 6. The app is deployed at https://kanban.example.com and
-    responding.
-
-    Work through the pre-launch checklist in Step 9 of the tutorial and the one at
-    https://docs.featherframework.org/deployment/checklist.
-
-    For each item, tell me how to verify it rather than assuming it. Where you can
-    check from the repository, check it. Where it needs a command on the server,
-    give me the command and tell me what a passing result looks like.
-
-    Flag anything that looks wrong, particularly TRUSTED_HOSTS,
-    OAUTH_CALLBACK_URL and JOB_SERIALIZER.
-    ```
-  </Tab>
-</Tabs>
 
 <Warning>
   Keep the assistant off your production server unless you've decided otherwise
-  deliberately. Having it prepare commands you run yourself gives you the same speed with a
-  review step in between, and the deploy script is the piece that applies migrations.
+  deliberately. Having it prepare commands you run yourself costs almost nothing and keeps
+  a review step in front of the script that applies migrations.
 </Warning>
 
-## Checkpoint
+## What the framework did
 
-- `https://your-domain` serves the app over a valid certificate
-- Signing in with Google works, which proves the proxy headers are right
-- `curl https://your-domain/health` returns healthy with a database check
-- `./deploy/deploy.sh` completes and prints that it's healthy
-- A push to `main` triggers the workflow, and it deploys after tests pass
-- `deploy/backup.sh` produces a dump, and you've restored one
-- `feather security-check --env-file .env` passes on the server
+**Migrations ran exactly once, before the swap.** `deploy/deploy.sh` runs
+`feather db upgrade` in a throwaway container built from the new image, while the old
+containers are still serving. A failed migration stops the deploy and leaves the site up.
+It's also why `CMD` doesn't run migrations: two web containers starting together would both
+begin the same Alembic upgrade, and Alembic doesn't arbitrate that.
 
-## What you learned
+**Healthy means the database is reachable.** The container healthcheck curls `/health`,
+which Feather registers and which checks the database rather than just confirming Python is
+alive. That's what makes the deploy's health gate worth having. See
+[Health checks](/features/health-checks).
 
-- `feather docker init`, and that it never overwrites without `--force`
-- Multi-stage builds that leave Node out of the runtime image
-- Running dependencies in containers while the app stays on your machine
-- Running migrations exactly once, before the swap, so two containers can't race
-- Health-gated deploys, where healthy means the database is reachable
-- Caddy's automatic certificates, and the proxy headers OAuth depends on
-- Keeping `.env` on the server, where CI never sees it
-- `feather env check` and `feather security-check` as pre-launch gates
+**TLS has no cron job.** Caddy obtains and renews certificates for every hostname in the
+Caddyfile. What does need attention is `X-Real-IP`: Caddy sets `Host` and
+`X-Forwarded-Proto` by default, but not that one, and rate limiting reads it. The generated
+config adds it, and deleting that line makes every request look like it came from the same
+address.
+
+**CI holds no application secrets.** The server builds its own images, so the workflow
+needs two repository secrets and no registry. Your `.env` never leaves the box. See
+[Continuous deployment](/deployment/ci-cd).
 
 ## Where to go next
 
@@ -567,7 +200,6 @@ than in your repository. Split it accordingly.
   and the same scripts.
 - **Log aggregation.** The app writes JSON logs in production. Ship them somewhere you can
   search.
-- **Error alerting.** `/admin/logs` records exceptions. Add a notification when the rate
+- **Error alerting.** `/admin/logs` records exceptions. Notify yourself when the rate
   spikes.
-- **Off-site backups.** The piece step 7 leaves as an exercise, and the one you'll be glad
-  you did.
+- **Off-site backups.** A dump on the same disk as the database isn't a backup.

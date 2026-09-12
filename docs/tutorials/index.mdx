@@ -1,39 +1,68 @@
 ---
-title: "Kanban tutorial series"
+title: "Build a Kanban app"
 sidebarTitle: "Overview"
-description: "Six parts that take a Kanban board from a hardcoded HTML page to a multi-tenant SaaS running on your own domain."
+description: "Six parts, each one a scaffold command, a prompt, and a test. You end up with a multi-tenant SaaS on your own domain."
 icon: "list-ordered"
 mode: "wide"
 ---
 
-You'll build one application across six parts, and each part adds a layer of Feather you
-haven't used yet. By the end you'll have a Kanban board with drag-and-drop, Google sign-in,
-role-based permissions, file attachments, PDF export, tenant isolation, and a deploy that
-runs on every push to `main`.
+This series builds one application across six parts. Each part follows the same three
+steps: scaffold a project, paste a prompt, then check what came back.
 
-Work through them in order if you're learning the framework. If you already know which
-piece you need, jump to that part and use its starting point.
+That's not a shortcut around the real work. It's the point of the framework. Feather fixes
+where files go, how services are shaped, and what components look like, then ships those
+conventions in a `CLAUDE.md` that every project carries. Predictable structure is what
+makes a described feature turn into working code, and `feather check` is what tells you
+whether it did.
+
+So you won't be typing out models here. You'll be reading what came back, running the
+checks, and learning the framework from the shape of the result.
 
 <CardGroup cols={2}>
   <Card title="1. Static board UI" icon="layout-template" href="/tutorials/static-board-ui">
-    Templates, component macros and Tailwind. A board that looks finished and does nothing.
+    A styled board with columns and cards. No database yet.
   </Card>
   <Card title="2. Persistent boards" icon="database" href="/tutorials/persistent-boards">
-    Models, migrations, services and HTMX. The buttons start working.
+    It saves. Create and delete without a page reload.
   </Card>
   <Card title="3. Drag and drop" icon="move" href="/tutorials/drag-and-drop">
-    Islands, `OrderingMixin` and optimistic updates.
+    Move cards between columns, and have it stick.
   </Card>
   <Card title="4. Personal Kanban" icon="user" href="/tutorials/personal-kanban">
-    Google OAuth, roles, the admin panel, GCS attachments and PDF export.
+    Sign in with Google. Roles, attachments, PDF export.
   </Card>
   <Card title="5. SaaS Kanban" icon="building-2" href="/tutorials/saas-kanban">
-    Tenant isolation, platform admin and tenant-scoped queries.
+    One app, many companies, no data leaking between them.
   </Card>
   <Card title="6. Deploying" icon="ship" href="/tutorials/deploying">
-    Docker, Caddy, a VPS, nightly backups and GitHub Actions.
+    Your domain, real HTTPS, backups, deploy on push.
   </Card>
 </CardGroup>
+
+## How each part works
+
+<Steps>
+  <Step title="Scaffold" icon="folder-plus">
+    Run `feather new` and answer a handful of prompts. Each part lists the answers that
+    matter and why. This is the one step worth doing by hand, since the answers decide what
+    gets generated.
+  </Step>
+  <Step title="Run the prompt" icon="clipboard">
+    Copy the prompt from the page and give it to your assistant from inside the project
+    directory. It reads the tutorial, follows the conventions in `CLAUDE.md`, and runs
+    `feather check` when it's done.
+  </Step>
+  <Step title="Test" icon="circle-check">
+    Every part ends with a short list of things to click and one command to run. If the
+    list passes, move on.
+  </Step>
+</Steps>
+
+<Tip>
+  Claude Code from inside the project directory is the smoothest path. It reads your
+  `CLAUDE.md`, runs `feather check` and `feather dev` itself, and can act on the errors
+  without you relaying them.
+</Tip>
 
 ## Scaffolding answers by part
 
@@ -76,49 +105,23 @@ they change the app type.
   </Tab>
 </Tabs>
 
-## Building these with Claude
+## Reading the code that comes back
 
-Every part of the series is written to be handed to a coding assistant. Two things make
-that work.
+You're not meant to accept it blind. Three commands tell you whether what you got is
+sound, and they're the same three the prompts ask the assistant to run:
 
-The first is the **Starting Point** section in each tutorial, which spells out the state
-of the app before that part begins: the models, the routes, the templates and the CSS. An
-assistant reading it has the context it needs without you pasting your codebase.
+| Command | Answers |
+| --- | --- |
+| [`feather check`](/tooling/check) | Were the conventions followed? Reports a file, a line and a fix |
+| [`feather routes`](/reference/cli) | What actually got registered? |
+| [`feather test`](/testing/overview) | Does it still work? |
 
-The second is that the conventions are checkable. Your project's `CLAUDE.md` describes
-them, and `feather check` enforces the ones that can be enforced, so the assistant can
-verify its own work rather than handing you code you have to review line by line.
-
-<Steps>
-  <Step title="Scaffold the project yourself">
-    Run `feather new` with the answers from the table above. The prompts are interactive,
-    so this is the one step worth doing by hand.
-  </Step>
-  <Step title="Point the assistant at the tutorial">
-    Each part's page has a **Prompt Claude** section with the prompt to use. Give it the
-    tutorial URL rather than pasting the file, so it reads the current version.
-  </Step>
-  <Step title="Ask it to verify">
-    Every prompt in the series ends by asking for `feather check` and the part's
-    checkpoint. A convention violation comes back with a file, a line and a fix, which the
-    assistant can act on without you.
-  </Step>
-</Steps>
-
-<Tip>
-  Working in Claude Code from inside the project directory is the smoothest path. It can
-  read your `CLAUDE.md`, run `feather check` and `feather dev` directly, and see the
-  errors it needs to fix.
-</Tip>
-
-## How long each part takes
-
-Roughly 30 to 60 minutes by hand, or 10 to 15 minutes with an assistant doing the typing.
-Part 4 is the longest, since it introduces OAuth, storage and the admin panel at once.
+Each part also ends with a **What the framework did** section explaining the pieces worth
+understanding, with links into the reference docs.
 
 <Note>
-  The full tutorials, with every code block, live in the
+  The full written tutorials, with every code block, are in the
   [Feather repository](https://github.com/RolandFlyBoy/Feather/tree/main/tutorials). The
-  pages here cover what you're building, what to answer at each prompt, how to drive an
-  assistant through it, and how to tell it worked.
+  prompts point your assistant at them. Read them yourself if you'd rather build a part by
+  hand.
 </Note>

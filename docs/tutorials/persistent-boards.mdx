@@ -1,36 +1,54 @@
 ---
 title: "2. Persistent boards"
 sidebarTitle: "2. Persistent boards"
-description: "Add a database, models and services, then wire the buttons up with HTMX so columns and cards survive a refresh."
+description: "Add a database and make the buttons work. One prompt takes you from hardcoded lists to columns and cards that survive a refresh."
 icon: "database"
 ---
 
-The board from part 1 forgets everything when you reload. Here you give it a database and
-make the buttons work, and you'll do it without writing any frontend JavaScript beyond one
-click handler.
+The board from part 1 forgets everything when you reload. This part gives it a database
+and makes the buttons work, and almost none of that involves JavaScript.
 
-That's the point worth noticing. Creating and deleting cards is exactly the kind of
-interaction people reach for React to handle. HTMX does it by asking the server for a
-fragment of HTML and swapping it into the page.
+That's worth noticing. Creating and deleting cards is the kind of interaction people reach
+for React to handle. HTMX does it by asking the server for a fragment of HTML and swapping
+it into the page, so the logic stays in Python.
 
-**You'll use:** SQLAlchemy models with mixins, Alembic migrations, services, dependency
-injection, HTMX attributes, and partial templates.
+## What you'll have
 
-## Prerequisites
+- Columns and cards stored in SQLite
+- Create and delete for both, with no page reload
+- A confirmation step before anything is destroyed
+- Data that's still there after a refresh
+
+## Which parts of Feather this uses
+
+<CardGroup cols={2}>
+  <Card title="Models and mixins" icon="database" href="/backend/models">
+    `UUIDMixin` and `TimestampMixin` supply the columns every model ends up wanting.
+  </Card>
+  <Card title="Services" icon="cog" href="/backend/services">
+    Business logic, with the transaction handled by a decorator.
+  </Card>
+  <Card title="HTMX" icon="arrow-left-right" href="/ui/htmx">
+    Routes that return HTML fragments instead of JSON.
+  </Card>
+  <Card title="Exceptions" icon="triangle-alert" href="/backend/exceptions">
+    A missing row raises `NotFoundError` and becomes a 404 on its own.
+  </Card>
+</CardGroup>
+
+## Step 1: Scaffold
 
 <Tabs>
   <Tab title="Continue from part 1">
-    Part 1 scaffolded with no database, so the app has no `models/` package, no
-    `migrations/` directory and no `DATABASE_URL`. Add them:
+    Part 1 had no database, so the app has no `models/` package, no `migrations/` directory
+    and no `DATABASE_URL`. Add them:
 
     ```bash
     cd kanban
     source venv/bin/activate
 
-    # 1. Point the app at a database
     echo 'DATABASE_URL=sqlite:///kanban.db' >> .env
 
-    # 2. Create the models package
     mkdir -p models
     cat > models/__init__.py <<'PY'
     """SQLAlchemy models - Auto-discovered by Feather."""
@@ -38,7 +56,6 @@ injection, HTMX attributes, and partial templates.
     from feather.db import db, Model
     PY
 
-    # 3. Create the migrations directory
     feather db init
     ```
 
@@ -53,458 +70,13 @@ injection, HTMX attributes, and partial templates.
     ```
 
     Accept `simple` for the app type, then type `sqlite` at the database prompt. Leave
-    background jobs at the default.
-
-    Then copy the part 1 route, template and CSS from the
-    [Starting Point section](https://github.com/RolandFlyBoy/Feather/blob/main/tutorials/02-persistent-boards.md)
-    of the source tutorial.
+    background jobs at the default. The prompt below will rebuild part 1's board for you.
   </Tab>
 </Tabs>
 
-## Step 1: The models
+## Step 2: Run the prompt
 
-<Tip>
-  You're typing these out because seeing them is the point. In your own projects the CLI
-  writes the skeleton:
-
-  ```bash
-  feather generate model Column title:string
-  feather generate model Card title:string column_id:uuid
-  feather generate service ColumnService
-  ```
-
-  That gives you a model with `UUIDMixin` and `TimestampMixin` already applied. Add
-  `--ordered` for `OrderingMixin`, which part 3 uses, or `--soft-delete` for
-  `SoftDeleteMixin`. Run `feather generate --help` for the rest.
-</Tip>
-
-```python models/column.py
-"""Column model for Kanban board."""
-
-from feather.db import db, Model
-from feather.db.mixins import UUIDMixin, TimestampMixin
-
-
-class Column(UUIDMixin, TimestampMixin, Model):
-    """Kanban column."""
-
-    __tablename__ = "columns"
-
-    title = db.Column(db.String(100), nullable=False)
-    cards = db.relationship(
-        "Card",
-        backref="column",
-        cascade="all, delete-orphan",
-        order_by="Card.created_at"
-    )
-
-    def __repr__(self):
-        return f"<Column {self.title}>"
-```
-
-```python models/card.py
-"""Card model for Kanban board."""
-
-from feather.db import db, Model
-from feather.db.mixins import UUIDMixin, TimestampMixin
-
-
-class Card(UUIDMixin, TimestampMixin, Model):
-    """Kanban card."""
-
-    __tablename__ = "cards"
-
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    column_id = db.Column(
-        db.String(36),
-        db.ForeignKey("columns.id"),
-        nullable=False
-    )
-
-    def __repr__(self):
-        return f"<Card {self.title}>"
-```
-
-```python models/__init__.py
-"""SQLAlchemy models - Auto-discovered by Feather."""
-
-from feather.db import db, Model
-
-from models.column import Column
-from models.card import Card
-```
-
-| Piece | What it gives you |
-| --- | --- |
-| `UUIDMixin` | An auto-generated UUID `id` |
-| `TimestampMixin` | `created_at` and `updated_at` |
-| `db.relationship` | Links a column to its cards |
-| `cascade="all, delete-orphan"` | Deleting a column deletes its cards |
-
-## Step 2: The migration
-
-```bash
-feather db migrate -m "Add columns and cards"
-feather db upgrade
-```
-
-Read the generated file before you apply it. Feather keeps this step manual so you see
-what Alembic inferred from your models.
-
-## Step 3: The services
-
-```python services/column_service.py
-"""ColumnService - Business logic for columns."""
-
-from feather import Service
-from feather.exceptions import NotFoundError
-from models import Column
-
-
-class ColumnService(Service):
-    """Column service."""
-
-    def list_all(self) -> list[Column]:
-        """List all columns."""
-        return Column.query.order_by(Column.created_at).all()
-
-    def get_by_id(self, id: str) -> Column:
-        """Get column by ID or raise NotFoundError."""
-        column = Column.query.get(id)
-        if not column:
-            raise NotFoundError("Column", id)
-        return column
-
-    def create(self, title: str) -> Column:
-        """Create a new column."""
-        column = Column(title=title)
-        self.save(column)
-        return column
-
-    def delete(self, id: str) -> None:
-        """Delete a column and its cards."""
-        column = self.get_by_id(id)
-        self.db.delete(column)
-        self.db.commit()
-```
-
-```python services/card_service.py
-"""CardService - Business logic for cards."""
-
-from feather import Service
-from feather.exceptions import NotFoundError
-from models import Card
-
-
-class CardService(Service):
-    """Card service."""
-
-    def get_by_id(self, id: str) -> Card:
-        """Get card by ID or raise NotFoundError."""
-        card = Card.query.get(id)
-        if not card:
-            raise NotFoundError("Card", id)
-        return card
-
-    def create(self, column_id: str, title: str) -> Card:
-        """Create a new card in a column."""
-        card = Card(column_id=column_id, title=title)
-        self.save(card)
-        return card
-
-    def delete(self, id: str) -> None:
-        """Delete a card."""
-        card = self.get_by_id(id)
-        self.db.delete(card)
-        self.db.commit()
-```
-
-```python services/__init__.py
-"""Business logic services - Auto-discovered by Feather."""
-
-from services.column_service import ColumnService
-from services.card_service import CardService
-```
-
-The `Service` base class hands you `self.db` and `self.save()`. Raising `NotFoundError`
-from `get_by_id` means a missing ID becomes a 404 without a single try block in your
-routes.
-
-## Step 4: The board route
-
-```python routes/pages/home.py
-"""Kanban board routes."""
-
-from flask import render_template, request
-from feather import page
-from feather.services import inject
-from services import ColumnService, CardService
-
-
-@page.get("/")
-@inject(ColumnService)
-def board(column_service: ColumnService):
-    """Render the Kanban board."""
-    columns = column_service.list_all()
-    return render_template("pages/board.html", columns=columns)
-
-
-# HTMX: Column routes
-@page.post("/htmx/columns")
-@inject(ColumnService)
-def create_column(column_service: ColumnService):
-    """Create a new column."""
-    title = request.form.get("title", "").strip() or "New Column"
-    column = column_service.create(title=title)
-    return render_template("partials/column.html", column=column)
-
-
-@page.delete("/htmx/columns/<column_id>")
-@inject(ColumnService)
-def delete_column(column_service: ColumnService, column_id: str):
-    """Delete a column."""
-    column_service.delete(column_id)
-    return ""
-
-
-# HTMX: Card routes
-@page.post("/htmx/columns/<column_id>/cards")
-@inject(CardService)
-def create_card(card_service: CardService, column_id: str):
-    """Create a new card in a column."""
-    title = request.form.get("title", "").strip()
-    if not title:
-        return "", 400
-    card = card_service.create(column_id=column_id, title=title)
-    return render_template("partials/card.html", card=card)
-
-
-@page.delete("/htmx/cards/<card_id>")
-@inject(CardService)
-def delete_card(card_service: CardService, card_id: str):
-    """Delete a card."""
-    card_service.delete(card_id)
-    return ""
-```
-
-Three patterns repeat across every HTMX route you'll write:
-
-- A **POST** returns the rendered partial for the thing it just created.
-- A **DELETE** returns an empty string, because the element is going away.
-- Routes live under `/htmx/` so it's obvious at a glance which ones return fragments.
-
-## Step 5: The partials
-
-```html templates/partials/column.html
-{#
-Column Partial
-==============
-Renders a single Kanban column with its cards.
-Used by: board.html (initial render), create_column (HTMX response)
-#}
-{% from "components/icon.html" import icon %}
-
-<div id="column-{{ column.id }}" class="kanban-column">
-    <div class="column-header">
-        <h2 class="column-title">{{ column.title }}</h2>
-        <button hx-delete="/htmx/columns/{{ column.id }}"
-                hx-target="#column-{{ column.id }}"
-                hx-swap="outerHTML"
-                hx-confirm="Delete this column and all its cards?"
-                class="btn-icon-danger">
-            {{ icon("close", size="sm") }}
-        </button>
-    </div>
-
-    <div id="column-{{ column.id }}-cards" class="column-cards">
-        {% for card in column.cards %}
-            {% include "partials/card.html" %}
-        {% else %}
-            <p class="empty-column">No cards yet</p>
-        {% endfor %}
-    </div>
-
-    <form hx-post="/htmx/columns/{{ column.id }}/cards"
-          hx-target="#column-{{ column.id }}-cards"
-          hx-swap="beforeend"
-          hx-on::after-request="if(event.detail.successful) this.reset()"
-          class="column-footer">
-        <input type="text"
-               name="title"
-               placeholder="Add a card..."
-               class="input-card-title">
-    </form>
-</div>
-```
-
-```html templates/partials/card.html
-{#
-Card Partial
-============
-Renders a single Kanban card.
-Used by: column.html (loop), create_card (HTMX response)
-#}
-{% from "components/icon.html" import icon %}
-
-<div id="card-{{ card.id }}" class="kanban-card">
-    <div class="card-content">
-        <p class="card-title">{{ card.title }}</p>
-        <button hx-delete="/htmx/cards/{{ card.id }}"
-                hx-target="#card-{{ card.id }}"
-                hx-swap="outerHTML"
-                hx-confirm="Delete this card?"
-                class="btn-icon-subtle">
-            {{ icon("close", size="sm") }}
-        </button>
-    </div>
-</div>
-```
-
-### The HTMX attributes
-
-| Attribute | What it does |
-| --- | --- |
-| `hx-post` | Sends a POST when the form is submitted |
-| `hx-delete` | Sends a DELETE when the button is clicked |
-| `hx-target` | Where the response goes |
-| `hx-swap="outerHTML"` | Replaces the target entirely |
-| `hx-swap="beforeend"` | Appends inside the target |
-| `hx-confirm` | Shows a confirmation first |
-| `hx-on::after-request` | Runs after the request finishes, here to reset the form |
-
-## Step 6: The board template
-
-```html templates/pages/board.html
-{% extends "base.html" %}
-{% from "components/icon.html" import icon %}
-
-{% block title %}Kanban Board{% endblock %}
-
-{% block content %}
-<div class="kanban-container">
-    <header class="kanban-header">
-        <h1 class="kanban-title">
-            {{ icon("view_kanban", size="lg") }} Kanban Board
-        </h1>
-        <div class="kanban-header-right">
-            <button id="add-column-btn" class="btn-primary">
-                {{ icon("add", size="sm") }} Add Column
-            </button>
-            <button data-toggle-dark-mode class="dark-mode-toggle" title="Toggle dark mode">
-                <span class="material-symbols-outlined icon-light">bedtime</span>
-                <span class="material-symbols-outlined icon-dark">sunny</span>
-            </button>
-        </div>
-    </header>
-
-    <div id="kanban-board" class="kanban-board">
-        {% for column in columns %}
-            {% include "partials/column.html" %}
-        {% endfor %}
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-{% if config.DEBUG %}
-<script type="module" src="http://localhost:5173/static/js/board.js"></script>
-{% else %}
-<script src="{{ url_for('static', filename='js/board.js') }}"></script>
-{% endif %}
-{% endblock %}
-```
-
-```javascript static/js/board.js
-/**
- * Board page JavaScript
- * Handles the "Add Column" button interaction
- */
-document.addEventListener('DOMContentLoaded', () => {
-    const addColumnBtn = document.getElementById('add-column-btn');
-
-    if (addColumnBtn) {
-        addColumnBtn.addEventListener('click', () => {
-            window.showPrompt({
-                title: 'Add Column',
-                message: 'Enter the name for the new column:',
-                placeholder: 'Column name',
-                confirmText: 'Create',
-                onConfirm: (value) => {
-                    htmx.ajax('POST', '/htmx/columns', {
-                        target: '#kanban-board',
-                        swap: 'beforeend',
-                        values: { title: value }
-                    });
-                }
-            });
-        });
-    }
-});
-```
-
-<Note>
-  Ordinary JavaScript files like `board.js` are not Vite entry points. Only `vendor`,
-  `styles` and `islands/*` are built by Vite, which is why the template loads this one from
-  the dev server in debug and through `url_for` in production.
-</Note>
-
-What changed from part 1: columns now come from a partial rather than inline markup, the
-Add Column button uses Feather's styled prompt modal instead of `window.prompt`, and the
-JavaScript lives in its own file. Inline scripts are a `feather check` error.
-
-## Step 7: The new CSS
-
-```css static/css/app.css
-    /* New classes for HTMX interactions */
-    .btn-icon-danger {
-        @apply text-gray-400 dark:text-gray-500
-               hover:text-red-600 dark:hover:text-red-400 transition-colors;
-    }
-
-    .btn-icon-subtle {
-        @apply text-gray-300 dark:text-gray-600
-               hover:text-red-600 dark:hover:text-red-400
-               transition-colors opacity-0;
-    }
-
-    /* Show delete button when hovering card */
-    .kanban-card:hover .btn-icon-subtle {
-        @apply opacity-100;
-    }
-
-    .card-content {
-        @apply flex items-start justify-between gap-2;
-    }
-
-    .input-card-title {
-        @apply w-full px-3 py-2 text-sm bg-white dark:bg-gray-700
-               border border-gray-300 dark:border-gray-600 rounded-lg
-               dark:text-gray-100 dark:placeholder-gray-400
-               focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
-    }
-
-    /* Hide "No cards yet" when cards exist (for HTMX updates) */
-    .column-cards:has(.kanban-card) .empty-column {
-        @apply hidden;
-    }
-```
-
-## Step 8: Test it
-
-```bash
-feather dev
-```
-
-1. Click **Add Column** and give it a name.
-2. Type in the input at the bottom of a column and press Enter.
-3. Hover a card and click the X. Confirm the dialog.
-4. Click the X on a column header. Confirm that too.
-5. Refresh the page. Everything is still there.
-
-## Prompt Claude
-
-```text
+```text The prompt
 I'm working through part 2 of the Feather Kanban tutorial series.
 
 Read the tutorial first:
@@ -514,73 +86,80 @@ My app is the result of part 1: a static board with hardcoded columns in
 routes/pages/home.py. I've added DATABASE_URL for SQLite, created the models/
 package and run `feather db init`.
 
-Implement Build Steps 1 through 7:
-- Column and Card models with UUIDMixin and TimestampMixin
-- The migration
-- ColumnService and CardService
-- The board route querying real data with @inject
-- Partial templates for column and card
-- HTMX wiring on the board template, with hx-confirm on deletes
-- The new CSS classes
+Build the persistent board from Build Steps 1 through 7:
 
-Conventions from CLAUDE.md that matter here: keep the route handlers thin and put
-the logic in services, use window.showPrompt() rather than window.prompt, keep
-JavaScript in static/js/ rather than inline, and keep styles as @apply classes.
+- Column and Card models using UUIDMixin and TimestampMixin, with cards cascading
+  from their column.
+- A migration for them.
+- ColumnService and CardService holding the create, delete and list logic. Raise
+  NotFoundError for a missing row rather than returning None.
+- Update the board route to query real data, injecting the services with @inject.
+- Partial templates for a column and a card, which are what the HTMX routes return.
+- HTMX wiring: create and delete for both columns and cards, with hx-confirm on the
+  destructive ones, and the card form clearing itself after a successful submit.
+- The new CSS classes.
+
+Conventions from CLAUDE.md that matter here: keep route handlers thin and put the
+logic in services, use window.showPrompt() rather than window.prompt for the "Add
+Column" dialog, keep JavaScript in static/js/ rather than inline, and keep styles
+as @apply classes.
 
 Stop before running the migration and show me the generated file. After I approve
 it, run `feather db upgrade`, then `feather check`, and fix anything it reports.
+
+Then walk me through what you built: the models, why the services exist separately
+from the routes, and how each HTMX attribute on the board maps to a route.
 ```
 
 <Warning>
-  Asking it to pause at the migration is deliberate. Feather keeps migrations manual so you
-  see what Alembic inferred from your models before it touches the database, and that's
-  worth preserving when an assistant wrote the models.
+  The pause before the migration is deliberate. Feather keeps migrations manual so you see
+  what Alembic inferred from the models, and that matters more, not less, when an assistant
+  wrote them.
 </Warning>
 
-## Checkpoint
+## Step 3: Test it
 
-- Columns and cards are stored in SQLite
-- Creating and deleting either one happens without a page reload
-- Deletes ask for confirmation first
-- Everything survives a refresh
-- `feather check` passes
-
-```text Files you created or changed
-models/
-├── __init__.py             # exports
-├── column.py               # new
-└── card.py                 # new
-
-services/
-├── __init__.py             # exports
-├── column_service.py       # new
-└── card_service.py         # new
-
-routes/pages/home.py        # board + HTMX routes
-
-templates/
-├── pages/board.html        # HTMX wiring
-└── partials/
-    ├── column.html         # new
-    └── card.html           # new
-
-static/
-├── css/app.css             # new classes
-└── js/board.js             # new
-
-migrations/                 # generated
+```bash
+feather dev
 ```
 
-## What you learned
+1. Click **Add Column** and give it a name. It appears without a reload.
+2. Type in the input at the bottom of a column and press Enter. The card appears, and the
+   input clears.
+3. Hover a card and click the X. Confirm the dialog, and the card goes.
+4. Click the X on a column header. Confirm, and the column and its cards go together.
+5. Refresh the page. Everything is still there.
 
-- Models built from `UUIDMixin` and `TimestampMixin`
-- Generating and applying migrations
-- Services as the home for business logic
-- `@inject` for getting a service into a handler
-- HTMX attributes for create and delete
-- Partial templates as HTMX responses
-- `window.showPrompt()` instead of the native dialog
+```bash
+feather check
+feather routes
+```
+
+`feather routes` is worth a look here. You should see the page route at `/` plus four
+`/htmx/` routes, which is the whole surface this part added.
+
+## What the framework did
+
+**The mixins wrote your boilerplate.** `UUIDMixin` gave every row a UUID primary key and
+`TimestampMixin` gave it `created_at` and `updated_at`. Neither appears in the model body.
+See [Models](/backend/models).
+
+**Deleting a column deleted its cards.** That's `cascade="all, delete-orphan"` on the
+relationship, not cleanup code in the service.
+
+**The routes stayed thin.** Each handler parses the request, calls a service and returns a
+template. A handler doing more than that is reported by
+[`feather check`](/tooling/check) as the `fat-route` warning, which is why the logic ended
+up in [services](/backend/services).
+
+**A DELETE returns an empty string.** HTMX swaps that emptiness over the element, which is
+how the row disappears. A POST returns the rendered partial for the thing it just made.
+Both patterns repeat for the rest of the series. See [HTMX](/ui/htmx).
+
+**The confirm dialog isn't the browser's.** `hx-confirm` is backed by Feather's
+`confirm_modal` component, so it's styled and dark-mode aware. Native `confirm()` is a
+`feather check` error.
 
 <Card title="Next: drag and drop" icon="move" href="/tutorials/drag-and-drop" horizontal>
-  Add ordering to the models and a JavaScript island to move cards between columns.
+  The first part that needs real state in the browser.
 </Card>
