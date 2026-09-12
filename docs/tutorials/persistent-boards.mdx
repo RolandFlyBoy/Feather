@@ -9,9 +9,9 @@ mode: "wide"
 The board from part 1 forgets everything when you reload. This part gives it a database
 and makes the buttons work, and almost none of that involves JavaScript.
 
-That's worth noticing. Creating and deleting cards is the kind of interaction people reach
-for React to handle. HTMX does it by asking the server for a fragment of HTML and swapping
-it into the page, so the logic stays in Python.
+Creating and deleting cards is the kind of interaction that usually pulls in a client-side
+framework. HTMX handles it by requesting a fragment of HTML from the server and swapping
+that fragment into the page, which keeps the logic in Python.
 
 ## What you'll have
 
@@ -61,8 +61,8 @@ it into the page, so the logic stays in Python.
     ```
 
     <Note>
-      This is the one case `feather db init` exists for. In an app scaffolded with a
-      database it fails, because `migrations/` is already there.
+      `feather db init` exists for exactly this case. In an app scaffolded with a database
+      it fails, because `migrations/` is already there.
     </Note>
   </Tab>
   <Tab title="Start fresh">
@@ -120,8 +120,8 @@ maps to a route.
 
 <Warning>
   The pause before the migration is deliberate. Feather keeps migrations manual so you see
-  what Alembic inferred from the models, and that matters more, not less, when an assistant
-  wrote them.
+  what Alembic inferred from the models, which matters just as much when an assistant wrote
+  them.
 </Warning>
 
 ## Step 3: Test it
@@ -143,7 +143,7 @@ feather routes
 ```
 
 `feather routes` is worth a look here. You should see the page route at `/` plus four
-`/htmx/` routes, which is the whole surface this part added.
+`/htmx/` routes, which is everything this part added.
 
 ## What the framework did
 
@@ -152,7 +152,7 @@ feather routes
 See [Models](/backend/models).
 
 **Deleting a column deleted its cards.** That's `cascade="all, delete-orphan"` on the
-relationship, not cleanup code in the service.
+relationship. There is no cleanup code in the service.
 
 **The routes stayed thin.** Each handler parses the request, calls a service and returns a
 template. A handler doing more than that is reported by

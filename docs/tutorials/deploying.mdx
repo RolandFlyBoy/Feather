@@ -120,7 +120,7 @@ getting them wrong is expensive.
   own server.
 </Warning>
 
-The production `.env` is the one file that never enters git and never goes into the image.
+The production `.env` never enters git and never goes into the image.
 At minimum it needs `DOMAIN`, `POSTGRES_PASSWORD`, `SECRET_KEY`, your Google credentials,
 `OAUTH_CALLBACK_URL` and `TRUSTED_HOSTS`. Leave `FLASK_CONFIG`, `DATABASE_URL`,
 `REDIS_URL` and `JOB_BACKEND` out of it, because compose sets those on the container and a
@@ -187,7 +187,7 @@ begin the same Alembic upgrade, and Alembic doesn't arbitrate that.
 
 **Healthy means the database is reachable.** The container healthcheck curls `/health`,
 which Feather registers and which checks the database rather than just confirming Python is
-alive. That's what makes the deploy's health gate worth having. See
+alive. A deploy that waits on it is therefore waiting on something meaningful. See
 [Health checks](/features/health-checks).
 
 **TLS has no cron job.** Caddy obtains and renews certificates for every hostname in the

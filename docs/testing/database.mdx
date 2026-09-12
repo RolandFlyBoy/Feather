@@ -13,7 +13,7 @@ Tests run against a separate test database, configured for you. Each test starts
 
 One test cannot affect another.
 
-## A fixture trap worth knowing
+## A fixture mistake that is easy to misread
 
 Flask-Login caches the current user on `g` for the lifetime of an application context. A
 fixture that holds one `app.app_context()` open across requests from several test clients

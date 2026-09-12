@@ -6,12 +6,11 @@ icon: "move"
 mode: "wide"
 ---
 
-Dragging a card is the first thing in this series HTMX can't do well. A drag holds state
-for as long as your finger is down, and asking the server about it on every pointer move
-would feel awful.
+A drag holds state in the browser for as long as the pointer is down, and reporting every
+pointer move to the server would make it feel slow. This is the case HTMX does not cover.
 
-So this is where islands earn their place: a small piece of JavaScript over the board,
-updating the UI immediately while the save happens behind it.
+An island handles it instead: a small piece of JavaScript mounted over the board, which
+moves the card immediately and persists the new position behind it.
 
 ## What you'll have
 
@@ -106,7 +105,7 @@ feather dev
 4. Watch it land immediately rather than after a pause.
 5. Refresh. The positions held.
 
-Then break it on purpose, because this is the interesting bit:
+Then test the failure path, which is the part most implementations get wrong:
 
 ```bash
 # stop the server while the browser is still open, then drag a card
@@ -121,7 +120,7 @@ feather check
 
 ## What the framework did
 
-**Ordering is a mixin, not a column you manage.** `OrderingMixin` brought `position`,
+**Ordering comes from a mixin.** `OrderingMixin` brought `position`,
 `move_to()`, `insert_at_end()` and `reorder_all()`. The service calls them; nothing
 recalculates indexes by hand. See [Models](/backend/models).
 
@@ -133,7 +132,7 @@ cards start again at zero.
 is a [`feather check`](/tooling/check) error, because a POST without the token fails in
 production and works in nobody's test. See [Islands](/ui/islands).
 
-**Optimism is a wrapper, not a pattern you implement.** `this.optimistic()` takes the
+**Rollback is handled for you.** `this.optimistic()` takes the
 instant change and the server call, and rolls the first back if the second fails. That's
 the rollback you tested above.
 

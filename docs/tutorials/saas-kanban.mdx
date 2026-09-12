@@ -6,13 +6,13 @@ icon: "building-2"
 mode: "wide"
 ---
 
-Part 4 gave every user their own boards. That isn't a SaaS, where a company signs up and
-its people share data nobody outside the company can reach.
+Part 4 gave every user their own boards. A SaaS works differently: a company signs up, its
+people share data, and nobody outside the company can reach it.
 
-The difference sounds small and isn't. Every query has to be scoped, and one missed filter
-is a data leak rather than a bug. This is the part where you should read what comes back
-most carefully, and it's also the part where the framework gives you the most help:
-`feather check` fails the build on a tenant-scoped model queried without a tenant filter.
+Making that change means scoping every query, and a missed filter exposes one customer's
+data to another. Read what comes back from this part carefully. `feather check` helps by
+failing on a tenant-scoped model queried without a tenant filter, but it checks the query
+shape rather than your intent.
 
 ## What you'll have
 
@@ -130,7 +130,8 @@ me what enforces isolation at each one.
 
 ## Step 3: Test it
 
-This is the one part where clicking through your own account proves nothing. You need two.
+Clicking through your own account proves nothing here. You need two, on different email
+domains.
 
 ```bash
 feather dev
@@ -179,10 +180,9 @@ becomes a 403 you can see in the logs. See
 
 **The linter is the backstop.** `feather check`'s `tenant-isolation` rule catches a query
 on a tenant-scoped model with no tenant filter, so the mistake fails CI rather than
-shipping. It's the one rule in the set where the cost of missing it is other people's data.
-See [`feather check`](/tooling/check).
+shipping. See [`feather check`](/tooling/check).
 
-**Approval belongs to the tenant, not the platform.** Platform admins create companies.
+**Approval belongs to the tenant.** Platform admins create companies.
 Each company's admin approves its own users. That's what keeps a platform operator out of
 a customer's user list, and it's a product decision the framework encodes rather than
 leaves to you.

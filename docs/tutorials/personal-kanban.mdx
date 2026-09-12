@@ -6,14 +6,14 @@ icon: "user"
 mode: "wide"
 ---
 
-This is where the toy becomes an application, and it's the longest part, because
-authentication, cloud storage and the admin panel all arrive together.
+This is the longest part of the series, because authentication, cloud storage and the
+admin panel arrive together.
 
-It's also where the framework earns its keep most visibly. Sign-in, an approval workflow,
-a user admin panel with analytics and error logs, and a storage abstraction are all
-scaffolded or provided. The prompt is mostly asking for your domain model on top of them.
+Most of that surface is already built. Google sign-in, the approval workflow, a user admin
+panel with analytics and error logs, and a storage interface are scaffolded or provided, so
+the prompt below is mostly asking for your domain model on top of them.
 
-Get your credentials sorted first. Nothing here works without them.
+Sort your credentials out first. Nothing here runs without them.
 
 ## What you'll have
 
@@ -216,10 +216,10 @@ redirects to the pending page instead of returning a bare 403. That's why the pe
 itself uses `@login_only`. See [Exceptions](/backend/exceptions).
 
 **The admin panel is your code.** It was scaffolded into `routes/pages/admin.py` and
-`templates/pages/admin/`, not imported from the framework, so you can change it. See
+`templates/pages/admin/`, so you can change any of it. See
 [Admin panel](/features/admin-panel).
 
-**Storage is an interface, not a Google SDK.** The upload went through `get_storage()`,
+**Uploads went through a storage interface.** `get_storage()` returns the configured backend,
 which is why the same code works against the local filesystem. Script-capable extensions
 are refused by default, which is a real protection given files are served from your own
 origin. See [File storage](/features/file-storage).

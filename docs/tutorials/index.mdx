@@ -9,14 +9,15 @@ mode: "wide"
 This series builds one application across six parts. Each part follows the same three
 steps: scaffold a project, paste a prompt, then check what came back.
 
-That's not a shortcut around the real work. It's the point of the framework. Feather fixes
-where files go, how services are shaped, and what components look like, then ships those
-conventions in a `CLAUDE.md` that every project carries. Predictable structure is what
-makes a described feature turn into working code, and `feather check` is what tells you
-whether it did.
+A scaffolded project has a fixed layout. Models, services and routes each have one home,
+and a file placed there is registered without any wiring. Every project also carries a
+`CLAUDE.md` describing the conventions, and `feather check` enforces the ones that can be
+enforced.
 
-So you won't be typing out models here. You'll be reading what came back, running the
-checks, and learning the framework from the shape of the result.
+Those two properties are what the middle step depends on. An assistant writing a feature
+has somewhere to put each file and a rule set to follow, and you have a command that
+reports whether it followed them. You will be reading results and running checks here
+rather than typing out models.
 
 <CardGroup cols={2}>
   <Card title="1. Static board UI" icon="layout-template" href="/tutorials/static-board-ui">
@@ -44,8 +45,7 @@ checks, and learning the framework from the shape of the result.
 <Steps>
   <Step title="Scaffold" icon="folder-plus">
     Run `feather new` and answer a handful of prompts. Each part lists the answers that
-    matter and why. This is the one step worth doing by hand, since the answers decide what
-    gets generated.
+    matter and why. Do this step by hand, because the answers decide what gets generated.
   </Step>
   <Step title="Run the prompt" icon="clipboard">
     Copy the prompt from the page and give it to your assistant from inside the project

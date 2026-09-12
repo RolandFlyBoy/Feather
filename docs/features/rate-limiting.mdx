@@ -4,9 +4,9 @@ description: "A decorator for development, and Flask-Limiter with Redis for limi
 icon: "gauge"
 ---
 
-There are two ways to rate limit in Feather, and the difference matters more than it
-looks. The decorator is convenient. Flask-Limiter with Redis is the one that actually
-holds when you run more than one worker.
+Feather offers two ways to rate limit. The decorator is convenient and keeps its counters
+in the process. Flask-Limiter with Redis shares counters between workers, which is what a
+limit needs in order to hold under more than one process.
 
 ## The decorator
 

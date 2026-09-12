@@ -117,7 +117,7 @@ no import to add. See [Routes](/backend/routes).
 it already loads HTMX, the Vite client and the dark mode script. Extending it is what gets
 you a working toggle without any JavaScript of your own.
 
-**The styling went into a stylesheet, not the markup.** Feather prefers CSS classes with
+**The styling went into a stylesheet.** Feather prefers CSS classes with
 `@apply` over utility classes in templates, so a restyle happens in one file. If your
 assistant reached for utilities in the markup, `feather check` flagged it as the
 `inline-tailwind` warning and it should have moved them. See [Dark mode](/ui/dark-mode)

@@ -46,9 +46,8 @@ confirm its own work instead of guessing.
 
 ## Why the conventions are strict
 
-The rules in `CLAUDE.md` are enforced, not just documented.
-[`feather check`](/tooling/check) exits non-zero on any error, so it works as a pre-commit
-hook or a CI step.
+[`feather check`](/tooling/check) enforces the rules in `CLAUDE.md` and exits non-zero on
+any error, so it works as a pre-commit hook or a CI step.
 
 Exceptions are recorded rather than hidden. A deliberately public route carries a
 `# feather: public` comment in its module. When a rule is wrong about a specific line, an
