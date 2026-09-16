@@ -10,6 +10,15 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.14 (2026-09-16) — the scaffold knows about 0.9.13
+
+Documentation and scaffold only; upgrading from 0.9.13 is a pin bump.
+
+- **A new app's CLAUDE.md** says what `@login_only` is for and shows
+  `redirect_with_toast`, so an assistant writing routes in a fresh project
+  reaches for them instead of repeating the mistakes 0.9.13 checks for.
+- **The upgrade guide** lists `@login_only` under "Worth grepping for".
+
 ## 0.9.13 (2026-09-16) — suspended means suspended
 
 Found while hardening Appentic: suspending an account did nothing, because

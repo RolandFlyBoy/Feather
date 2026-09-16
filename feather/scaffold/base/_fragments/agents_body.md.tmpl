@@ -93,6 +93,14 @@ class UserService(Service):
         return user
 ```
 
+### Redirect With a Toast
+```python
+from feather import redirect_with_toast
+
+return redirect_with_toast(url_for("page.dashboard"), "Project deleted.")
+```
+Works for htmx and plain requests; never hand-roll `_pending_toast` + `HX-Redirect`.
+
 ### HTMX Cross-Element Updates
 ```python
 def with_trigger(content, trigger="dataUpdated"):

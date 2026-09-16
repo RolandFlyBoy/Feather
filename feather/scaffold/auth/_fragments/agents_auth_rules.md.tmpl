@@ -2,4 +2,6 @@
 ### 6. Always Protect Routes
 - Use `@auth_required` on all routes that need authentication
 - Use `@admin_required` for admin-only routes
-- Check `current_user.is_active` for suspended user handling
+- `@login_only` is only for the pending and suspended status pages: it lets
+  inactive accounts through, so anywhere else a suspended user keeps working
+  (`feather check` warns: `login-only-action`)

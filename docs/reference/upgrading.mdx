@@ -62,6 +62,7 @@ The changelog explains each of these in full.
 | `href="/auth/logout"` | `GET /auth/logout` is deprecated. POST it |
 | `"AUTHORIZATION_ERROR"` in string comparisons | A suspended user now reports `ACCOUNT_SUSPENDED` |
 | `@job` functions taking `timeout`, `retry`, `concurrency`, `delay` or `queue_name` | Those names are reserved by the enqueue call |
+| `@login_only` on anything but the pending and suspended pages | It never checked the account is active, so a suspended user kept working. `feather check` reports it as `login-only-action` (0.9.13); use `@auth_required` |
 | `cache_response` on public pages | It varies on the current user by default now. Pass `vary_on_user=False` |
 | A broken module under `models/`, `services/` or `routes/` | Discovery is strict and stops the app rather than dropping the module. `FEATHER_LENIENT_DISCOVERY=1` restores the old behaviour while you fix it |
 
