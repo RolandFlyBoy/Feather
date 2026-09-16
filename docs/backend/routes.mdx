@@ -45,6 +45,24 @@ in a service is reported by [`feather check`](/tooling/check) as the `fat-route`
   </Card>
 </CardGroup>
 
+## Redirecting after an action
+
+Most actions end by sending the browser somewhere with a message. `redirect_with_toast`
+does both, and works for an htmx request and a plain form post alike: htmx gets an
+`HX-Redirect`, a normal request a 302, and the toast shows on the page that loads.
+
+```python
+from feather import redirect_with_toast
+
+@page.post('/projects/<project_id>/archive')
+@auth_required
+def archive_project(project_id):
+    ProjectService().archive(project_id, current_user.id)
+    return redirect_with_toast(url_for('page.dashboard'), "Project archived.")
+```
+
+For an htmx-only redirect with no message, `htmx_redirect(url)` sends just the header.
+
 ## Auth decorators
 
 Every route should carry one, or declare itself public. A route with no auth decorator is

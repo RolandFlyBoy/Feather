@@ -29,6 +29,7 @@ It exits non-zero on any error, so it works as a pre-commit hook or a CI step.
 | `google-image-referrer` | error | A Google avatar without `referrerpolicy="no-referrer"` |
 | `unprotected-route` | warning | A route with no auth decorator |
 | `fat-route` | warning | A route handler doing work that belongs in a service |
+| `login-only-action` | warning | `@login_only` on an API route or one that changes data, which lets suspended accounts act |
 | `tenant-isolation` | error | A query on a tenant-scoped model with no tenant filter |
 | `orphan-island` | warning | An island no template mounts |
 | `missing-island` | error | A template mounting an island that does not exist |

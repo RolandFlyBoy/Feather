@@ -54,6 +54,38 @@ def htmx_redirect(url: str, status_code: int = 200) -> Response:
     return response
 
 
+def redirect_with_toast(url: str, message: str, toast_type: str = "success") -> Response:
+    """Redirect after an action and show a toast on the page that loads.
+
+    Works whether the action was an htmx request or a plain form post: htmx
+    gets an ``HX-Redirect`` (a 302 would be followed inside the swap and the
+    target page rendered into the element), a normal request gets a 302. The
+    toast is carried across the redirect in the session as ``_pending_toast``,
+    which the page context processor hands to the toast component.
+
+    Args:
+        url: Where to send the browser.
+        message: The toast text.
+        toast_type: ``success``, ``error``, ``warning`` or ``info``.
+
+    Example::
+
+        from feather import redirect_with_toast
+
+        @page.post('/projects/<project_id>/delete')
+        @auth_required
+        def delete_project(project_id):
+            ProjectService().delete(project_id, current_user.id)
+            return redirect_with_toast(url_for('page.dashboard'), "Project deleted.")
+    """
+    from flask import redirect, request, session
+
+    session["_pending_toast"] = {"message": message, "type": toast_type}
+    if request.headers.get("HX-Request"):
+        return htmx_redirect(url)
+    return redirect(url)
+
+
 def htmx_refresh() -> Response:
     """Create an HTMX response that triggers a full page refresh.
 

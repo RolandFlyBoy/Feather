@@ -129,6 +129,13 @@ def create_tenant():
 | --- | --- |
 | `@auth_required` | Any logged-in, approved user |
 | `@login_only` | Authenticated but possibly pending or suspended, as on status pages |
+
+<Warning>
+  `@login_only` does not check that the account is active. Use it only for the pending
+  and suspended pages. On any other route a suspended account keeps working, so
+  `feather check` reports it on API routes and on routes that change data as
+  `login-only-action`.
+</Warning>
 | `@role_required('editor')` | Checking by role name, with inheritance |
 | `@permission_required('resources.create')` | Checking by action, which reads more clearly |
 | `@admin_required` | Shorthand for `@role_required('admin')` |

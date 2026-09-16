@@ -109,7 +109,7 @@ docstrings of each module (feather.core.app, feather.services, feather.jobs,
 feather.events, ...).
 """
 
-__version__ = "0.9.12"
+__version__ = "0.9.13"
 
 # =============================================================================
 # Core Application
@@ -128,7 +128,7 @@ from feather.core.decorators import api, page, inject, auth_required, csrf_exemp
 
 # HTMX response helpers - redirect the full page or trigger other elements
 # from a fragment response.
-from feather.core.helpers import htmx_redirect, htmx_refresh, with_trigger
+from feather.core.helpers import htmx_redirect, htmx_refresh, redirect_with_toast, with_trigger
 
 # =============================================================================
 # Services Layer
@@ -250,6 +250,7 @@ __all__ = [
     # HTMX response helpers
     "htmx_redirect",
     "htmx_refresh",
+    "redirect_with_toast",
     "with_trigger",
     # Services - Business logic layer
     "Service",

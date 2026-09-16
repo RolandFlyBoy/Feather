@@ -400,6 +400,10 @@ def _is_route(names: set) -> bool:
     return bool(names & {"route", "get", "post", "put", "patch", "delete"})
 
 
+#: Route decorators that change data.
+_ACTION_METHODS = {"post", "put", "patch", "delete"}
+
+
 def check_routes(root: Path) -> list:
     findings = []
     for path in iter_files(root, "routes/**/*.py"):
@@ -433,6 +437,25 @@ def check_routes(root: Path) -> list:
                         "Add @auth_required (or @admin_required). If the route "
                         "is deliberately public, mark it with a "
                         "'# feather: public' comment in the module.",
+                        severity=WARNING,
+                    )
+                )
+
+            # @login_only lets pending and suspended accounts through, which is
+            # its purpose on the status pages they are sent to. On anything that
+            # changes data, or on the API, it lets a suspended account keep
+            # acting. Found in production: an app used it on every route, so
+            # suspending an account did nothing.
+            is_api = "routes/api/" in path.as_posix()
+            if "login_only" in names and (is_api or names & _ACTION_METHODS):
+                findings.append(
+                    Finding(
+                        path,
+                        node.lineno,
+                        "login-only-action",
+                        f"route {node.name}() uses @login_only, which lets suspended and pending accounts through",
+                        "@login_only is for the pending and suspended status pages. "
+                        "Use @auth_required, which also checks the account is active.",
                         severity=WARNING,
                     )
                 )

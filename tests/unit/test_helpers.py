@@ -18,6 +18,41 @@ def app():
     return app
 
 
+class TestRedirectWithToast:
+    """redirect_with_toast: one call for htmx and plain requests, toast kept."""
+
+    @pytest.fixture
+    def session_app(self, app):
+        app.secret_key = "test"
+        return app
+
+    def test_htmx_request_gets_hx_redirect_and_the_toast(self, session_app):
+        from flask import session
+
+        from feather.core.helpers import redirect_with_toast
+
+        with session_app.test_request_context('/x', headers={'HX-Request': 'true'}):
+            response = redirect_with_toast('/done', 'Saved.')
+            assert response.status_code == 200
+            assert response.headers['HX-Redirect'] == '/done'
+            assert session['_pending_toast'] == {'message': 'Saved.', 'type': 'success'}
+
+    def test_plain_request_gets_a_302(self, session_app):
+        from flask import session
+
+        from feather.core.helpers import redirect_with_toast
+
+        with session_app.test_request_context('/x'):
+            response = redirect_with_toast('/done', 'Nope.', 'error')
+            assert response.status_code == 302 and response.headers['Location'] == '/done'
+            assert session['_pending_toast']['type'] == 'error'
+
+    def test_exported_from_the_package(self):
+        import feather
+
+        assert feather.redirect_with_toast is not None and 'redirect_with_toast' in feather.__all__
+
+
 class TestHtmxRedirect:
     """Test htmx_redirect helper."""
 

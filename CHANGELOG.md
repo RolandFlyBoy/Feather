@@ -10,6 +10,29 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.13 (2026-09-16) — suspended means suspended
+
+Found while hardening Appentic: suspending an account did nothing, because
+every route used `@login_only`.
+
+- **`feather check` warns about `@login_only` where it lets a suspended
+  account act.** `@login_only` deliberately skips the active-account check so
+  that pending and suspended users can read their status pages. On an API
+  route, or on a POST, PUT, PATCH or DELETE route, it means a suspended
+  account can go on changing data. The new `login-only-action` warning
+  reports those; use `@auth_required` instead. It is a warning, and the usual
+  `feather: allow login-only-action` marker records a deliberate exception.
+
+- **`redirect_with_toast(url, message, toast_type="success")`.** Ending an
+  action with a redirect and a toast took the same six lines in every route:
+  set `session["_pending_toast"]`, then send `HX-Redirect` for htmx or a 302
+  otherwise. Getting the second half wrong renders the whole target page into
+  the swapped element. One call now does both, and is exported from
+  `feather` beside `htmx_redirect`.
+
+Upgrading from 0.9.12: bump the pin, then run `feather check`. New
+`login-only-action` warnings are routes to switch to `@auth_required`.
+
 ## 0.9.12 (2026-09-12) — one home for the documentation
 
 Documentation only. No code changed, so upgrading from 0.9.11 is a pin bump

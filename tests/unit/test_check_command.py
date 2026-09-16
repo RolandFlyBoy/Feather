@@ -188,6 +188,28 @@ class TestRouteRules:
         )
         assert "fat-route" in rules(tmp_path, "routes")
 
+    @pytest.mark.parametrize(
+        "path, decorator",
+        [("routes/pages/x.py", "@page.post('/x')"), ("routes/api/x.py", "@api.get('/x')")],
+    )
+    def test_login_only_on_an_action_or_the_api_warns(self, tmp_path, path, decorator):
+        make_project(
+            tmp_path,
+            {path: "from feather import page, api, login_only\n\n" + f"{decorator}\n@login_only\ndef x():\n    return 'x'\n"},
+        )
+        findings = [f for f in run_checks(tmp_path, "routes") if f.rule == "login-only-action"]
+        assert len(findings) == 1 and findings[0].severity == "warning"
+
+    def test_login_only_on_a_status_page_passes(self, tmp_path):
+        make_project(
+            tmp_path,
+            {
+                "routes/pages/x.py": "from feather import page, login_only\n\n"
+                + "@page.get('/account/suspended')\n@login_only\ndef x():\n    return 'x'\n"
+            },
+        )
+        assert "login-only-action" not in rules(tmp_path, "routes")
+
     def test_non_route_function_is_ignored(self, tmp_path):
         make_project(tmp_path, {"routes/pages/x.py": "def helper():\n    return 1\n"})
         assert rules(tmp_path, "routes") == []
