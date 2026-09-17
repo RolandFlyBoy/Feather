@@ -45,7 +45,9 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
   `STORAGE_BACKEND_FALLBACK = "gcs"`, so without Redis or S3 they behave as
   before. The generated `.env` keeps its explicit development values, so local
   development is unchanged. New apps get a `README.md` with a Deploy section,
-  and the storage `.env` lists the S3 keys, commented out.
+  and the storage `.env` lists the S3 keys, commented out. An app with storage
+  installs both the `gcs` and `s3` extras, so connecting an S3 bucket needs no
+  requirements change.
 - **`feather docker init`** sets `JOB_BACKEND: sync` on the web service when
   compose has Redis but no worker, because `REDIS_URL` alone would now queue
   jobs that nothing runs.

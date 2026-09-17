@@ -176,7 +176,7 @@ def new(name: str, no_prompt: bool):
             )
 
             options["include_storage"] = click.confirm(
-                "  Include cloud storage (GCS)?",
+                "  Include cloud storage (S3 or GCS)?",
                 default=True,
             )
 

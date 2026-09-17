@@ -138,7 +138,10 @@ def _requirement_spec(options: dict) -> str:
         # runs with no limits at all.
         extras.add("ratelimit")
     if (options.get("storage_backend") or "") == "gcs":
-        extras.add("gcs")
+        # Both cloud backends: S3_BUCKET (any S3-compatible provider,
+        # including a connected Appentic storage service) selects s3 at
+        # startup, and GCS stays the fallback (STORAGE_BACKEND_FALLBACK).
+        extras.update({"gcs", "s3"})
     return requirement_spec(_feather_version(), sorted(extras))
 
 
