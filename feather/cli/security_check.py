@@ -563,6 +563,26 @@ def check_env_in_gitignore(project_dir: Path) -> Check:
     return Check("env_in_gitignore", FAIL, ".env is not listed in .gitignore", remedy)
 
 
+def check_migrations(project_dir: Path) -> Check:
+    """A project with a migrations directory must carry at least one migration.
+
+    `feather new` leaves migrations/versions empty and git does not track an
+    empty directory, so the app can reach a server with nothing to apply:
+    `feather db upgrade` then leaves it serving an empty database.
+    """
+    from feather.cli.db import migration_files
+
+    if not (project_dir / "migrations").is_dir():
+        return Check("migrations", SKIP, "No migrations directory in this project")
+    found = migration_files(project_dir)
+    if not found:
+        return Check(
+            "migrations", FAIL, "migrations/versions has no migrations",
+            'Run feather db migrate -m "Initial migration" and commit the file it writes',
+        )
+    return Check("migrations", PASS, f"{len(found)} migration{'s' if len(found) > 1 else ''} in migrations/versions")
+
+
 # =============================================================================
 # Runner
 # =============================================================================
@@ -604,6 +624,7 @@ def run_checks(project_dir: Path, env_file: Optional[str], force_production: boo
         check_trusted_hosts(settings, production),
         check_security_headers(settings, production),
         check_env_in_gitignore(project_dir),
+        check_migrations(project_dir),
         check_extras(),
     ]
     checks.extend(check_dependencies())

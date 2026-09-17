@@ -65,10 +65,17 @@ feather test -f --clean         # clean test artifacts
 ```bash
 feather db init                 # create a migrations/ directory
 feather db migrate -m "msg"     # generate migration from model changes
-feather db upgrade              # apply pending migrations
+feather db upgrade              # apply pending migrations (fails if there are none)
 feather db downgrade            # revert last migration
 feather db seed                 # run seeds.py
 ```
+
+<Note>
+  **`feather db upgrade` needs at least one migration.** A project with a `migrations/`
+  directory and nothing in `migrations/versions` exits non-zero and tells you to generate
+  one, rather than applying nothing and leaving the app on an empty database. `feather
+  security-check` reports the same thing as its `migrations` check.
+</Note>
 
 <Note>
   **`feather db init` is for apps with no `migrations/` directory.** `feather new` already

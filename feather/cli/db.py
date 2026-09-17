@@ -78,11 +78,37 @@ def migrate(message: str):
     click.echo("Run 'feather db upgrade' to apply it.")
 
 
+def migration_files(project_dir: Path = Path(".")) -> list:
+    """The migration scripts in a project, newest name last.
+
+    Alembic keeps them in migrations/versions. `feather new` leaves that
+    directory empty, and git does not track an empty directory, so a project
+    can reach a server with no migrations at all: `flask db upgrade` then does
+    nothing, says nothing, and the app starts against an empty database.
+    """
+    versions = project_dir / "migrations" / "versions"
+    if not versions.is_dir():
+        return []
+    return sorted(p for p in versions.glob("*.py") if not p.name.startswith("__"))
+
+
+#: What to do when a project has a migrations directory but no migrations.
+NO_MIGRATIONS_REMEDY = (
+    'No migrations found in migrations/versions.\n'
+    'Generate the first one and commit it:\n'
+    '  feather db migrate -m "Initial migration"'
+)
+
+
 @db_group.command()
 def upgrade():
     """Apply pending migrations."""
     if not Path("app.py").exists():
         raise click.ClickException("Not in a Feather project directory.")
+
+    # Better to stop here than to leave the app serving an empty database.
+    if Path("migrations").is_dir() and not migration_files():
+        raise click.ClickException(NO_MIGRATIONS_REMEDY)
 
     click.echo("Applying migrations...")
 

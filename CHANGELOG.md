@@ -10,6 +10,27 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.18 (2026-09-17) — a new app carries its first migration
+
+Found deploying a freshly scaffolded app: `feather new` left
+`migrations/versions` empty, git does not track an empty directory, so the app
+reached the server with no migrations. `feather db upgrade` applied nothing,
+said "Migrations applied!", and the app served an empty database. Upgrading
+from 0.9.17 is a pin bump.
+
+- **`feather new` generates the first migration and applies it** when the app
+  has a database and it is reachable. The next steps it prints drop the two
+  migration commands, since they have already run. When the database is not
+  reachable it prints them as before.
+- **`feather db upgrade` stops when there is nothing to apply.** A project with
+  a `migrations` directory and no migration in it now exits non-zero with the
+  command to generate one. On a platform that runs migrations as a release
+  step, such as Appentic, this fails the deploy instead of starting the app
+  against an empty database.
+- **`feather security-check` has a `migrations` check**: FAIL when
+  `migrations/versions` holds no migration, SKIP when the project has no
+  migrations directory.
+
 ## 0.9.17 (2026-09-17) — no deploy link in the README
 
 Scaffold only; upgrading from 0.9.16 is a pin bump.

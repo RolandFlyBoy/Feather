@@ -14,6 +14,12 @@ icon: "list-checks"
 </Check>
 
 <Check>
+  **Your migrations are in the repository.** `migrations/versions` holds the first
+  migration and every one since, and they apply from an empty database. The
+  `migrations` check in `feather security-check` covers the first part.
+</Check>
+
+<Check>
   **`FLASK_CONFIG=production`**, which compose sets. Confirm with
   `docker compose exec web printenv FLASK_CONFIG`
 </Check>

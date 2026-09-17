@@ -18,18 +18,18 @@ You pay for the machine plus a flat monthly fee per service. See
 
 - The app is in a GitHub repository with the generated `Dockerfile` at its root. An older
   app can add it with `feather docker init`.
-- Your migrations are committed. `feather new` leaves `migrations/versions` empty, so
-  generate the first one locally and commit it, or the release command has nothing to
-  apply and your app starts against an empty database.
+- Your migrations are committed. `feather new` writes the first one for you (0.9.18 and
+  later); `feather security-check` fails if `migrations/versions` is empty. Without a
+  migration the release command has nothing to apply and the app starts against an empty
+  database.
 - You have an Appentic account with credits.
 
-Run this locally first:
+Run the checks locally first:
 
 ```bash
-feather db migrate -m "Initial migration"   # if migrations/versions is empty
 feather check
-feather security-check
-feather env check    # every key config.py reads, and which are unset
+feather security-check   # includes the migrations check
+feather env check        # every key config.py reads, and which are unset
 ```
 
 ## Deploy

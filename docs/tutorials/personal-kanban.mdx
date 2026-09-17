@@ -87,10 +87,12 @@ Four answers matter:
 cd kanban
 source venv/bin/activate
 
-feather db migrate -m "Initial migration"
-feather db upgrade
 python seeds.py
 ```
+
+The first migration is already generated and applied. If Postgres was not running while
+the app was created, run `feather db migrate -m "Initial migration"` and `feather db
+upgrade` first.
 
 ```bash .env
 GOOGLE_CLIENT_ID=your-client-id

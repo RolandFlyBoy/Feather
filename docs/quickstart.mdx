@@ -34,15 +34,23 @@ icon: "rocket"
   </Step>
 
   <Step title="Set up the database" icon="database">
-    Migrations are manual, so you can review the models before anything is written.
+    `feather new` generates the first migration and applies it, so there is only the
+    admin user left to create. Commit the migration with the rest of the app: a deploy
+    applies it, and nothing else creates your tables.
 
     ```bash
     cd myapp
     source venv/bin/activate
 
+    python seeds.py            # creates the admin user if auth is enabled
+    ```
+
+    If the database was not reachable while the app was created, run the two commands it
+    printed first:
+
+    ```bash
     feather db migrate -m "Initial migration"
     feather db upgrade
-    python seeds.py            # creates the admin user if auth is enabled
     ```
   </Step>
 

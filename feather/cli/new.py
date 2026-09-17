@@ -250,6 +250,9 @@ def new(name: str, no_prompt: bool):
     # Set up Python virtual environment
     _setup_venv(project_path)
 
+    # The first migration, so the app is deployable straight from the repo.
+    migrated = options["database"] != "none" and _create_initial_migration(project_path)
+
     click.echo()
     click.echo(click.style("Project created successfully!", fg="green", bold=True))
     click.echo()
@@ -267,19 +270,32 @@ def new(name: str, no_prompt: bool):
         click.echo(f"  cd {name} && source venv/bin/activate && feather dev")
     elif options.get("include_auth"):
         # Has auth - needs migrations and seeds
-        click.echo('  3. feather db migrate -m "Initial migration"')
-        click.echo("  4. feather db upgrade")
-        click.echo("  5. python seeds.py")
-        click.echo("  6. feather dev")
-        click.echo()
-        click.echo("Or run it all at once:")
-        click.echo(f'  cd {name} && source venv/bin/activate && feather db migrate -m "Initial migration" && feather db upgrade && python seeds.py && feather dev')
+        if migrated:
+            click.echo("  3. python seeds.py")
+            click.echo("  4. feather dev")
+            click.echo()
+            click.echo("Or run it all at once:")
+            click.echo(f"  cd {name} && source venv/bin/activate && python seeds.py && feather dev")
+        else:
+            click.echo('  3. feather db migrate -m "Initial migration"')
+            click.echo("  4. feather db upgrade")
+            click.echo("  5. python seeds.py")
+            click.echo("  6. feather dev")
+            click.echo()
+            click.echo("Or run it all at once:")
+            click.echo(f'  cd {name} && source venv/bin/activate && feather db migrate -m "Initial migration" && feather db upgrade && python seeds.py && feather dev')
         click.echo()
         click.echo(f"Admin user will be created for: {options['admin_email']}")
         if options["tenant_mode"] == "multi":
             click.echo("(Platform admin - can create and manage tenants)")
+    elif migrated:
+        # Has database, and its first migration is already applied
+        click.echo("  3. feather dev")
+        click.echo()
+        click.echo("Or run it all at once:")
+        click.echo(f"  cd {name} && source venv/bin/activate && feather dev")
     else:
-        # Has database but no auth
+        # Has database but no migration yet
         click.echo('  3. feather db migrate -m "Initial migration"')
         click.echo("  4. feather db upgrade")
         click.echo("  5. feather dev")
@@ -524,6 +540,41 @@ def _create_project_files(
         target.write_text(content)
 
     click.echo("  Created project files")
+
+
+def _venv_python(project_path: Path) -> Path:
+    """The scaffolded project's own interpreter."""
+    if sys.platform == "win32":
+        return project_path / "venv" / "Scripts" / "python.exe"
+    return project_path / "venv" / "bin" / "python"
+
+
+def _create_initial_migration(project_path: Path) -> bool:
+    """Generate the project's first migration and apply it.
+
+    Without this, migrations/versions stays empty. Git does not track an empty
+    directory, so the app reaches a server with no migrations, `feather db
+    upgrade` has nothing to apply, and the app starts against an empty
+    database. Needs the database to be reachable; when it isn't, the caller
+    prints the two commands instead.
+    """
+    python = _venv_python(project_path)
+    if not python.exists():
+        return False
+    steps = (
+        (["-m", "flask", "db", "migrate", "-m", "Initial migration"], "  Generated migrations/versions"),
+        (["-m", "flask", "db", "upgrade"], "  Applied it to the database"),
+    )
+    for args, done in steps:
+        result = subprocess.run(
+            [str(python), *args], cwd=project_path, capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip().splitlines()
+            click.echo(f"  Could not create the first migration ({detail[-1][:120] if detail else 'unknown error'})")
+            return False
+        click.echo(done)
+    return True
 
 
 def _init_git(project_path: Path):
