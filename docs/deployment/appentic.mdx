@@ -1,0 +1,188 @@
+---
+title: "Deploying to Appentic"
+sidebarTitle: "Appentic"
+description: "Push a Feather app from GitHub and run it with Postgres, Redis and a background worker on one machine, with no server to look after."
+icon: "rocket"
+---
+
+[Appentic](https://appentic.com) builds the `Dockerfile` that `feather new` generates as it
+is. You connect a GitHub repository, and every push to your branch is built and deployed.
+Postgres, Redis and the job worker run on the same machine as the app, and their
+connection URLs are set for you. TLS, logs, metrics and a browser shell are included.
+
+You pay for the machine plus a flat monthly fee per service. See
+[pricing](https://appentic.com/pricing).
+
+## Before you start
+
+- The app is in a GitHub repository, with the generated `Dockerfile` at its root. An app
+  created before `feather docker init` existed can add it with that command.
+- `requirements.txt` includes the `postgres` and `redis` extras if the app uses Postgres
+  and RQ. `feather new` adds them when you choose those options.
+- You have an Appentic account with credits.
+
+Run the checks locally first, so the first deploy isn't where you find a problem:
+
+```bash
+feather check
+feather security-check
+feather env check    # every key config.py reads, and which are unset
+```
+
+## First deploy
+
+<Steps>
+  <Step title="Create a project and choose a machine" icon="server">
+    Create a project, open **Resources** and choose a machine in the geo closest to your
+    users. A shared CPU machine with 2 vCPU and 4 GB runs a Feather app, its worker, Postgres
+    and Redis with room to spare.
+  </Step>
+
+  <Step title="Add the environment variables" icon="sliders-horizontal">
+    In the project's **Environment**, add these for all services. Adding them before the
+    services means the first deploy already has them.
+
+    | Key | Value |
+    | --- | --- |
+    | `SECRET_KEY` | A long random string: `python -c "import secrets; print(secrets.token_hex(32))"` |
+    | `JOB_BACKEND` | `rq`, if the app uses background jobs |
+    | `CACHE_BACKEND` | `redis`, if the app caches |
+    | `TRUSTED_HOSTS` | Your service's address, for example `myapp.appentic.app` |
+
+    Add anything else `feather env check` lists, such as `GOOGLE_CLIENT_ID`,
+    `GOOGLE_CLIENT_SECRET` or `RESEND_API_KEY`. Values are encrypted and hidden until you
+    reveal them.
+
+    <Note>
+      Set `JOB_BACKEND` for all services, not only the worker. The worker below runs the
+      web image, which doesn't set it, and the web process has to enqueue to the same
+      backend the worker reads.
+    </Note>
+  </Step>
+
+  <Step title="Create the web service" icon="globe">
+    Add a web service, pick the repository and branch, and leave auto-deploy on. Appentic
+    finds the `Dockerfile` and builds its last target, `web`.
+
+    512 MB of memory suits the default two gunicorn workers. The service gets an address
+    such as `https://myapp.appentic.app`.
+
+    Nothing else needs setting. Appentic sets `PORT`, and `feather start` binds to it on
+    every interface. The image already sets `FLASK_CONFIG=production`.
+  </Step>
+
+  <Step title="Add the worker" icon="cpu">
+    Skip this step if the app has no background jobs.
+
+    Once the web service is live, add a worker. Choose the web service as its image and
+    set the command to:
+
+    ```bash
+    feather worker --fork
+    ```
+
+    One instance with 512 MB is plenty to start with. The worker's scheduler also runs
+    delayed jobs, so you don't need a second process for them.
+  </Step>
+
+  <Step title="Add Postgres and Redis" icon="database">
+    Add a Postgres database and a key value store. In each form, connect the web service
+    and the worker.
+
+    Appentic sets `DATABASE_URL` and `REDIS_URL` on the services you connect, and
+    redeploys them once the database and store are ready. The connection stays on the
+    machine's private network.
+  </Step>
+
+  <Step title="Run the migrations" icon="terminal">
+    Open the web service's **Shell** and run:
+
+    ```bash
+    feather db upgrade
+    ```
+
+    Anything else you'd run once goes here too, for example
+    `feather platform-admin you@example.com` on a multi-tenant app.
+  </Step>
+</Steps>
+
+## Migrations on every deploy
+
+The generated `Dockerfile` doesn't migrate when the container starts, because two web
+containers starting at once would race on `feather db upgrade`. On Appentic a web service
+runs one instance, so migrating at start is safe. Change the last line of the `web`
+target to:
+
+```dockerfile
+CMD ["sh", "-c", "feather db upgrade && exec feather start"]
+```
+
+When the machine has room, Appentic starts the new version before it stops the old one,
+so for a few seconds the old code runs against the new schema. Keep migrations additive
+(new tables and nullable columns first, removals in a later deploy).
+
+The same image still works with `deploy/deploy.sh` on a VPS. It migrates before the swap,
+and the second `feather db upgrade` has nothing to do.
+
+## Configuration notes
+
+<AccordionGroup>
+  <Accordion title="Proxy headers" icon="shield">
+    Appentic terminates TLS and forwards requests through one proxy. Feather's defaults,
+    `FEATHER_PROXY_FIX=True` and `FEATHER_PROXY_FIX_NUM=1`, match that, so `url_for`
+    builds `https` URLs and `request.remote_addr` is the visitor's address.
+  </Accordion>
+
+  <Accordion title="Google sign-in" icon="key-round">
+    Add `https://myapp.appentic.app/auth/google/callback` to the authorised redirect URIs
+    of your OAuth client, and the same path on your own domain once you add one.
+  </Accordion>
+
+  <Accordion title="File uploads" icon="hard-drive">
+    A container's filesystem is replaced on every deploy and restart, so
+    `STORAGE_BACKEND=local` loses uploaded files. Use `STORAGE_BACKEND=gcs` with
+    `GCS_BUCKET` for anything users upload.
+  </Accordion>
+
+  <Accordion title="Logs" icon="scroll-text">
+    Feather logs JSON to standard output in production. The web service's **Logs** tab
+    shows it live, with filters for warnings and errors. Nothing needs configuring.
+  </Accordion>
+
+  <Accordion title="Scheduled tasks" icon="clock">
+    A cron job runs a command from the web service's image on a schedule. Use it for work
+    that has to happen at a fixed time, for example a script in your repository that sends
+    a daily digest: `python scripts/send_digest.py`.
+  </Accordion>
+</AccordionGroup>
+
+## Your own domain
+
+1. In the web service's **Settings**, add the domain and create the DNS records it shows.
+   The certificate is issued once the records resolve.
+2. Add the domain to `TRUSTED_HOSTS`, keeping the `appentic.app` address:
+   `myapp.appentic.app,example.com,www.example.com`.
+3. If the app uses Google sign-in, add the domain's callback URL to the OAuth client.
+
+## Backups
+
+Appentic doesn't back up databases yet. The
+[Postgres backups guide](https://docs.appentic.com/services/postgres#backups) sets up a
+nightly `pg_dump` to a storage bucket from a cron job. The generated image doesn't include
+`pg_dump`, so add `postgresql-client` to the `base` stage's `apt-get install` line, then
+check in the Shell that `pg_dump --version` reports 16 or newer.
+
+## Deploying changes
+
+Push to the branch. Appentic builds the image, runs the new container and switches traffic
+once it accepts connections. Every deploy shows on the service's **Events** tab, where you
+can roll back to an earlier one.
+
+<CardGroup cols={2}>
+  <Card title="Appentic docs" icon="book-open" href="https://docs.appentic.com">
+    Machines, services, networking and billing in detail.
+  </Card>
+  <Card title="Production checklist" icon="list-checks" href="/deployment/checklist">
+    What to confirm before real users arrive.
+  </Card>
+</CardGroup>

@@ -186,6 +186,7 @@
             "icon": "ship",
             "pages": [
               "deployment/overview",
+              "deployment/appentic",
               "deployment/docker",
               "deployment/vps",
               "deployment/ci-cd",
