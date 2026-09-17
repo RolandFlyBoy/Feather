@@ -1,19 +1,66 @@
 ---
 title: "File storage"
-description: "One interface for local files and Google Cloud Storage, so moving between them is a config change."
+description: "One interface for local files, S3-compatible buckets and Google Cloud Storage, so moving between them is a config change."
 icon: "hard-drive"
 ---
 
-Files go to the local filesystem or to Google Cloud Storage, behind the same interface.
-Switching between them is a change in `.env` rather than a change in your code.
+Files go to the local filesystem, an S3 bucket or Google Cloud Storage, behind the same
+interface. Switching between them is a change in `.env` rather than a change in your code.
 
 ```bash .env
-STORAGE_BACKEND=local       # saves to ./uploads/
+STORAGE_BACKEND=local       # saves to static/uploads/
+
+# or S3 and S3-compatible services
+STORAGE_BACKEND=s3
+S3_BUCKET=my-bucket
 
 # or Google Cloud Storage
 STORAGE_BACKEND=gcs
 GCS_BUCKET=my-bucket
 ```
+
+When `STORAGE_BACKEND` is unset, setting `S3_BUCKET` selects `s3`. Otherwise the app's
+`STORAGE_BACKEND_FALLBACK` applies, then `local`. See
+[automatic backends](/reference/configuration#automatic-backends).
+
+## S3 and S3-compatible storage
+
+The `s3` backend works with AWS S3 and with services that speak its API, such as MinIO,
+Garage, Cloudflare R2 and Hetzner Object Storage. It needs the `s3` extra:
+
+```bash
+pip install 'feather-framework[s3]'
+```
+
+```bash .env
+S3_BUCKET=my-bucket
+S3_ENDPOINT=https://s3.example.com     # omit for AWS
+S3_REGION=eu-central-1
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+```
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `S3_BUCKET` | required | Bucket name |
+| `S3_ENDPOINT` | unset | Endpoint URL of an S3-compatible service. Unset means AWS |
+| `S3_REGION` | boto3 default | Region name |
+| `S3_ACCESS_KEY_ID` | unset | Access key. Leave both keys unset to use the boto3 credential chain (environment, profile, instance role) |
+| `S3_SECRET_ACCESS_KEY` | unset | Secret key |
+| `S3_ADDRESSING_STYLE` | `path` with `S3_ENDPOINT`, else `auto` | `path`, `virtual` or `auto` |
+| `S3_URL_EXPIRES` | `3600` | Lifetime of presigned URLs, in seconds |
+| `S3_PUBLIC_URL` | unset | Base URL the bucket is publicly served from |
+
+Buckets are treated as private. `upload()` and `get_url()` return a presigned GET URL
+that expires after `S3_URL_EXPIRES` seconds. If the bucket is public, or sits behind a CDN,
+set `S3_PUBLIC_URL` and they return `S3_PUBLIC_URL/<key>` instead.
+
+With `S3_ENDPOINT` set, Feather tells boto3 to send and check request checksums only when an
+operation requires them. boto3 1.36 turned them on for every request, and several
+S3-compatible services reject those requests.
+
+Object keys are checked before any request is made: empty keys, a leading `/`, `.` and `..`
+segments, backslashes and control characters raise `StorageError`.
 
 ### GCS credentials
 
@@ -47,7 +94,7 @@ storage = get_storage()
 url = storage.upload(file, 'uploads/photo.jpg', content_type='image/jpeg')
 data = storage.download('uploads/photo.jpg')
 
-# local returns a path, GCS returns a signed URL
+# local returns a path, S3 and GCS return a signed URL
 url = storage.get_url('uploads/photo.jpg', expires_in=3600)
 
 if storage.exists('uploads/photo.jpg'):
@@ -73,7 +120,8 @@ def upload_file():
 
 `LocalStorage` serves files from `static/`, where the browser takes the content type from
 the extension. Script-capable extensions are refused by default, so an uploaded page
-cannot run on your origin.
+cannot run on your origin. `S3Storage` applies the same lists, since a bucket served from
+one of your domains has the same problem.
 
 | Key | Default |
 | --- | --- |

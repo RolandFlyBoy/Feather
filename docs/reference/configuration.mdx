@@ -48,18 +48,16 @@ SESSION_LIFETIME_DAYS=7
 FEATHER_MULTI_TENANT=true
 FEATHER_ALLOW_PUBLIC_EMAILS=true
 
-# Storage
+# Storage (S3_BUCKET selects s3 when STORAGE_BACKEND is unset)
 STORAGE_BACKEND=local
-GCS_BUCKET=my-bucket
+S3_BUCKET=my-bucket
 
-# Caching
-CACHE_BACKEND=memory
-CACHE_URL=redis://localhost:6379/0
+# Redis (selects the rq and redis backends when JOB_BACKEND and CACHE_BACKEND are unset)
+REDIS_URL=redis://localhost:6379/0
 
 # Background Jobs
 JOB_BACKEND=thread
 JOB_MAX_WORKERS=4
-REDIS_URL=redis://localhost:6379/0
 
 # Logging
 LOG_LEVEL=INFO
@@ -103,16 +101,57 @@ LOG_FORMAT=json
 
 | Key | Default | Purpose |
 | --- | --- | --- |
-| `STORAGE_BACKEND` | `local` | `local` or `gcs`. |
+| `STORAGE_BACKEND` | automatic | `local`, `s3` or `gcs`. |
+| `STORAGE_BACKEND_FALLBACK` | `local` | Backend when `STORAGE_BACKEND` and `S3_BUCKET` are both unset. |
+| `S3_BUCKET` | unset | Required for the `s3` backend. Setting it selects `s3` when `STORAGE_BACKEND` is unset. |
+| `S3_ENDPOINT` | unset | Endpoint URL of an S3-compatible service. Unset means AWS. |
+| `S3_REGION` | boto3 default | Region name. |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | unset | Credentials. Leave both unset to use the boto3 credential chain. |
+| `S3_ADDRESSING_STYLE` | `path` with `S3_ENDPOINT`, else `auto` | `path`, `virtual` or `auto`. |
+| `S3_URL_EXPIRES` | `3600` | Lifetime of the presigned URLs `upload()` and `get_url()` return, in seconds. |
+| `S3_PUBLIC_URL` | unset | Base URL of a public bucket or CDN. URLs become `S3_PUBLIC_URL/<key>` and nothing is presigned. |
 | `GCS_BUCKET` | unset | Required for the `gcs` backend. |
-| `STORAGE_BLOCKED_EXTENSIONS` | `html, htm, svg, xhtml, xml, js, mjs, php, phtml` | Extensions `LocalStorage.upload` refuses, because `static/` serves them with script-capable content types on your own origin. Setting this replaces the list. |
+| `STORAGE_BLOCKED_EXTENSIONS` | `html, htm, svg, xhtml, xml, js, mjs, php, phtml` | Extensions `upload` refuses on the `local` and `s3` backends, because they are served with script-capable content types. Setting this replaces the list. |
 | `STORAGE_ALLOWED_EXTENSIONS` | unset | Allow-list. Wins over the block list, so this is how you permit SVG. |
-| `CACHE_BACKEND`, `CACHE_URL` | `memory` | `memory` or `redis`. |
-| `JOB_BACKEND` | `thread` | `sync`, `thread` or `rq`. |
+| `CACHE_BACKEND` | automatic | `memory` or `redis`. |
+| `CACHE_BACKEND_FALLBACK` | `memory` | Backend when `CACHE_BACKEND` and `REDIS_URL` are both unset. |
+| `CACHE_URL` | `REDIS_URL` | Redis URL for the `redis` cache. |
+| `JOB_BACKEND` | automatic | `sync`, `thread` or `rq`. |
+| `JOB_BACKEND_FALLBACK` | `sync` | Backend when `JOB_BACKEND` and `REDIS_URL` are both unset. The scaffold sets `thread` for apps with background jobs. |
 | `JOB_MAX_WORKERS` | `4` | Thread pool size for the thread backend. |
 | `JOB_SERIALIZER` | pickle | Set to `json` for RQ. Pickle payloads are code execution for anyone who can write to Redis. |
 | `RATELIMIT_STORAGE_URI` | unset | Where Flask-Limiter keeps counters. Falls back to `REDIS_URL`, then to memory with a warning. |
-| `REDIS_URL` | unset | Required for the `rq` backend. |
+| `REDIS_URL` | unset | Redis for the `rq` and `redis` backends. Setting it selects them when `JOB_BACKEND` and `CACHE_BACKEND` are unset. |
+
+### Automatic backends
+
+When the app does not set a backend, Feather picks one from what the environment
+provides. A hosting platform that injects `REDIS_URL` or `S3_BUCKET` then works without
+further configuration.
+
+| Setting | 1. Explicit value | 2. Selected by | 3. Otherwise |
+| --- | --- | --- | --- |
+| `JOB_BACKEND` | always wins | `REDIS_URL` gives `rq` | `JOB_BACKEND_FALLBACK`, else `sync` |
+| `CACHE_BACKEND` | always wins | `REDIS_URL` gives `redis` | `CACHE_BACKEND_FALLBACK`, else `memory` |
+| `STORAGE_BACKEND` | always wins | `S3_BUCKET` gives `s3` | `STORAGE_BACKEND_FALLBACK`, else `local` |
+
+An explicit value is one set in `config.py` or in the environment. An empty string counts
+as unset. A `config.py` line such as `JOB_BACKEND = os.environ.get("JOB_BACKEND", "thread")`
+is explicit, so that app keeps `thread` whatever the environment holds. The scaffold writes
+`JOB_BACKEND = os.environ.get("JOB_BACKEND")` so the choice is left to Feather.
+
+The app resolves the three settings once at startup, writes the result back into
+`app.config`, and logs it at INFO:
+
+```text
+Backends: jobs=rq (REDIS_URL is set), cache=redis (REDIS_URL is set), storage=local (default)
+```
+
+<Warning>
+  With `REDIS_URL` set and `JOB_BACKEND` unset, jobs go to Redis and only run if a
+  `feather worker` process is consuming them. Set `JOB_BACKEND=thread` or `sync` when you
+  run no worker.
+</Warning>
 
 ## Development
 

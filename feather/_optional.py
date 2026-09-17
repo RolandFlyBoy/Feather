@@ -34,6 +34,7 @@ from typing import Optional
 EXTRAS: dict[str, tuple[str, ...]] = {
     "pdf": ("weasyprint",),
     "gcs": ("google-cloud-storage",),
+    "s3": ("boto3",),
     "postgres": ("psycopg2-binary",),
     "redis": ("redis", "rq"),
     "email": ("resend",),
@@ -47,6 +48,7 @@ EXTRAS: dict[str, tuple[str, ...]] = {
 EXTRA_DESCRIPTIONS: dict[str, str] = {
     "pdf": "PDF rendering (WeasyPrint)",
     "gcs": "Google Cloud Storage backend",
+    "s3": "S3 and S3-compatible storage backend (boto3)",
     "postgres": "PostgreSQL driver",
     "redis": "Redis cache and the RQ job backend",
     "email": "Transactional email (Resend)",
@@ -62,6 +64,8 @@ MODULE_PACKAGES: dict[str, tuple[str, Optional[str]]] = {
     "weasyprint": ("weasyprint", "pdf"),
     "google.cloud": ("google-cloud-storage", "gcs"),
     "google.cloud.storage": ("google-cloud-storage", "gcs"),
+    "boto3": ("boto3", "s3"),
+    "botocore": ("boto3", "s3"),
     "psycopg2": ("psycopg2-binary", "postgres"),
     "redis": ("redis", "redis"),
     "rq": ("rq", "redis"),

@@ -114,6 +114,7 @@ class FeatherGroup(click.Group):
         formatter.write_text(click.style("Job Commands:", bold=True))
         with formatter.indentation():
             formatter.write_dl([
+                ("jobs run", "Run a job once, now (for cron)"),
                 ("jobs list", "List jobs in the queue"),
                 ("jobs status", "Show queue status"),
                 ("jobs info", "Show job details"),

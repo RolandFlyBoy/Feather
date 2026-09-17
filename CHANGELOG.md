@@ -10,6 +10,68 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+- **S3 storage backend, `STORAGE_BACKEND=s3`.** Works with AWS S3 and with
+  S3-compatible services (MinIO, Garage, Cloudflare R2, Hetzner) through
+  `S3_ENDPOINT`. Keys: `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`,
+  `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (both unset means the boto3
+  credential chain), `S3_ADDRESSING_STYLE` (`path` when `S3_ENDPOINT` is set,
+  else `auto`), `S3_URL_EXPIRES` (3600) and `S3_PUBLIC_URL`. Buckets are
+  treated as private: `upload()` and `get_url()` return presigned GET URLs
+  unless `S3_PUBLIC_URL` is set. With a custom endpoint, boto3 only sends and
+  checks checksums where an operation requires them, since the defaults boto3
+  1.36 introduced break most S3-compatible services. Uploads use the same
+  extension block and allow lists as local storage, and unsafe keys are
+  refused before any request. New `s3` extra (boto3), included in `all`.
+- **Backends are chosen from what the environment provides.** When the app
+  does not set them, `REDIS_URL` selects `JOB_BACKEND=rq` and
+  `CACHE_BACKEND=redis`, and `S3_BUCKET` selects `STORAGE_BACKEND=s3`. An
+  explicit value in `config.py` or the environment always wins. Otherwise
+  `JOB_BACKEND_FALLBACK`, `CACHE_BACKEND_FALLBACK` and
+  `STORAGE_BACKEND_FALLBACK` apply, then `sync`, `memory` and `local`. The
+  app resolves them once at startup, writes the result into `app.config` and
+  logs it at INFO (`Backends: jobs=rq (REDIS_URL is set), ...`).
+  `feather.core.config.resolve_backend()` exposes the same rule.
+- **`CACHE_URL` defaults to `REDIS_URL`.** Before, `CACHE_BACKEND=redis`
+  without `CACHE_URL` connected to localhost even when `REDIS_URL` was set.
+- **`feather jobs run NAME`** runs one `@job` function synchronously in the
+  app context, in the current process, for cron-style schedulers on any
+  platform. `NAME` is the function name or dotted path; `--arg VALUE` and
+  `--kwarg KEY=VALUE` pass arguments (JSON-decoded when they parse). It prints
+  one line and exits 1 if the job raises. `@job` now records each function in
+  a registry (`feather.jobs.registered_jobs()`, `find_job()`).
+- **Scaffold.** `config.py` leaves `JOB_BACKEND`, `CACHE_BACKEND` and
+  `STORAGE_BACKEND` unset. Apps with background jobs get
+  `JOB_BACKEND_FALLBACK = "thread"` and apps with storage get
+  `STORAGE_BACKEND_FALLBACK = "gcs"`, so without Redis or S3 they behave as
+  before. The generated `.env` keeps its explicit development values, so local
+  development is unchanged. New apps get a `README.md` with a Deploy section,
+  and the storage `.env` lists the S3 keys, commented out.
+- **`feather docker init`** sets `JOB_BACKEND: sync` on the web service when
+  compose has Redis but no worker, because `REDIS_URL` alone would now queue
+  jobs that nothing runs.
+- **`feather security-check`** checks the job serializer whenever jobs run on
+  rq, including when `REDIS_URL` selected it.
+
+Upgrade notes
+
+- **Apps that set `REDIS_URL` without setting `JOB_BACKEND` or
+  `CACHE_BACKEND` now get `rq` and `redis`.** That includes apps without a
+  `config.py` and apps whose `config.py` does not mention those keys. Jobs
+  then wait in Redis for a `feather worker`. To keep the old behaviour, set
+  the backend explicitly, in `config.py`
+  (`JOB_BACKEND = os.environ.get("JOB_BACKEND", "thread")`) or in the
+  environment (`JOB_BACKEND=thread`, `CACHE_BACKEND=memory`).
+- **Apps that set `S3_BUCKET` without `STORAGE_BACKEND`** now get the `s3`
+  backend and need the `s3` extra. Set `STORAGE_BACKEND=local` to keep local
+  files.
+- A `config.py` that already hard-defaults a backend, such as
+  `os.environ.get("JOB_BACKEND", "thread")`, is explicit and keeps working
+  exactly as before.
+- The built-in `Config` no longer defaults `STORAGE_BACKEND`,
+  `CACHE_BACKEND` and `JOB_BACKEND` to strings. Read the resolved value from
+  `app.config` after the app is created, not from `feather.core.config.Config`.
+- Every command that imports the app logs one `Backends:` line to stderr.
+
 ## 0.9.14 (2026-09-16) — the scaffold knows about 0.9.13
 
 Documentation and scaffold only; upgrading from 0.9.13 is a pin bump.

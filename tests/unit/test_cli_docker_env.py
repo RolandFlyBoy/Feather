@@ -498,11 +498,23 @@ class TestJobEnvOnBothServices:
         assert compose.count("JOB_BACKEND: rq") == 2
         assert compose.count("JOB_SERIALIZER: json") == 2
 
-    def test_no_job_env_without_a_worker(self):
+    def test_no_job_env_without_a_worker_or_redis(self):
+        compose = next(
+            f
+            for f in docker_files("demo", worker=False, redis=False)
+            if f.path == "docker-compose.yml"
+        ).content
+        assert "JOB_BACKEND" not in compose
+        assert "JOB_SERIALIZER" not in compose
+
+    def test_redis_without_a_worker_pins_sync_jobs(self):
+        """REDIS_URL alone selects rq, and with no worker queued jobs never run."""
         compose = next(
             f for f in docker_files("demo", worker=False) if f.path == "docker-compose.yml"
         ).content
-        assert "JOB_BACKEND" not in compose
+        assert "REDIS_URL: redis://redis:6379/0" in compose
+        assert compose.count("JOB_BACKEND: sync") == 1
+        assert "JOB_BACKEND: rq" not in compose
         assert "JOB_SERIALIZER" not in compose
 
 

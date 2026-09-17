@@ -63,7 +63,13 @@ from dotenv import find_dotenv, load_dotenv
 from flask_wtf.csrf import CSRFProtect
 from jinja2 import ChoiceLoader, FileSystemLoader
 
-from feather.core.config import load_config, parse_trusted_hosts
+from feather.core.config import (
+    AUTO_BACKENDS,
+    config_lookup,
+    load_config,
+    parse_trusted_hosts,
+    resolve_backend,
+)
 from feather.core.discovery import discover_models, discover_routes, discover_services
 from feather.core.decorators import api, page
 from feather.core.helpers import setup_template_helpers
@@ -235,6 +241,7 @@ class Feather(Flask):
         # Step 10: Setup logging (JSON format in production)
         json_logging = os.environ.get("FLASK_ENV") == "production"
         setup_logging(self, json_format=json_logging)
+        self._log_backends()
 
         # Step 11: Security headers (production only)
         init_security_headers(self)
@@ -263,7 +270,35 @@ class Feather(Flask):
         # Disable SQLAlchemy modification tracking for performance
         self.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
+        self._resolve_backends()
         self._warn_if_defaulting_to_development(config, config_class)
+
+    def _resolve_backends(self) -> None:
+        """Settle JOB_BACKEND, CACHE_BACKEND and STORAGE_BACKEND once.
+
+        An explicit value wins; otherwise REDIS_URL selects rq and redis and
+        S3_BUCKET selects s3 (see :func:`feather.core.config.resolve_backend`).
+        The result is written back into ``app.config`` so app code and every
+        backend read the same answer, and logged once after logging is set up.
+        """
+        lookup = config_lookup(self.config)
+        choices = {}
+        for key in AUTO_BACKENDS:
+            backend, reason = resolve_backend(key, lookup)
+            self.config[key] = backend
+            choices[key] = (backend, reason)
+        self.extensions["feather"]["backend_choices"] = choices
+
+    def _log_backends(self) -> None:
+        """Log the resolved backends at INFO, once per app."""
+        choices = self.extensions["feather"].get("backend_choices") or {}
+        if not choices:
+            return
+        labels = {"JOB_BACKEND": "jobs", "CACHE_BACKEND": "cache", "STORAGE_BACKEND": "storage"}
+        summary = ", ".join(
+            f"{labels[key]}={backend} ({reason})" for key, (backend, reason) in choices.items()
+        )
+        self.logger.info("Backends: %s", summary)
 
     def _warn_if_defaulting_to_development(self, config, config_class) -> None:
         """Warn once at startup when the development config was picked by default.

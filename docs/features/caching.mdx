@@ -15,6 +15,9 @@ CACHE_URL=redis://localhost:6379/0
 CACHE_DEFAULT_TTL=300      # seconds
 ```
 
+`CACHE_URL` defaults to `REDIS_URL`. When `CACHE_BACKEND` is unset, `REDIS_URL` selects
+`redis`. See [automatic backends](/reference/configuration#automatic-backends).
+
 ## Caching function results
 
 Results are keyed by the function's arguments, so each distinct call gets its own entry.

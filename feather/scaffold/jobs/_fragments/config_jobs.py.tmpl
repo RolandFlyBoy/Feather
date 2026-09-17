@@ -1,9 +1,11 @@
 
-    # Background Jobs (thread pool for background execution)
+    # Background Jobs. Unset, Feather uses rq when REDIS_URL is set, otherwise
+    # JOB_BACKEND_FALLBACK (a thread pool in this process).
     # Note: the thread backend needs FLASK_DEBUG=0 - the Flask reloader restarts
     # the process on every file change and kills running jobs. Use JOB_BACKEND=sync
     # if you want the reloader while developing.
-    JOB_BACKEND = os.environ.get("JOB_BACKEND", "thread")
+    JOB_BACKEND = os.environ.get("JOB_BACKEND")
+    JOB_BACKEND_FALLBACK = "thread"
     JOB_MAX_WORKERS = int(os.environ.get("JOB_MAX_WORKERS", "2"))
 
     # RQ payload serializer: json refuses to unpickle arbitrary objects off the

@@ -97,7 +97,7 @@ import warnings
 
 from feather.cache.base import CacheBackend
 from feather.cache.decorators import cached, cache_response, invalidate_cache
-from feather.core.config import get_setting
+from feather.core.config import get_setting, resolve_backend
 from feather.core.registry import get_backend, set_backend
 
 #: Registry key for the per-app cache.
@@ -109,10 +109,12 @@ def _build_cache(app) -> CacheBackend:
 
     Configuration comes from :func:`feather.core.config.get_setting`: the
     app config first, the environment when the app has no value (or when
-    there is no app at all). Defaults are unchanged from 0.9.7.
+    there is no app at all). With no CACHE_BACKEND, REDIS_URL selects redis;
+    see :func:`feather.core.config.resolve_backend`. The redis backend
+    connects to CACHE_URL, or REDIS_URL when CACHE_URL is unset.
     """
-    backend = get_setting("CACHE_BACKEND", "memory")
-    cache_url = get_setting("CACHE_URL", None)
+    backend, _ = resolve_backend("CACHE_BACKEND")
+    cache_url = get_setting("CACHE_URL", None) or get_setting("REDIS_URL", None)
     default_ttl = get_setting("CACHE_DEFAULT_TTL", 300, cast=int)
 
     if backend == "redis":
@@ -137,8 +139,9 @@ def get_cache() -> CacheBackend:
         CacheBackend instance.
 
     Configuration:
-        CACHE_BACKEND: 'memory' (default) or 'redis'
-        CACHE_URL: Redis connection URL (for redis backend)
+        CACHE_BACKEND: 'memory' or 'redis'. Unset: 'redis' when REDIS_URL
+            is set, otherwise CACHE_BACKEND_FALLBACK or 'memory'
+        CACHE_URL: Redis connection URL (for redis backend; default REDIS_URL)
         CACHE_DEFAULT_TTL: Default TTL in seconds (default: 300)
 
     Example::

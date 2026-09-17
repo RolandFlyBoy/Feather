@@ -428,6 +428,12 @@ _JOB_ENV = """      JOB_BACKEND: rq
       JOB_SERIALIZER: json
 """
 
+#: Redis without a worker container. REDIS_URL alone would select the rq job
+#: backend, and with no worker nothing would ever run the queued jobs.
+_NO_WORKER_JOB_ENV = """      # No worker container, so jobs run in the request rather than on rq.
+      JOB_BACKEND: sync
+"""
+
 
 def _compose_depends(database: bool, redis: bool) -> str:
     if not database and not redis:
@@ -452,7 +458,7 @@ def render_compose(
     """Return the production docker-compose.yml body."""
     extra_env = _compose_service_env(database, redis, app_slug)
     depends = _compose_depends(database, redis)
-    job_env = _JOB_ENV if worker else ""
+    job_env = _JOB_ENV if worker else (_NO_WORKER_JOB_ENV if redis else "")
 
     body = _fill(
         _COMPOSE_HEAD,

@@ -419,7 +419,11 @@ def check_csrf(settings: Settings) -> Check:
 
 
 def check_job_serializer(settings: Settings) -> Check:
-    backend = str(settings.get("JOB_BACKEND", "sync")).lower()
+    from feather.core.config import resolve_backend
+
+    # An unset JOB_BACKEND with REDIS_URL set runs on rq, so check it as rq.
+    backend, _ = resolve_backend("JOB_BACKEND", lambda key: settings.get(key))
+    backend = str(backend).lower()
     if backend != "rq":
         return Check("job_serializer", SKIP, f"JOB_BACKEND is '{backend}'; serializer not checked")
 

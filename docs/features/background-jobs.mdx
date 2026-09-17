@@ -65,6 +65,9 @@ REDIS_URL=redis://localhost:6379/0
 
 </CodeGroup>
 
+When `JOB_BACKEND` is unset, `REDIS_URL` selects `rq`. See
+[automatic backends](/reference/configuration#automatic-backends).
+
 <Warning>
   **Using the thread backend in development?** Set `FLASK_DEBUG=0` in `.env`. Flask's
   auto-reloader restarts the process on every file change and kills running threads, so
@@ -166,6 +169,16 @@ def cleanup_temp_files():
 ```bash
 pip install rq-scheduler
 rqscheduler --url redis://localhost:6379/0
+```
+
+### From a platform scheduler
+
+When your host runs cron jobs as commands, point it at
+[`feather jobs run`](/reference/cli#run-a-job-once). It runs one `@job` function in the
+current process, on any backend, and exits non-zero if the job raises.
+
+```bash
+feather jobs run daily_digest
 ```
 
 ## Workers as services

@@ -298,7 +298,8 @@ class TestAppMode:
         (project / "app.py").write_text("from feather import Feather\napp = Feather(__name__)\n")
 
         result = run("--json")
-        data = json.loads(result.output)
+        # stdout only: importing the app logs its startup lines to stderr.
+        data = json.loads(result.stdout)
         by_name = {c["name"]: c for c in data["checks"]}
 
         assert data["mode"] == "app"

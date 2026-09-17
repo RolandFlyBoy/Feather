@@ -134,7 +134,7 @@ import warnings
 from functools import wraps
 from typing import Any, Callable, Optional
 
-from feather.core.config import as_bool, get_setting
+from feather.core.config import as_bool, get_setting, resolve_backend
 from feather.core.registry import get_backend, set_backend
 from feather.jobs.base import JobQueue, JobResult, JobStatus
 from feather.jobs.scheduler import schedule, scheduled, get_scheduled_jobs, setup_scheduler
@@ -142,15 +142,78 @@ from feather.jobs.scheduler import schedule, scheduled, get_scheduled_jobs, setu
 #: Registry key for the per-app queue.
 _QUEUE_KEY = "queue"
 
+#: Every @job function, by dotted path (``services.reports.send_digest``).
+#: Filled as modules are imported, which for an app means at startup when
+#: services and routes are discovered. Read by ``feather jobs run``.
+_JOB_REGISTRY: dict[str, Callable] = {}
+
+
+def registered_jobs() -> dict[str, Callable]:
+    """Return every @job function imported so far, by dotted path."""
+    return dict(_JOB_REGISTRY)
+
+
+def find_job(name: str) -> Callable:
+    """Resolve a job by function name or dotted path.
+
+    Looks in the registry of imported @job functions first: a full dotted
+    path, then a trailing part of one (``send_digest`` or
+    ``reports.send_digest``). A dotted path that is not registered yet is
+    imported (``module.function``).
+
+    Args:
+        name: Function name or dotted path.
+
+    Returns:
+        The @job-decorated function.
+
+    Raises:
+        LookupError: If no job matches, or a bare name matches more than one.
+
+    Example::
+
+        find_job("send_digest")
+        find_job("services.reports.send_digest")
+    """
+    name = name.strip()
+    if name in _JOB_REGISTRY:
+        return _JOB_REGISTRY[name]
+
+    matches = sorted(path for path in _JOB_REGISTRY if path.endswith("." + name))
+    if len(matches) == 1:
+        return _JOB_REGISTRY[matches[0]]
+    if len(matches) > 1:
+        raise LookupError(
+            f"'{name}' matches more than one job: {', '.join(matches)}. Use the dotted path."
+        )
+
+    if "." in name:
+        import importlib
+
+        module_name, _, attr = name.rpartition(".")
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            module = None
+        candidate = getattr(module, attr, None) if module is not None else None
+        if candidate is not None:
+            if callable(candidate) and hasattr(candidate, "enqueue") and hasattr(candidate, "_original_func"):
+                return candidate
+            raise LookupError(f"'{name}' is not decorated with @job.")
+
+    known = ", ".join(sorted(_JOB_REGISTRY)) or "none imported"
+    raise LookupError(f"No job named '{name}'. Registered jobs: {known}.")
+
 
 def _build_queue(app) -> JobQueue:
     """Create the queue backend this app's configuration asks for.
 
     Configuration comes from :func:`feather.core.config.get_setting`: the
     app config first, the environment when the app has no value (or when
-    there is no app at all). Defaults are unchanged from 0.9.7.
+    there is no app at all). With no JOB_BACKEND, REDIS_URL selects rq; see
+    :func:`feather.core.config.resolve_backend`.
     """
-    backend = get_setting("JOB_BACKEND", "sync")
+    backend, _ = resolve_backend("JOB_BACKEND")
     redis_url = get_setting("REDIS_URL", None)
     max_workers = get_setting("JOB_MAX_WORKERS", 4, cast=int)
     enable_monitoring = get_setting("JOB_ENABLE_MONITORING", False, cast=as_bool)
@@ -193,7 +256,8 @@ def get_queue() -> JobQueue:
         JobQueue instance.
 
     Configuration:
-        JOB_BACKEND: 'sync' (default), 'thread', or 'rq'
+        JOB_BACKEND: 'sync', 'thread', or 'rq'. Unset: 'rq' when REDIS_URL
+            is set, otherwise JOB_BACKEND_FALLBACK or 'sync'
         JOB_SERIALIZER: 'pickle' (default) or 'json' (rq backend; safer)
         JOB_MAX_WORKERS: Thread pool size (for thread backend)
         JOB_ENABLE_MONITORING: Enable psutil resource tracking (thread backend)
@@ -419,6 +483,8 @@ def job(
 
         wrapper.enqueue = registered_enqueue
 
+        _JOB_REGISTRY[f"{f.__module__}.{f.__qualname__}"] = wrapper
+
         return wrapper
 
     # Support both @job and @job() syntax
@@ -437,6 +503,8 @@ __all__ = [
     "JobStatus",
     # Decorator
     "job",
+    "find_job",
+    "registered_jobs",
     # Scheduler
     "schedule",
     "scheduled",

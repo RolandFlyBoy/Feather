@@ -27,7 +27,17 @@ FRAMEWORK_KEYS = ("FLASK_ENV", "FLASK_CONFIG", "FLASK_DEBUG", "SECRET_KEY")
 
 #: Keys Feather supplies a default for, so a config.py reading them with no
 #: fallback is not actually missing anything when they are unset.
-FRAMEWORK_DEFAULTED = {"FLASK_ENV", "FLASK_CONFIG", "FLASK_DEBUG"}
+#: The three backends are among them: unset, Feather chooses one (see
+#: feather.core.config.resolve_backend), which is why the scaffold reads them
+#: with no fallback.
+FRAMEWORK_DEFAULTED = {
+    "FLASK_ENV",
+    "FLASK_CONFIG",
+    "FLASK_DEBUG",
+    "JOB_BACKEND",
+    "CACHE_BACKEND",
+    "STORAGE_BACKEND",
+}
 
 
 class EnvRef:

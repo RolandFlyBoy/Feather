@@ -93,7 +93,7 @@ def get_setting(key: str, default=None, cast: Optional[Callable] = None):
 
     Example::
 
-        backend = get_setting("JOB_BACKEND", "sync")
+        ttl = get_setting("CACHE_DEFAULT_TTL", 300, cast=int)
         workers = get_setting("JOB_MAX_WORKERS", 4, cast=int)
         monitor = get_setting("JOB_ENABLE_MONITORING", False, cast=as_bool)
     """
@@ -164,19 +164,88 @@ def _env_config_values() -> dict:
         # Vite dev server (used for island scripts in debug mode)
         "VITE_DEV_SERVER": os.environ.get("VITE_DEV_SERVER", "http://localhost:5173"),
         # Storage (optional)
-        "STORAGE_BACKEND": os.environ.get("STORAGE_BACKEND", "local"),
+        # The three backends stay None when unset so resolve_backend() can
+        # choose from what the environment provides (REDIS_URL, S3_BUCKET).
+        "STORAGE_BACKEND": os.environ.get("STORAGE_BACKEND") or None,
         "GCS_BUCKET": os.environ.get("GCS_BUCKET"),
         # Cache (optional)
-        "CACHE_BACKEND": os.environ.get("CACHE_BACKEND", "memory"),
+        "CACHE_BACKEND": os.environ.get("CACHE_BACKEND") or None,
         "CACHE_URL": os.environ.get("CACHE_URL"),
         "CACHE_DEFAULT_TTL": int(os.environ.get("CACHE_DEFAULT_TTL", "300")),
         # Background Jobs (optional)
-        "JOB_BACKEND": os.environ.get("JOB_BACKEND", "sync"),
+        "JOB_BACKEND": os.environ.get("JOB_BACKEND") or None,
         "REDIS_URL": os.environ.get("REDIS_URL"),
         "JOB_MAX_WORKERS": int(os.environ.get("JOB_MAX_WORKERS", "4")),
         "JOB_ENABLE_MONITORING": os.environ.get("JOB_ENABLE_MONITORING", "").lower()
         in ("true", "1", "yes"),
     }
+
+
+#: Backend setting -> (key whose presence selects a backend, that backend,
+#: backend when nothing selects one). See :func:`resolve_backend`.
+AUTO_BACKENDS: dict[str, tuple[str, str, str]] = {
+    "JOB_BACKEND": ("REDIS_URL", "rq", "sync"),
+    "CACHE_BACKEND": ("REDIS_URL", "redis", "memory"),
+    "STORAGE_BACKEND": ("S3_BUCKET", "s3", "local"),
+}
+
+
+def _is_set(value) -> bool:
+    return value is not None and not (isinstance(value, str) and value.strip() == "")
+
+
+def resolve_backend(key: str, lookup: Optional[Callable] = None) -> tuple[str, str]:
+    """Choose the job, cache or storage backend.
+
+    Order:
+
+    1. An explicit value (``JOB_BACKEND``, ``CACHE_BACKEND`` or
+       ``STORAGE_BACKEND`` in the app config or the environment) always wins.
+    2. Otherwise the backend the environment provides for:
+       ``REDIS_URL`` selects ``rq`` jobs and the ``redis`` cache, and
+       ``S3_BUCKET`` selects ``s3`` storage.
+    3. Otherwise ``<KEY>_FALLBACK`` when the app sets one (the scaffold sets
+       ``JOB_BACKEND_FALLBACK = "thread"``), else the framework default:
+       ``sync``, ``memory``, ``local``.
+
+    Args:
+        key: One of :data:`AUTO_BACKENDS`.
+        lookup: ``lookup(name)`` returning a configured value or ``None``.
+            Defaults to :func:`get_setting` (app config, then environment).
+
+    Returns:
+        ``(backend, reason)``, where reason says where the choice came from,
+        e.g. ``("rq", "REDIS_URL is set")``.
+
+    Example::
+
+        backend, reason = resolve_backend("JOB_BACKEND")
+    """
+    trigger, selected, default = AUTO_BACKENDS[key]
+    lookup = lookup or get_setting
+
+    explicit = lookup(key)
+    if _is_set(explicit):
+        return str(explicit).strip(), f"{key} is set"
+    if _is_set(lookup(trigger)):
+        return selected, f"{trigger} is set"
+    fallback = lookup(f"{key}_FALLBACK")
+    if _is_set(fallback):
+        return str(fallback).strip(), f"{key}_FALLBACK"
+    return default, "default"
+
+
+def config_lookup(config) -> Callable:
+    """A :func:`resolve_backend` lookup over one config mapping, then the environment."""
+
+    def lookup(name):
+        value = config.get(name) if config is not None else None
+        if _is_set(value):
+            return value
+        raw = os.environ.get(name)
+        return raw if _is_set(raw) else None
+
+    return lookup
 
 
 def parse_trusted_hosts(value):

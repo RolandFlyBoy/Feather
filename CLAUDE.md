@@ -110,7 +110,7 @@ feather/
 ├── events/           # Event dispatcher
 ├── jobs/             # Sync, thread, and RQ backends
 ├── cache/            # Memory and Redis backends
-├── storage/          # Local and GCS backends
+├── storage/          # Local, S3 and GCS backends
 ├── exceptions/       # Exception hierarchy
 ├── serializers/      # JSON serialization
 ├── templates/        # Framework components and error pages

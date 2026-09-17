@@ -1,5 +1,10 @@
 """CLI commands for job queue management."""
 
+import json
+import sys
+import time
+import traceback
+
 import click
 from datetime import datetime, timezone
 
@@ -320,3 +325,83 @@ def queue_status():
             for task_name, info in sem_status.items():
                 available = "available" if info.get("available") else "at capacity"
                 click.echo(f"  {task_name}: {available}")
+
+
+def _parse_value(raw: str):
+    """JSON-decode a CLI value when it is valid JSON, else keep the string.
+
+    ``30`` becomes an int, ``true`` a bool, ``[1, 2]`` a list; ``weekly``
+    and ``007`` stay strings.
+    """
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return raw
+
+
+def _parse_kwargs(pairs) -> dict:
+    kwargs = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        key = key.strip()
+        if not sep or not key.isidentifier():
+            raise click.BadParameter(f"expected KEY=VALUE, got '{pair}'", param_hint="--kwarg")
+        kwargs[key] = _parse_value(value)
+    return kwargs
+
+
+@jobs.command("run")
+@click.argument("name")
+@click.option("--arg", "args", multiple=True, metavar="VALUE",
+              help="Positional argument for the job. Repeat for more.")
+@click.option("--kwarg", "kwargs", multiple=True, metavar="KEY=VALUE",
+              help="Keyword argument for the job. Repeat for more.")
+def run_job(name, args, kwargs):
+    """Run one @job function now, in this process.
+
+    For cron-style schedulers: the job runs synchronously inside the app
+    context, bypassing the queue, and the command exits 1 if it raises.
+    NAME is the function name or its dotted path. Values that parse as JSON
+    (numbers, true/false, null, lists) are decoded; anything else is a string.
+
+    \b
+    Examples:
+      feather jobs run cleanup_sessions
+      feather jobs run send_digest --arg weekly
+      feather jobs run services.reports.build --kwarg days=7
+    """
+    from feather.cli.worker import _get_app
+    from feather.jobs import find_job
+
+    call_kwargs = _parse_kwargs(kwargs)
+    call_args = [_parse_value(value) for value in args]
+
+    app = _get_app()
+    with app.app_context():
+        try:
+            func = find_job(name)
+        except LookupError as exc:
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(2)
+
+        label = f"{func.__module__}.{func.__qualname__}"
+        started = time.monotonic()
+        try:
+            result = func(*call_args, **call_kwargs)
+        except Exception as exc:  # noqa: BLE001 - report any failure and exit non-zero
+            elapsed = time.monotonic() - started
+            traceback.print_exc(file=sys.stderr)
+            click.echo(
+                f"Job {label} failed after {elapsed:.2f}s: {type(exc).__name__}: {exc}",
+                err=True,
+            )
+            sys.exit(1)
+        elapsed = time.monotonic() - started
+
+    line = f"Job {label} finished in {elapsed:.2f}s"
+    if result is not None:
+        text = repr(result)
+        if len(text) > 200:
+            text = text[:197] + "..."
+        line += f": {text}"
+    click.echo(line)

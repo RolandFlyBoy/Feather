@@ -58,6 +58,9 @@ dependencies = [
 # actually uses: pip install 'feather-framework[redis,postgres]'
 pdf = ["weasyprint>=70"]                     # feather PDF rendering
 gcs = ["google-cloud-storage>=3.0.0"]        # STORAGE_BACKEND=gcs
+# 1.36 added the checksum settings the S3 backend turns down for
+# S3-compatible endpoints.
+s3 = ["boto3>=1.36.0"]                       # STORAGE_BACKEND=s3
 postgres = ["psycopg2-binary>=2.9.0"]        # postgresql:// DATABASE_URL
 redis = [                                    # CACHE_BACKEND=redis, JOB_BACKEND=rq
     "redis>=7.0.0",
@@ -71,11 +74,11 @@ test = [                                     # the app's own test suite
     "pytest-cov>=6.0.0",
 ]
 all = [
-    "feather-framework[pdf,gcs,postgres,redis,email,ratelimit,prod,test]",
+    "feather-framework[pdf,gcs,s3,postgres,redis,email,ratelimit,prod,test]",
 ]
 dev = [
     # Framework development: every extra (the framework test suite imports
-    # rq, redis and google-cloud-storage) plus the formatters.
+    # rq, redis, google-cloud-storage and boto3) plus the formatters.
     "feather-framework[all]",
     "black>=25.0.0",
     "ruff>=0.14.0",

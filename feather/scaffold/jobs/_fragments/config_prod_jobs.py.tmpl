@@ -7,7 +7,9 @@
         workers will execute. Warning only - some deployments keep Redis on a
         private network instead of using a password.
         """
-        if os.environ.get("JOB_BACKEND", "thread") != "rq":
+        from feather.core.config import resolve_backend
+
+        if resolve_backend("JOB_BACKEND")[0] != "rq":
             return
 
         redis_url = os.environ.get("REDIS_URL", "")

@@ -115,6 +115,28 @@ feather jobs retry <job_id>     # re-queue a failed job
 feather jobs clear              # clear job history
 ```
 
+### Run a job once
+
+```bash
+feather jobs run cleanup_sessions                     # by function name
+feather jobs run services.reports.send_digest         # by dotted path
+feather jobs run send_digest --arg weekly --arg 7     # positional arguments
+feather jobs run send_digest --kwarg dry_run=true     # keyword arguments
+```
+
+`feather jobs run` is for cron-style schedulers on any platform. It imports the app, finds
+the `@job` function, and calls it synchronously inside the app context in the current
+process. The queue is not involved, so it works with every backend and needs no worker.
+
+`NAME` is the function name or its dotted path. A name that matches jobs in two modules is
+refused; use the dotted path. Values that parse as JSON (`7`, `true`, `null`, `[1, 2]`) are
+decoded, and everything else is passed as a string.
+
+The command prints one line, such as `Job services.reports.send_digest finished in 0.84s`,
+followed by the return value when there is one. If the job raises, the traceback goes to
+stderr and the command exits 1. An unknown job exits 2. The job runs once: `retry` and
+`timeout` from `@job` do not apply.
+
 ## Administration (multi-tenant)
 
 ```bash

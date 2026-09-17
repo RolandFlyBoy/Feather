@@ -1,5 +1,7 @@
 
-    # File Storage (Google Cloud Storage)
-    STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "__FEATHER_STORAGE_BACKEND__")
+    # File storage. Unset, Feather uses s3 when S3_BUCKET is set, otherwise
+    # STORAGE_BACKEND_FALLBACK.
+    STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND")
+    STORAGE_BACKEND_FALLBACK = "__FEATHER_STORAGE_BACKEND__"
     GCS_BUCKET = os.environ.get("GCS_BUCKET")
     GCS_CREDENTIALS_JSON = os.environ.get("GCS_CREDENTIALS_JSON")
