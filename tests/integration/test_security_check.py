@@ -188,8 +188,15 @@ class TestEnvFileMode:
         assert result.exit_code == 1
         assert parse(result)["env_in_gitignore"][0] == "FAIL"
 
+        # A git checkout with no .gitignore at all still fails...
         (project / ".gitignore").unlink()
+        (project / ".git").mkdir()
         assert parse(run())["env_in_gitignore"][0] == "FAIL"
+
+        # ...but a directory that isn't a checkout (a built image, where the
+        # generated .dockerignore drops .git and .gitignore) is skipped.
+        (project / ".git").rmdir()
+        assert parse(run())["env_in_gitignore"][0] == "SKIP"
 
     def test_production_checks_skipped_outside_production(self, project):
         write_env(project, FLASK_ENV="development", SECRET_KEY=STRONG_KEY, FLASK_DEBUG="1")

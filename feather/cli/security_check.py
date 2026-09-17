@@ -548,6 +548,11 @@ def check_extras() -> Check:
 def check_env_in_gitignore(project_dir: Path) -> Check:
     gitignore = project_dir / ".gitignore"
     remedy = "Add a line '.env' to .gitignore so secrets never reach the repository"
+    if not (project_dir / ".git").exists() and not gitignore.exists():
+        # A built image or a copied release: no repository for .env to reach.
+        # The generated .dockerignore leaves .git and .gitignore out of images,
+        # so failing here refused to start every containerised app.
+        return Check("env_in_gitignore", SKIP, "Not a git checkout; .gitignore not checked")
     if not gitignore.exists():
         return Check("env_in_gitignore", FAIL, "No .gitignore in the project", remedy)
 

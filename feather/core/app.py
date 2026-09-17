@@ -270,8 +270,34 @@ class Feather(Flask):
         # Disable SQLAlchemy modification tracking for performance
         self.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
+        self._secure_cookie_defaults(config)
         self._resolve_backends()
         self._warn_if_defaulting_to_development(config, config_class)
+
+    #: Cookie settings production gets when the app's config doesn't set them.
+    #: Flask and Flask-Login default to cookies that travel over plain HTTP and
+    #: can be read by JavaScript, which the startup security check refuses.
+    SECURE_COOKIE_DEFAULTS = {
+        "SESSION_COOKIE_SECURE": True,
+        "SESSION_COOKIE_HTTPONLY": True,
+        "SESSION_COOKIE_SAMESITE": "Lax",
+        "REMEMBER_COOKIE_SECURE": True,
+        "REMEMBER_COOKIE_HTTPONLY": True,
+        "REMEMBER_COOKIE_SAMESITE": "Lax",
+    }
+
+    def _secure_cookie_defaults(self, config) -> None:
+        """In production, make cookies HTTPS-only and HttpOnly unless the
+        app's config class sets them itself (its values always win)."""
+        if self.config.get("DEBUG") or self.config.get("TESTING"):
+            return
+        name = getattr(config, "__name__", "") or ""
+        wanted = " ".join(str(os.environ.get(k) or "") for k in ("FLASK_CONFIG", "FLASK_ENV")).lower()
+        if "prod" not in wanted and "Production" not in name:
+            return
+        for key, value in self.SECURE_COOKIE_DEFAULTS.items():
+            if not hasattr(config, key):
+                self.config[key] = value
 
     def _resolve_backends(self) -> None:
         """Settle JOB_BACKEND, CACHE_BACKEND and STORAGE_BACKEND once.

@@ -10,6 +10,24 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.16 (2026-09-17) — a new app starts in production
+
+Found deploying a freshly scaffolded app on Appentic. Upgrading from 0.9.15 is a
+pin bump.
+
+- **Production cookies are secure by default.** A new simple app's
+  `ProductionConfig` set no cookie flags, so `feather start` refused to start:
+  the startup security check failed on `SESSION_COOKIE_SECURE`,
+  `REMEMBER_COOKIE_SECURE` and `REMEMBER_COOKIE_HTTPONLY`. In production (a
+  `ProductionConfig`, or `FLASK_CONFIG`/`FLASK_ENV` naming production, and
+  neither `DEBUG` nor `TESTING`), the session and remember-me cookies are now
+  Secure, HttpOnly and SameSite=Lax unless the config class sets them itself.
+- **The `.gitignore` check skips outside a git checkout.** The generated
+  `.dockerignore` leaves `.git` and `.gitignore` out of the image, so inside
+  every container the check failed with "No .gitignore in the project" and
+  the app refused to start. With neither `.git` nor `.gitignore` present it now
+  reports SKIP.
+
 ## 0.9.15 (2026-09-17) — at home on Appentic
 
 - **S3 storage backend, `STORAGE_BACKEND=s3`.** Works with AWS S3 and with
