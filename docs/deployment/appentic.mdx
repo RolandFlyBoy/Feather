@@ -18,11 +18,15 @@ You pay for the machine plus a flat monthly fee per service. See
 
 - The app is in a GitHub repository with the generated `Dockerfile` at its root. An older
   app can add it with `feather docker init`.
+- Your migrations are committed. `feather new` leaves `migrations/versions` empty, so
+  generate the first one locally and commit it, or the release command has nothing to
+  apply and your app starts against an empty database.
 - You have an Appentic account with credits.
 
-Run the checks locally first:
+Run this locally first:
 
 ```bash
+feather db migrate -m "Initial migration"   # if migrations/versions is empty
 feather check
 feather security-check
 feather env check    # every key config.py reads, and which are unset
@@ -55,6 +59,10 @@ feather env check    # every key config.py reads, and which are unset
 
     The **Release command** is `feather db upgrade` and the **Health check path** is
     `/health/ready`.
+
+    <Frame caption="The new web service form, with the Feather setup it filled in">
+      <img src="/images/appentic/setup-form.png" alt="Feather app options on the new web service form: Postgres database, key value store, background worker and SECRET_KEY, with the release command feather db upgrade and health check path /health/ready" />
+    </Frame>
   </Step>
 
   <Step title="Add your own variables" icon="sliders-horizontal">
@@ -64,13 +72,42 @@ feather env check    # every key config.py reads, and which are unset
 
   <Step title="Deploy" icon="rocket">
     Click **Deploy service**. The service's **Events** page shows the database and store
-    being created, then the first deploy with its migrations, then the worker.
+    being created, then the first deploy with its migrations, then the worker. A scaffolded
+    app takes about three minutes from here.
+
+    <Frame caption="Events from one deploy: setup, build, migrations, live, worker">
+      <img src="/images/appentic/setup-events.png" alt="Events list showing service created, Feather setup started with its sizes, deploy queued, build started, release command started and finished, deploy succeeded, worker created, Feather setup finished" />
+    </Frame>
   </Step>
 </Steps>
 
 Every push to the branch then builds, runs `feather db upgrade` and moves traffic to the
 new version once `/health/ready` answers. If a migration fails, the deploy stops and the
 running version keeps serving.
+
+## What you end up with
+
+Four resources, connected to each other, from one form:
+
+<Frame caption="The project after the setup: web service, Postgres, Redis and worker">
+  <img src="/images/appentic/project-services.png" alt="Project services page listing the web service, a Postgres database, a Redis key value store and a background worker running feather worker --fork, all running" />
+</Frame>
+
+They share one machine, and each holds the memory it was given plus the same share of CPU
+and disk. The sizes come from the machine you chose, so the whole setup fits the smallest
+one, and a bigger machine gives each part more:
+
+<Frame caption="One 2 GB machine running the whole app">
+  <img src="/images/appentic/machine.png" alt="Machine page showing RAM, CPU and disk bars split between the system, the web service, the worker, the database and the key value store" />
+</Frame>
+
+The database is backed up without any setup: continuously, plus a full backup each day,
+kept for 7 days. Restore to any point in that window, into a new database, and the
+original is untouched:
+
+<Frame caption="Point-in-time restore from the database's Backups tab">
+  <img src="/images/appentic/backups.png" alt="Backups tab showing continuous backup on, the daily backups list, a Back up now button and a restore form for a point in time" />
+</Frame>
 
 ## What Feather gets without configuration
 
@@ -112,12 +149,6 @@ In the web service's **Settings**, add the domain and create the DNS records it 
 Once the certificate is issued, Appentic adds the domain to `TRUSTED_HOSTS` and restarts
 the service. For Google sign-in, add `https://your-domain/auth/google/callback` to the
 OAuth client.
-
-## Backups
-
-Appentic backs up every database: continuously, plus a full backup each day, kept for 7
-days. From the database's **Backups** tab you can restore to a new database at any point in
-that window.
 
 ## Without the setup
 
