@@ -125,5 +125,5 @@ def test_readme_has_a_deploy_section(shape):
     readme = render_project(OPTION_SETS[shape])["README.md"]
     assert "## Deploy" in readme
     assert "https://docs.featherframework.org/deployment/docker" in readme
-    assert "https://app.appentic.com/deploy?repo=https://github.com/OWNER/REPO" in readme
-    assert "Replace `OWNER/REPO`" in readme
+    assert "https://docs.featherframework.org/deployment/appentic" in readme
+    assert "app.appentic.com/deploy" not in readme

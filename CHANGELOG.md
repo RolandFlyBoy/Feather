@@ -10,6 +10,15 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.17 (2026-09-17) — no deploy link in the README
+
+Scaffold only; upgrading from 0.9.16 is a pin bump.
+
+- **A new app's README no longer carries a "Deploy to Appentic" link** with an
+  `OWNER/REPO` placeholder to edit. Its Deploy section points to the Docker
+  guide and to the Appentic guide, where the app is added from a project's
+  Services page and set up in one step.
+
 ## 0.9.16 (2026-09-17) — a new app starts in production
 
 Found deploying a freshly scaffolded app on Appentic. Upgrading from 0.9.15 is a

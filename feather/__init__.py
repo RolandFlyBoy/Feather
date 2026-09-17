@@ -109,7 +109,7 @@ docstrings of each module (feather.core.app, feather.services, feather.jobs,
 feather.events, ...).
 """
 
-__version__ = "0.9.16"
+__version__ = "0.9.17"
 
 # =============================================================================
 # Core Application

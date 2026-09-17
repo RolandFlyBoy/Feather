@@ -31,17 +31,14 @@ feather env check    # every key config.py reads, and which are unset
 ## Deploy
 
 <Steps>
-  <Step title="Open the deploy link" icon="link">
-    The `README.md` that `feather new` writes has a **Deploy to Appentic** link. Replace
-    `OWNER/REPO` with your repository and open it:
+  <Step title="Create a project and choose a machine" icon="server">
+    In Appentic, create a project, open **Resources** and choose a machine. A shared CPU
+    machine with 2 vCPU and 4 GB runs a Feather app, its worker, Postgres and Redis.
+  </Step>
 
-    ```
-    https://app.appentic.com/deploy?repo=https://github.com/OWNER/REPO
-    ```
-
-    Choose a project, or create one and choose a machine for it. A shared CPU machine
-    with 2 vCPU and 4 GB runs a Feather app, its worker, Postgres and Redis. You can also
-    start from a project's **Services** page and add a web service there.
+  <Step title="Add a web service from the repository" icon="github">
+    On the project's **Services** page, click **Add** next to **Web Services** and select
+    the repository. The first time, connect GitHub and give the Appentic app access to it.
   </Step>
 
   <Step title="Keep the Feather setup" icon="zap">
