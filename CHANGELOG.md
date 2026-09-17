@@ -10,6 +10,8 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.15 (2026-09-17) — at home on Appentic
+
 - **S3 storage backend, `STORAGE_BACKEND=s3`.** Works with AWS S3 and with
   S3-compatible services (MinIO, Garage, Cloudflare R2, Hetzner) through
   `S3_ENDPOINT`. Keys: `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`,
