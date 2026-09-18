@@ -376,6 +376,11 @@ def _result(project_path: Path, name: str, options: dict, migrated: bool) -> dic
     is_flag=True,
     help="Print the result as one JSON object instead of the next steps, and never prompt",
 )
+@click.option(
+    "--files-only",
+    is_flag=True,
+    help="Write the project's files and nothing else: no database, git, venv, npm or migration",
+)
 def new(
     name: str,
     no_prompt: bool,
@@ -389,6 +394,7 @@ def new(
     auto_approve_users: bool,
     admin_email: str,
     as_json: bool,
+    files_only: bool,
 ):
     """Create a new Feather project.
 
@@ -402,10 +408,16 @@ def new(
             --jobs --cache --storage --no-email --no-auto-approve-users \\
             --admin-email you@example.com --json
     """
-    project_path = Path.cwd() / name
+    project_path = (Path.cwd() / name).resolve()
 
-    if project_path.exists():
+    # A directory holding only dotfiles is a fresh clone (just .git), which is
+    # what a platform scaffolding into its own repository has. Anything else
+    # is someone's work, and is never written over.
+    fresh_clone = project_path.is_dir() and all(p.name.startswith(".") for p in project_path.iterdir())
+    if project_path.exists() and not (files_only and fresh_clone):
         raise click.ClickException(f"Directory '{name}' already exists")
+    if name in (".", "./"):
+        name = project_path.name
 
     given = {
         "app_type": app_type,
@@ -424,7 +436,7 @@ def new(
     options = _resolve_options(name, given, no_prompt or as_json)
 
     with _quiet(as_json):
-        migrated = _build_project(project_path, name, options)
+        migrated = _build_project(project_path, name, options, files_only=files_only)
 
     if as_json:
         click.echo(json.dumps(_result(project_path, name, options, migrated)))
@@ -433,8 +445,24 @@ def new(
     _print_next_steps(name, options, migrated)
 
 
-def _build_project(project_path: Path, name: str, options: dict) -> bool:
-    """Create the project on disk. Returns whether the first migration ran."""
+def _build_project(project_path: Path, name: str, options: dict, files_only: bool = False) -> bool:
+    """Create the project on disk. Returns whether the first migration ran.
+
+    ``files_only`` writes the project's files and stops. It is for a caller
+    that installs and migrates somewhere else: a platform that scaffolds on one
+    machine and runs the app on another has no database, git identity or Node
+    where the files are written, and needs none of them there.
+    """
+    if files_only:
+        if options["database"] == "sqlite":
+            options["db_url"] = "sqlite:///app.db"
+        elif options["database"] == "none":
+            options["db_url"] = None
+        click.echo(f"Creating new Feather project: {name}")
+        _create_project_structure(project_path, database=options["database"], include_auth=options.get("include_auth", False))
+        _create_project_files(project_path, name, **options)
+        return False
+
     # Handle database creation based on type
     if options["database"] == "postgresql":
         # Extract database name from URL and create database

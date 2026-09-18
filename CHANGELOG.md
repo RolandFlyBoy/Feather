@@ -10,6 +10,21 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.20 (2026-09-18) — `feather new --files-only`
+
+For a platform that writes an app's files on one machine and installs, migrates
+and runs it on another. Upgrading from 0.9.19 is a pin bump.
+
+- **`feather new --files-only` writes the project's files and nothing else.**
+  No database is created, no git repository initialised, no virtualenv or npm
+  install run and no first migration generated, so it needs none of Postgres,
+  git, Node or the app's dependencies where it runs, and it takes a second
+  rather than a minute.
+- **It can scaffold into a fresh clone.** With `--files-only`, `feather new .`
+  accepts a directory that holds only dotfiles, which is what a just-cloned
+  empty repository looks like. A directory with anything else in it is still
+  refused, so it can never write over someone's work.
+
 ## 0.9.19 (2026-09-18) — scaffolding from flags, and tests with their own database
 
 ### `feather new` runs from flags, and a new app's tests get their own database
