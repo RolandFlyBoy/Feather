@@ -40,6 +40,27 @@ def run_cli(root, *args):
 
 
 class TestTemplateRules:
+    def test_a_post_form_without_a_csrf_token_is_reported(self, tmp_path):
+        # Every submission is refused with 400, and csrf_client's header hides
+        # it from tests: found in an app whose "Add item" form never worked.
+        make_project(tmp_path, {"templates/a.html": '<form method="post" action="/items/new"><input name="name"></form>'})
+        assert "form-missing-csrf" in rules(tmp_path)
+
+    def test_a_post_form_with_its_token_is_allowed(self, tmp_path):
+        make_project(tmp_path, {"templates/a.html": (
+            '<form method="POST" action="/x">\n'
+            '  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">\n'
+            "</form>"
+        )})
+        assert "form-missing-csrf" not in rules(tmp_path)
+
+    def test_htmx_and_get_forms_need_no_token_field(self, tmp_path):
+        make_project(tmp_path, {"templates/a.html": (
+            '<form hx-post="/x" method="post"><input name="a"></form>'
+            '<form method="get" action="/search"><input name="q"></form>'
+        )})
+        assert "form-missing-csrf" not in rules(tmp_path)
+
     def test_inline_script_is_reported(self, tmp_path):
         make_project(tmp_path, {"templates/a.html": "<script>doThing()</script>"})
         assert "inline-script" in rules(tmp_path)

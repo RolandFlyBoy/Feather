@@ -10,6 +10,20 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.22 (2026-09-18): `feather check` catches a form without its CSRF token
+
+Upgrading from 0.9.21 is a pin bump, and `feather check` may now report
+errors in templates that were already broken.
+
+- **New rule `form-missing-csrf`**: a `<form method="post">` with no
+  `csrf_token` inside it is an error. Every submission of such a form is
+  refused with 400 "The CSRF token is missing", and tests don't notice, because
+  the scaffold's `csrf_client` sends the token as a header. Found in an app
+  whose Add item, Edit, Receive and Use forms had never worked, with a green
+  test suite. Forms submitted with `hx-post` (and `hx-put`, `hx-patch`,
+  `hx-delete`) are exempt: htmx sends the token itself. Mark a deliberate
+  exception with `{# feather: allow form-missing-csrf #}`.
+
 ## 0.9.21 (2026-09-18): tests can sign a user in
 
 Upgrading from 0.9.20 is a pin bump. Existing apps can use the helper straight

@@ -131,6 +131,12 @@ CLASS_ATTR_RE = re.compile(r'class\s*=\s*"([^"]*)"', re.IGNORECASE)
 STYLE_ATTR_RE = re.compile(r'\sstyle\s*=\s*"([^"]*)"', re.IGNORECASE)
 IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
 GOOGLE_IMG_RE = re.compile(r"googleusercontent\.com", re.IGNORECASE)
+#: A form and everything up to its closing tag. Forms don't nest, so the first
+#: closing tag after the opening one is its own.
+FORM_RE = re.compile(r"<form\b(?P<tag>[^>]*)>(?P<body>.*?)</form>", re.IGNORECASE | re.DOTALL)
+FORM_POST_RE = re.compile(r"""\bmethod\s*=\s*["']?post\b""", re.IGNORECASE)
+#: htmx sends the token as a header on its own requests (feather-static/app.js).
+FORM_HTMX_RE = re.compile(r"\bhx-(post|put|patch|delete)\s*=", re.IGNORECASE)
 
 NATIVE_DIALOG_RE = re.compile(r"(?<![\w.])(alert|confirm|prompt)\s*\(")
 FETCH_RE = re.compile(r"(?<![\w.])fetch\s*\(")
@@ -276,6 +282,26 @@ def check_templates(root: Path) -> list:
                         severity=WARNING,
                     )
                 )
+
+        for match in FORM_RE.finditer(text):
+            tag, body = match.group("tag"), match.group("body")
+            if not FORM_POST_RE.search(tag) or FORM_HTMX_RE.search(tag):
+                continue
+            if "csrf_token" in body:
+                continue
+            findings.append(
+                Finding(
+                    path,
+                    line_of(text, match.start()),
+                    "form-missing-csrf",
+                    "POST form without a CSRF token",
+                    'Add <input type="hidden" name="csrf_token" value="{{ '
+                    'csrf_token() }}"> inside the form, or submit it with '
+                    "hx-post. Without it every submission is refused with "
+                    "400, and the test client's token header hides that from "
+                    "tests.",
+                )
+            )
 
         for match in IMG_TAG_RE.finditer(text):
             tag = match.group(0)
