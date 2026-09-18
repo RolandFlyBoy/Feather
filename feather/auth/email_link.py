@@ -26,8 +26,9 @@ Where the email goes, in order:
   told only the address, the link and the app's name, and writes the email
   itself.
 - ``RESEND_API_KEY``: sent through Resend, from ``RESEND_FROM_EMAIL``.
-- Neither: the link is written to the log, which is what you want in
-  development and a mistake anywhere else (a warning says so).
+- Neither: in development and tests the link is written to the log. Anywhere
+  else nothing is sent, the person is told so, and an error is logged without
+  the link, since a log line holding it would let its reader sign in.
 """
 
 from __future__ import annotations
@@ -63,8 +64,23 @@ def init_email_sign_in(app) -> None:
     app.register_blueprint(email_auth_bp)
 
 
+def _setting(name: str, default=None):
+    """A sign-in setting from the app's config, else the environment.
+
+    An app's config.py class lists the keys it uses, and Feather's own
+    defaults for the rest don't reach app.config, so a host that sets
+    SIGN_IN_RELAY_URL in the environment would otherwise go unseen.
+    """
+    import os
+
+    value = current_app.config.get(name)
+    if value in (None, ""):
+        value = os.environ.get(name)
+    return default if value in (None, "") else value
+
+
 def enabled() -> bool:
-    return (current_app.config.get("SIGN_IN_METHOD") or "google").lower() == "email"
+    return str(_setting("SIGN_IN_METHOD", "google")).lower() == "email"
 
 
 def _serializer() -> URLSafeTimedSerializer:
@@ -72,7 +88,7 @@ def _serializer() -> URLSafeTimedSerializer:
 
 
 def _minutes() -> int:
-    return int(current_app.config.get("SIGN_IN_LINK_MINUTES") or DEFAULT_LINK_MINUTES)
+    return int(_setting("SIGN_IN_LINK_MINUTES", DEFAULT_LINK_MINUTES))
 
 
 def _normalise(email: str) -> str:
@@ -126,14 +142,16 @@ def _mark_used(nonce: str) -> bool:
 
 
 def _app_name() -> str:
-    return current_app.config.get("APP_NAME") or current_app.name or "the app"
+    """The app's name for people, from APP_NAME. Flask's own name for the app
+    is usually just "app", which is no name to put in an email."""
+    name = _setting("APP_NAME") or ""
+    return name if name and name != "app" else ""
 
 
 def send_link(email: str, link: str) -> bool:
     """Send ``link`` to ``email`` by whichever way is configured."""
-    config = current_app.config
-    relay_url = config.get("SIGN_IN_RELAY_URL")
-    relay_token = config.get("SIGN_IN_RELAY_TOKEN")
+    relay_url = _setting("SIGN_IN_RELAY_URL")
+    relay_token = _setting("SIGN_IN_RELAY_TOKEN")
     if relay_url and relay_token:
         try:
             response = requests.post(
@@ -150,18 +168,19 @@ def send_link(email: str, link: str) -> bool:
             return False
         return True
 
-    if config.get("RESEND_API_KEY"):
+    resend_key = _setting("RESEND_API_KEY")
+    if resend_key:
         try:
             import resend
         except ImportError:
             logger.error("RESEND_API_KEY is set but resend is not installed (feather-framework[email])")
             return False
-        resend.api_key = config["RESEND_API_KEY"]
-        name = _app_name()
+        resend.api_key = resend_key
+        name = _app_name() or "the app"
         minutes = _minutes()
         try:
             resend.Emails.send({
-                "from": config.get("RESEND_FROM_EMAIL", "noreply@example.com"),
+                "from": _setting("RESEND_FROM_EMAIL", "noreply@example.com"),
                 "to": [email],
                 "subject": f"Sign in to {name}",
                 "text": (
@@ -181,22 +200,24 @@ def send_link(email: str, link: str) -> bool:
             return False
         return True
 
-    level = logging.INFO if current_app.debug else logging.WARNING
-    logger.log(
-        level,
-        "No way to send email is configured (SIGN_IN_RELAY_URL or RESEND_API_KEY). "
-        "Sign-in link for %s: %s",
-        email,
-        link,
+    # Only in development or tests is the link written to the log. Anywhere
+    # else a log line holding a live sign-in link lets whoever reads the logs
+    # sign in as that person.
+    if current_app.debug or current_app.testing:
+        logger.info("No way to send email is configured; sign-in link for %s: %s", email, link)
+        return True
+    logger.error(
+        "Sign-in email not sent: no way to send email is configured "
+        "(SIGN_IN_RELAY_URL and SIGN_IN_RELAY_TOKEN, or RESEND_API_KEY)."
     )
-    return True
+    return False
 
 
 def _render(state: str, **context):
     return render_template(
         "auth/email_sign_in.html",
         state=state,
-        app_name=_app_name(),
+        app_name=_app_name() or "this app",
         minutes=_minutes(),
         **context,
     )

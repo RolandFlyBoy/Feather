@@ -11,3 +11,6 @@
     # How people sign in: "google", or "email" for sign-in links that need no
     # Google Cloud project (docs: authentication). SIGN_IN_METHOD overrides it.
     SIGN_IN_METHOD = os.environ.get("SIGN_IN_METHOD", "__FEATHER_SIGN_IN_METHOD__")
+    # Where sign-in emails go: a host's relay (Appentic sets both), else Resend.
+    SIGN_IN_RELAY_URL = os.environ.get("SIGN_IN_RELAY_URL")
+    SIGN_IN_RELAY_TOKEN = os.environ.get("SIGN_IN_RELAY_TOKEN")

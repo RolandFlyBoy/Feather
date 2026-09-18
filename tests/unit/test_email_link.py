@@ -35,10 +35,30 @@ def test_a_relay_that_refuses_means_no_email_was_sent(app):
         assert email_link.send_link("a@b.co", "https://shop.example.com/x") is False
 
 
-def test_with_nothing_configured_the_link_is_logged(app, caplog):
+def test_with_nothing_configured_the_link_is_logged_only_in_development(app, caplog):
+    app.debug = True
     with caplog.at_level("INFO"):
         assert email_link.send_link("a@b.co", "https://shop.example.com/x") is True
     assert "https://shop.example.com/x" in caplog.text
+
+
+def test_in_production_an_unsendable_link_is_never_logged(app, caplog):
+    # A log line holding a live link would let whoever reads the logs sign in.
+    app.debug = False
+    app.testing = False
+    with caplog.at_level("INFO"):
+        assert email_link.send_link("a@b.co", "https://shop.example.com/secret-token") is False
+    assert "secret-token" not in caplog.text
+
+
+def test_relay_settings_in_the_environment_are_used_when_config_omits_them(app, monkeypatch):
+    # Found in a deployed app whose config.py class did not list them.
+    monkeypatch.setenv("SIGN_IN_RELAY_URL", "https://relay.example/sign-in")
+    monkeypatch.setenv("SIGN_IN_RELAY_TOKEN", "t0k")
+    with patch("feather.auth.email_link.requests.post") as post:
+        post.return_value.status_code = 202
+        assert email_link.send_link("a@b.co", "https://shop.example.com/x") is True
+    assert post.call_args.args[0] == "https://relay.example/sign-in"
 
 
 def test_a_link_is_genuine_in_date_and_names_its_address(app):

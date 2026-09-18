@@ -10,6 +10,22 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.25 (2026-09-18): email sign-in finds its settings, and never logs a live link
+
+Upgrading from 0.9.24 is a pin bump. Apps using email sign-in should take it.
+
+- **Sign-in settings are read from the environment when config.py doesn't list
+  them.** An app's config class names the keys it uses, and Feather's defaults
+  for the rest never reached `app.config`, so a deployed app ignored the
+  `SIGN_IN_RELAY_URL` and `SIGN_IN_RELAY_TOKEN` its host had set and sent no
+  email. New apps also list both in config.py.
+- **A sign-in link is never written to the log outside development and
+  tests.** With no way to send email, 0.9.23 and 0.9.24 logged the link at
+  warning level, and anyone who could read the logs could sign in with it.
+  Now nothing is sent, the person is told the email couldn't be sent, and an
+  error is logged without the link.
+- The email and pages no longer call the app "app" when `APP_NAME` isn't set.
+
 ## 0.9.24 (2026-09-18): the app's admin is let in on their first sign-in
 
 Upgrading from 0.9.23 is a pin bump; add `ADMIN_EMAIL` to `config.py` to use it
