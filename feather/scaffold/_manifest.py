@@ -74,6 +74,8 @@ TOKENS: tuple[str, ...] = (
     "ACCOUNT_NAME_EXPR",
     "TEST_ADMIN_DISPLAY_NAME",
     "TEST_USER_DISPLAY_NAME",
+    "TEST_TENANT_HELPER",
+    "TEST_TENANT_FIELD",
     "REQUIREMENT_SPEC",
     "MULTI_TENANT",
     "STORAGE_BACKEND",
@@ -191,6 +193,21 @@ def token_values(options: dict) -> dict[str, Any]:
         "TEST_USER_DISPLAY_NAME": (
             '\n            display_name="Test User",' if _display_name(options) else ""
         ),
+        # In a multi-tenant app an admin is an admin of a tenant, so the
+        # generated admin tests give each user one of its own.
+        "TEST_TENANT_HELPER": (
+            '\n\ndef _tenant_id():\n'
+            '    """A tenant of its own, for a user a test signs in as."""\n'
+            '    import uuid\n\n'
+            '    from models.tenant import Tenant\n\n'
+            '    slug = f"test-{uuid.uuid4().hex[:8]}"\n'
+            '    tenant = Tenant(slug=slug, name=slug, status="active")\n'
+            '    db.session.add(tenant)\n'
+            '    db.session.flush()\n'
+            '    return tenant.id\n'
+            if multi else ""
+        ),
+        "TEST_TENANT_FIELD": '\n            tenant_id=_tenant_id(),' if multi else "",
         "REQUIREMENT_SPEC": _requirement_spec(options),
         "MULTI_TENANT": "True" if multi else "False",
         "STORAGE_BACKEND": options.get("storage_backend") or "local",

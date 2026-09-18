@@ -10,6 +10,24 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.21 (2026-09-18): tests can sign a user in
+
+Upgrading from 0.9.20 is a pin bump. Existing apps can use the helper straight
+away; only new apps get the generated tests below.
+
+- **`feather.testing.login_as(client, user)` signs a user in on a test
+  client.** Feather protects sessions with Flask-Login's "strong" mode, which
+  signs out any session without the request's identifier, so setting
+  `_user_id` by hand looked signed in and then was not on the next request. An
+  app's tests had no reliable way to reach a signed-in page. `logout(client)`
+  undoes it. Both accept the CSRF-aware client from `tests/conftest.py`.
+- **New apps with sign-in test their admin panel signed in.** The generated
+  `tests/test_admin.py` checks that an admin reaches it and a regular user does
+  not, in place of a comment saying how one might. Its user fixtures also set
+  `username`, which the model requires and which they had left out, and in a
+  multi-tenant app each user gets a tenant of its own.
+- **AGENTS.md shows how to test a signed-in page**, under the auth decorators.
+
 ## 0.9.20 (2026-09-18) — `feather new --files-only`
 
 For a platform that writes an app's files on one machine and installs, migrates

@@ -5,3 +5,19 @@
 @admin_required     # User with role="admin"
 @role_required("editor")  # Specific role
 ```
+
+### Signed-in pages in tests
+```python
+from feather.testing import login_as
+
+def test_dashboard(app, client):
+    with app.app_context():
+        user = User(email="owner@test.com", username="owner", active=True)
+        db.session.add(user)
+        db.session.commit()
+        login_as(client, user)
+    assert client.get("/dashboard").status_code == 200
+```
+Sessions use "strong" protection, so a session set by hand is signed out on the
+next request. `login_as` sets it the way a real sign-in would. Works with
+`csrf_client` too.
