@@ -7,3 +7,7 @@
     # so they have to be spelled out alongside the session cookie flags
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = "Lax"
+
+    # How people sign in: "google", or "email" for sign-in links that need no
+    # Google Cloud project (docs: authentication). SIGN_IN_METHOD overrides it.
+    SIGN_IN_METHOD = os.environ.get("SIGN_IN_METHOD", "__FEATHER_SIGN_IN_METHOD__")

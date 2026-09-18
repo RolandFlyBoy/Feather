@@ -143,6 +143,12 @@ def _env_config_values() -> dict:
         "GOOGLE_CLIENT_ID": os.environ.get("GOOGLE_CLIENT_ID"),
         "GOOGLE_CLIENT_SECRET": os.environ.get("GOOGLE_CLIENT_SECRET"),
         "OAUTH_CALLBACK_URL": os.environ.get("OAUTH_CALLBACK_URL"),
+        # How people sign in: "google", or "email" for sign-in links
+        # (feather/auth/email_link.py), with where those emails go.
+        "SIGN_IN_METHOD": os.environ.get("SIGN_IN_METHOD", "google").strip().lower(),
+        "SIGN_IN_RELAY_URL": os.environ.get("SIGN_IN_RELAY_URL"),
+        "SIGN_IN_RELAY_TOKEN": os.environ.get("SIGN_IN_RELAY_TOKEN"),
+        "SIGN_IN_LINK_MINUTES": int(os.environ.get("SIGN_IN_LINK_MINUTES", "15")),
         # Multi-tenant settings
         "FEATHER_MULTI_TENANT": os.environ.get("FEATHER_MULTI_TENANT", "").lower()
         in ("true", "1", "yes"),

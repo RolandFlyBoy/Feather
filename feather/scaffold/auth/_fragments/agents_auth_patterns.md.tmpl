@@ -21,3 +21,12 @@ def test_dashboard(app, client):
 Sessions use "strong" protection, so a session set by hand is signed out on the
 next request. `login_as` sets it the way a real sign-in would. Works with
 `csrf_client` too.
+
+### How people sign in
+`SIGN_IN_METHOD` in config.py is `"google"` or `"email"`. Email sends a
+single-use link that expires in 15 minutes (`/auth/email/login`), needs no
+Google Cloud project, and follows the same approval rules as Google. The email
+goes through `SIGN_IN_RELAY_URL` + `SIGN_IN_RELAY_TOKEN` when set (hosting
+platforms such as Appentic set them), else Resend (`RESEND_API_KEY`), else the
+link is written to the log. Send people to sign in with
+`url_for('email_auth.login')` or `url_for('google_auth.login')` to match.

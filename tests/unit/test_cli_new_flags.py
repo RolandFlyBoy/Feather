@@ -265,6 +265,7 @@ class TestJsonResult:
             "email": False,
             "auto_approve_users": False,
             "admin_email": "admin@example.com",
+            "sign_in": "google",
             "migration_created": True,
         }
 
@@ -280,3 +281,9 @@ class TestJsonResult:
         assert result["database"] == "none"
         assert result["database_url"] is None
         assert result["admin_email"] is None
+        assert result["sign_in"] is None  # nobody signs in to a simple app
+
+    def test_sign_in_by_email_is_reported(self):
+        options = resolve(**{**SINGLE_TENANT, "sign_in": "email"})
+        result = new_module._result(Path("/tmp/shop"), "shop", options, migrated=False)
+        assert result["sign_in"] == "email"

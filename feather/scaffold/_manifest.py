@@ -74,6 +74,7 @@ TOKENS: tuple[str, ...] = (
     "ACCOUNT_NAME_EXPR",
     "TEST_ADMIN_DISPLAY_NAME",
     "TEST_USER_DISPLAY_NAME",
+    "SIGN_IN_METHOD",
     "TEST_TENANT_HELPER",
     "TEST_TENANT_FIELD",
     "REQUIREMENT_SPEC",
@@ -208,6 +209,7 @@ def token_values(options: dict) -> dict[str, Any]:
             if multi else ""
         ),
         "TEST_TENANT_FIELD": '\n            tenant_id=_tenant_id(),' if multi else "",
+        "SIGN_IN_METHOD": options.get("sign_in") or "google",
         "REQUIREMENT_SPEC": _requirement_spec(options),
         "MULTI_TENANT": "True" if multi else "False",
         "STORAGE_BACKEND": options.get("storage_backend") or "local",

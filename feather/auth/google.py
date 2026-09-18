@@ -438,7 +438,7 @@ def callback():
         return redirect(url_for("page.home"))
 
 
-def _get_or_create_user(user_info: dict, token: dict = None):
+def _get_or_create_user(user_info: dict, token: dict = None, source: str = "Google"):
     """Get existing user or create new one from Google profile.
 
     Called after successful OAuth authentication. Looks up the user by
@@ -468,6 +468,10 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             - picture: Profile image URL
             - sub: Google user ID (unique identifier)
         token: OAuth token dict (optional, for storing refresh token).
+
+        source: Where the sign-in came from, for the log ("Google", or
+            "email" for a sign-in link, feather/auth/email_link.py). The
+            rules are the same either way.
 
     Returns:
         User instance, or None if creation failed.
@@ -548,10 +552,11 @@ def _get_or_create_user(user_info: dict, token: dict = None):
     user = User.query.filter_by(email=email).first()
 
     if user:
-        # Existing user - update profile info from Google
-        if hasattr(user, "display_name"):
+        # Existing user - update profile info from Google. A sign-in link
+        # carries no name or picture, so only what was given is written.
+        if hasattr(user, "display_name") and user_info.get("name"):
             user.display_name = user_info.get("name")
-        if hasattr(user, "profile_image_url"):
+        if hasattr(user, "profile_image_url") and user_info.get("picture"):
             user.profile_image_url = user_info.get("picture")
         if hasattr(user, "google_id") and user_info.get("sub"):
             user.google_id = user_info["sub"]
@@ -659,12 +664,12 @@ def _get_or_create_user(user_info: dict, token: dict = None):
 
         if auto_approve:
             current_app.logger.info(
-                f"Created new user from Google: {mask_email(email)} (auto-approved)"
+                f"Created new user from {source}: {mask_email(email)} (auto-approved)"
             )
             _set_toast("Welcome! Your account has been created.", "success")
         elif tenant:
             current_app.logger.info(
-                f"Created new user from Google: {mask_email(email)} (tenant: {tenant.slug}, suspended)"
+                f"Created new user from {source}: {mask_email(email)} (tenant: {tenant.slug}, suspended)"
             )
             _set_toast(
                 "Your account has been created but requires approval from an administrator.",
@@ -672,7 +677,7 @@ def _get_or_create_user(user_info: dict, token: dict = None):
             )
         else:
             current_app.logger.info(
-                f"Created new user from Google: {mask_email(email)} (no tenant, suspended)"
+                f"Created new user from {source}: {mask_email(email)} (no tenant, suspended)"
             )
             _set_toast(
                 "Your account has been created and is pending setup.",

@@ -188,7 +188,8 @@ def login_only(f: Callable) -> Callable:
             else:
                 # Redirect to login for page routes
                 from flask import redirect
-                login_url = current_app.config.get('LOGIN_URL', '/auth/google/login')
+                from feather.auth.setup import login_url_for
+                login_url = current_app.config.get('LOGIN_URL') or login_url_for(current_app)
                 return redirect(f"{login_url}?next={login_next_value()}")
 
         return f(*args, **kwargs)

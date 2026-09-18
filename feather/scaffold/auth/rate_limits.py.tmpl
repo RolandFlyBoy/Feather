@@ -167,7 +167,11 @@ def init_rate_limits(app):
     limiter.request_filter(_exempt)
 
     login_limit = _limit_for(app, "RATELIMIT_LOGIN")
-    for endpoint in ("google_auth.login", "google_auth.callback"):
+    for endpoint in (
+        "google_auth.login", "google_auth.callback",
+        # Each POST sends an email, so these are the ones worth limiting most.
+        "email_auth.login_post", "email_auth.verify_post",
+    ):
         _apply(app, limiter, endpoint, login_limit)
 
     admin_limit = _limit_for(app, "RATELIMIT_ADMIN")

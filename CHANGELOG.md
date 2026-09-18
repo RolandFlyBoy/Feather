@@ -10,6 +10,29 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.23 (2026-09-18): sign in by email link
+
+Upgrading from 0.9.22 is a pin bump. Nothing changes for an app that signs in
+with Google.
+
+- **`SIGN_IN_METHOD = "email"` signs people in with a link sent by email**, for
+  apps whose users shouldn't need a Google account, and developers who
+  shouldn't need a Google Cloud project. `feather new --sign-in email` sets it.
+  The link is signed with `SECRET_KEY`, works once, and expires after
+  `SIGN_IN_LINK_MINUTES` (15). Opening it shows a **Sign in** button rather
+  than signing in, because mail scanners open links and would use them up.
+  New addresses go through the same approval, admin and tenant rules as a
+  first Google sign-in. The routes are under `/auth/email`, and answer 404 in
+  an app that signs in with Google.
+- **The email goes through a host's relay when one is configured**
+  (`SIGN_IN_RELAY_URL` and `SIGN_IN_RELAY_TOKEN`, which Appentic sets), else
+  Resend, else it is written to the log for development.
+- **Signed-out visitors go to the right sign-in.** The login redirect, the
+  "authentication required" page and the scaffold's sign-in card follow
+  `SIGN_IN_METHOD`; an email-sign-in app never shows the Google setup page.
+- The docs' fixture for a signed-in test client set the session by hand,
+  which session protection signs straight out. It uses `login_as` now.
+
 ## 0.9.22 (2026-09-18): `feather check` catches a form without its CSRF token
 
 Upgrading from 0.9.21 is a pin bump, and `feather check` may now report

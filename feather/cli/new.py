@@ -82,6 +82,7 @@ AUTH_ONLY_FLAGS = {
     "storage": "--storage/--no-storage",
     "email": "--email/--no-email",
     "admin_email": "--admin-email",
+    "sign_in": "--sign-in",
 }
 
 
@@ -136,7 +137,7 @@ def _validate_flags(given: dict) -> None:
 
     if app_type is not None and not _has_auth(app_type):
         for key, flag in AUTH_ONLY_FLAGS.items():
-            if given[key] is not None:
+            if given.get(key) is not None:
                 raise click.ClickException(
                     f"{flag} applies to an app with user accounts: "
                     "pass --app-type single-tenant or --app-type multi-tenant"
@@ -170,6 +171,7 @@ def _resolve_options(name: str, given: dict, no_prompt: bool) -> dict:
         "storage_backend": None,
         "include_email": False,
         "admin_email": None,
+        "sign_in": "google",
     }
 
     prompting = not no_prompt and not _fully_specified(given)
@@ -290,6 +292,9 @@ def _resolve_options(name: str, given: dict, no_prompt: bool) -> dict:
                 "profile_image_url": True,
             }
 
+        # How people sign in. Not asked: Google unless the flag says email.
+        options["sign_in"] = given.get("sign_in") or "google"
+
         # Admin email (required for auth)
         if given["admin_email"] is not None:
             options["admin_email"] = given["admin_email"]
@@ -340,6 +345,7 @@ def _result(project_path: Path, name: str, options: dict, migrated: bool) -> dic
         "email": bool(options["include_email"]),
         "auto_approve_users": bool(options["auto_approve_users"]),
         "admin_email": options["admin_email"],
+        "sign_in": (options.get("sign_in") or "google") if options.get("include_auth") else None,
         "migration_created": bool(migrated),
     }
 
@@ -371,6 +377,13 @@ def _result(project_path: Path, name: str, options: dict, migrated: bool) -> dic
 )
 @click.option("--admin-email", default=None, help="Admin account seeds.py creates; required for an app with user accounts")
 @click.option(
+    "--sign-in",
+    "sign_in",
+    type=click.Choice(["google", "email"]),
+    default=None,
+    help="How people sign in: google (default), or email sign-in links, which need no Google Cloud project",
+)
+@click.option(
     "--json",
     "as_json",
     is_flag=True,
@@ -393,6 +406,7 @@ def new(
     email: bool,
     auto_approve_users: bool,
     admin_email: str,
+    sign_in: str,
     as_json: bool,
     files_only: bool,
 ):
@@ -429,6 +443,7 @@ def new(
         "email": email,
         "auto_approve_users": auto_approve_users,
         "admin_email": admin_email,
+        "sign_in": sign_in,
     }
     _validate_flags(given)
 
@@ -719,6 +734,7 @@ def _create_project_files(
     admin_email: str = None,
     app_type: str = None,  # "simple", "single_tenant", or "multi_tenant"
     user_fields: dict = None,  # Optional User model field selection
+    sign_in: str = "google",  # "google", or "email" for sign-in links
 ):
     """Create project files from templates.
 
@@ -745,6 +761,7 @@ def _create_project_files(
         app_type: Recorded by the prompt flow; the overlays key off the
             individual options rather than off this label.
         user_fields: Optional User model field selection
+        sign_in: How people sign in, "google" or "email"
     """
     options = {
         "name": name,
@@ -761,6 +778,7 @@ def _create_project_files(
         "admin_email": admin_email,
         "app_type": app_type,
         "user_fields": user_fields,
+        "sign_in": sign_in or "google",
     }
 
     write_project(project_path, options)

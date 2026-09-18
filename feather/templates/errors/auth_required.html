@@ -91,9 +91,10 @@ GOOGLE_CLIENT_SECRET=your-client-secret</pre>
         <div class="auth-card" style="background: #fff; border-radius: 0.5rem; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1); max-width: 24rem; width: 100%; text-align: center; padding: 2rem;">
             <h2 class="auth-heading" style="font-size: 1.25rem; font-weight: 600; color: #111827; margin-bottom: 0.5rem;">Authentication Required</h2>
             <p class="auth-subtext" style="font-size: 0.875rem; color: #6b7280; margin-bottom: 1.5rem;">This area requires authentication. Please sign in to continue. If you need access, contact your administrator.</p>
-            <a href="/auth/google/login{% if next_url %}?next={{ next_url | urlencode }}{% endif %}"
+            {% set sign_in_by_email = (config.SIGN_IN_METHOD or "google") == "email" %}
+            <a href="{{ '/auth/email/login' if sign_in_by_email else '/auth/google/login' }}{% if next_url %}?next={{ next_url | urlencode }}{% endif %}"
                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: #000; color: #fff; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; text-decoration: none;">
-                Sign in with Google
+                {{ 'Sign in with email' if sign_in_by_email else 'Sign in with Google' }}
             </a>
             <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 1.5rem;">Access attempts are logged for security.</p>
         </div>

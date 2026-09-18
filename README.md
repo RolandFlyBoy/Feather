@@ -48,7 +48,7 @@ Every feature is optional, enabled when you create the project or added later.
 
 | | |
 | --- | --- |
-| **Authentication** | Google OAuth, approval workflows, roles and permissions |
+| **Authentication** | Google sign-in or sign-in links by email, approval workflows, roles and permissions |
 | **Admin panel** | User approvals, role changes, analytics and error logs |
 | **Multi-tenancy** | Tenants by email domain, isolated at route, service and model layers |
 | **Background jobs** | Thread pool with concurrency limits, or RQ on Redis |

@@ -558,6 +558,11 @@ class Feather(Flask):
 
             init_google_oauth(self)
 
+            # Sign-in links by email; answers only when SIGN_IN_METHOD="email".
+            from feather.auth.email_link import init_email_sign_in
+
+            init_email_sign_in(self)
+
         except ImportError as e:
             # No User model found - authentication not enabled.
             # That is normal for apps that don't need auth, but a models

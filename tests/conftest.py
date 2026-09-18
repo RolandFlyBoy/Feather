@@ -385,6 +385,7 @@ def scaffold_project(temp_project_dir):
             db_url=config.get("db_url"),
             admin_email=config.get("admin_email"),
             user_fields=config.get("user_fields"),
+            sign_in=config.get("sign_in", "google"),
         )
         return project_path
 

@@ -37,12 +37,16 @@ class TestProtectedRoutes:
 class TestLoginFlow:
     """Test login behavior."""
 
-    def test_google_login_route_exists(self, client):
-        """Google login route is registered."""
-        response = client.get("/auth/google/login")
-        # 302 = OAuth configured and redirecting
-        # 503 = OAuth not configured (expected in tests without credentials)
-        assert response.status_code in [302, 503]
+    def test_sign_in_page_exists(self, app, client):
+        """The configured way of signing in answers."""
+        if app.config.get("SIGN_IN_METHOD") == "email":
+            response = client.get("/auth/email/login")
+            assert response.status_code == 200
+        else:
+            response = client.get("/auth/google/login")
+            # 302 = OAuth configured and redirecting
+            # 503 = OAuth not configured (expected in tests without credentials)
+            assert response.status_code in [302, 503]
 
     def test_logout_route_exists(self, client):
         """Logout route is registered and redirects."""

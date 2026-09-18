@@ -58,7 +58,9 @@ feather env check        # every key config.py reads, and which are unset
     | SECRET_KEY | Generated for the project |
 
     The **Release command** is `feather db upgrade` and the **Health check path** is
-    `/health/ready`.
+    `/health/ready`. The project also gets `SIGN_IN_RELAY_URL` and `SIGN_IN_RELAY_TOKEN`,
+    so an app with [email sign-in](/features/authentication#setup-email) can send its
+    sign-in links with nothing to set up.
 
     <Frame caption="The new web service form, with the Feather setup it filled in">
       <img src="/images/appentic/setup-form.png" alt="Feather app options on the new web service form: Postgres database, key value store, background worker and SECRET_KEY, with the release command feather db upgrade and health check path /health/ready" />
@@ -148,7 +150,7 @@ failed in Appentic.
 In the web service's **Settings**, add the domain and create the DNS records it shows.
 Once the certificate is issued, Appentic adds the domain to `TRUSTED_HOSTS` and restarts
 the service. For Google sign-in, add `https://your-domain/auth/google/callback` to the
-OAuth client.
+OAuth client. Email sign-in links work on the new domain straight away.
 
 ## Without the setup
 

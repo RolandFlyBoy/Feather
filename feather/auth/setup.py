@@ -57,6 +57,18 @@ from feather.exceptions import AuthenticationError
 login_manager = LoginManager()
 
 
+def login_view_for(app) -> str:
+    """The endpoint that signs people in, from ``SIGN_IN_METHOD``."""
+    method = (app.config.get("SIGN_IN_METHOD") or "google").lower()
+    return "email_auth.login" if method == "email" else "google_auth.login"
+
+
+def login_url_for(app) -> str:
+    """The path that signs people in, for places that build a link by hand."""
+    method = (app.config.get("SIGN_IN_METHOD") or "google").lower()
+    return "/auth/email/login" if method == "email" else "/auth/google/login"
+
+
 def init_auth(app: Flask, user_model=None) -> LoginManager:
     """Initialize Flask-Login with the application.
 
@@ -116,7 +128,7 @@ def init_auth(app: Flask, user_model=None) -> LoginManager:
 
     # Configure login view for page redirects
     # Default to Google OAuth login, can be overridden via LOGIN_VIEW config
-    login_manager.login_view = app.config.get("LOGIN_VIEW", "google_auth.login")
+    login_manager.login_view = app.config.get("LOGIN_VIEW") or login_view_for(app)
     login_manager.login_message = "Please log in to access this page."
     login_manager.login_message_category = "info"
 
@@ -140,6 +152,7 @@ def init_auth(app: Flask, user_model=None) -> LoginManager:
         # Try to find a working login route
         login_routes = [
             login_manager.login_view,  # Configured login view
+            login_view_for(current_app),
             "google_auth.login",       # Google OAuth
         ]
 

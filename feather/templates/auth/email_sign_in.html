@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Sign in · {{ app_name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.fsi-page { min-height: 100vh; background: #f9fafb; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.fsi-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.5rem; max-width: 24rem; width: 100%; padding: 2rem; }
+.fsi-title { font-size: 1.25rem; font-weight: 600; color: #111827; margin: 0 0 0.5rem; }
+.fsi-text { font-size: 0.875rem; line-height: 1.5; color: #4b5563; margin: 0 0 1.25rem; }
+.fsi-label { display: block; font-size: 0.8125rem; font-weight: 500; color: #374151; margin-bottom: 0.375rem; }
+.fsi-input { width: 100%; box-sizing: border-box; padding: 0.625rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; background: #fff; color: #111827; }
+.fsi-input:focus { outline: 2px solid #111827; outline-offset: 1px; }
+.fsi-button { margin-top: 1rem; width: 100%; padding: 0.625rem 1rem; border: 0; border-radius: 0.375rem; background: #111827; color: #fff; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+.fsi-error { font-size: 0.8125rem; color: #b91c1c; margin: 0.5rem 0 0; }
+.fsi-link { color: #111827; font-size: 0.8125rem; }
+.dark .fsi-page { background: #111827; }
+.dark .fsi-card { background: #1f2937; border-color: #374151; }
+.dark .fsi-title { color: #f9fafb; }
+.dark .fsi-text, .dark .fsi-label { color: #9ca3af; }
+.dark .fsi-input { background: #111827; border-color: #4b5563; color: #f9fafb; }
+.dark .fsi-button { background: #f9fafb; color: #111827; }
+.dark .fsi-link { color: #e5e7eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+{#
+Framework template (feather/auth/email_link.py): styled here so it works in
+any app. Override it with templates/auth/email_sign_in.html in your own app.
+#}
+<div class="fsi-page">
+  <div class="fsi-card">
+    {% if state == "form" %}
+      <h1 class="fsi-title">Sign in to {{ app_name }}</h1>
+      <p class="fsi-text">Enter your email address and we'll send you a link to sign in. No password needed.</p>
+      <form method="post" action="{{ url_for('email_auth.login_post') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="fsi-label" for="fsi-email">Email address</label>
+        <input class="fsi-input" id="fsi-email" name="email" type="email" autocomplete="email" required autofocus value="{{ email or '' }}">
+        {% if error %}<p class="fsi-error" role="alert">{{ error }}</p>{% endif %}
+        <button class="fsi-button" type="submit">Email me a sign-in link</button>
+      </form>
+    {% elif state == "sent" %}
+      <h1 class="fsi-title">Check your email</h1>
+      <p class="fsi-text">If {{ email }} can sign in to {{ app_name }}, a link is on its way. It works once and expires in {{ minutes }} minutes.</p>
+      <a class="fsi-link" href="{{ url_for('email_auth.login') }}">Use a different address</a>
+    {% elif state == "confirm" %}
+      <h1 class="fsi-title">Sign in to {{ app_name }}</h1>
+      <p class="fsi-text">You're signing in as {{ email }}.</p>
+      <form method="post" action="{{ url_for('email_auth.verify_post') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button class="fsi-button" type="submit">Sign in</button>
+      </form>
+    {% else %}
+      <h1 class="fsi-title">This link has expired</h1>
+      <p class="fsi-text">Sign-in links work once and expire after {{ minutes }} minutes. Ask for a new one.</p>
+      <a class="fsi-link" href="{{ url_for('email_auth.login') }}">Send a new link</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

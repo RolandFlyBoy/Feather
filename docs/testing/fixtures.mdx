@@ -37,18 +37,19 @@ Extend `conftest.py` for data that several tests need.
 import pytest
 from models import User, Item
 
+from feather.testing import login_as
+
 @pytest.fixture
 def authenticated_user(app):
-    """Create and login a test user."""
+    """Create a test user and a client signed in as them."""
     with app.app_context():
-        user = User(email='test@example.com', active=True)
+        user = User(email='test@example.com', username='test', active=True)
         db.session.add(user)
         db.session.commit()
 
-        with app.test_client() as client:
-            with client.session_transaction() as sess:
-                sess['_user_id'] = user.id
-            yield client
+        client = app.test_client()
+        login_as(client, user)  # never set session keys by hand: see below
+        yield client
 
 @pytest.fixture
 def sample_items(app):
@@ -65,3 +66,12 @@ def sample_items(app):
   resolves every request to the first user loaded. See
   [Test database](/testing/database) for why, and the shape that avoids it.
 </Warning>
+
+## Signing a user in
+
+`login_as(client, user)` from `feather.testing` signs a user in on a test client, and
+`logout(client)` signs them out. It works with the plain client and with `csrf_client`.
+
+Don't set `_user_id` on the session yourself. With session protection on, Flask-Login signs
+out any session that lacks the request's identifier, so a session set by hand looks signed
+in and is signed out on the next request. `login_as` sets the identifier too.

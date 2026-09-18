@@ -1,20 +1,22 @@
 ---
 title: "Authentication"
-description: "Google OAuth, so there are no passwords to store, plus approval workflows, roles, permissions and hooks for onboarding."
+description: "Google sign-in or sign-in links by email, so there are no passwords to store, plus approval workflows, roles, permissions and hooks for onboarding."
 icon: "key-round"
 ---
 
-Feather authenticates with **Google OAuth**, so there are no passwords to store and no
-signup form to build. One flow covers both login and registration: the user authorizes
-the app, and Feather creates their account if it doesn't exist. That removes the whole
-signup, login and password-reset surface.
+Feather signs people in without passwords, in one of two ways:
 
-<Note>
-  Google is the default. The architecture extends to other OAuth providers, such as GitHub
-  or Microsoft, by adding blueprints.
-</Note>
+- **Google.** The user signs in with their Google account. You need OAuth credentials from
+  a Google Cloud project.
+- **Email.** The user types their address and gets a link that signs them in. You need no
+  Google Cloud project, only a way to send email.
 
-## Setup
+Either way there is no password to store, and one flow covers both sign-up and sign-in:
+Feather creates the account the first time someone arrives. The approval workflows, roles
+and permissions below work the same for both. Choose with `SIGN_IN_METHOD` in `config.py`,
+or with `feather new --sign-in email`.
+
+## Setup: Google
 
 <Steps>
   <Step title="Create OAuth credentials">
@@ -41,17 +43,71 @@ signup, login and password-reset surface.
   </Step>
 </Steps>
 
+## Setup: email
+
+<Steps>
+  <Step title="Choose email sign-in">
+    `feather new --sign-in email` sets it for a new app. In an existing one, set it in
+    `config.py`:
+
+    ```python config.py
+    SIGN_IN_METHOD = os.environ.get("SIGN_IN_METHOD", "email")
+    ```
+  </Step>
+  <Step title="Give it a way to send the email">
+    Feather uses the first of these that is set:
+
+    | Setting | What sends the email |
+    | --- | --- |
+    | `SIGN_IN_RELAY_URL` and `SIGN_IN_RELAY_TOKEN` | A relay run by your host. [Appentic](/deployment/appentic) sets both on every Feather project, so there is nothing to do. |
+    | `RESEND_API_KEY` | [Resend](/features/email), from `RESEND_FROM_EMAIL`. |
+    | Neither | Nothing. The link is written to the log, which is what you want in development. |
+  </Step>
+  <Step title="Create your admin user">
+    ```bash
+    python seeds.py
+    ```
+    Then sign in with the admin address from `seeds.py`.
+  </Step>
+</Steps>
+
+### How a sign-in link works
+
+1. `/auth/email/login` asks for an address and sends a link. It says the link is on its
+   way whether or not the address has an account, so the form can't be used to find out
+   who does.
+2. Opening the link shows a **Sign in** button rather than signing in straight away. Email
+   security scanners open every link in a message to check it, and would otherwise use up
+   the link before the person clicks it.
+3. The button signs the person in, and new addresses are handled exactly as a first Google
+   sign-in would be: created, and approved or held for approval.
+
+A link is signed with `SECRET_KEY`, works once, and expires after `SIGN_IN_LINK_MINUTES`
+(15). "Works once" is kept in the cache, so with several workers configure Redis
+(`REDIS_URL`) to make it hold across all of them.
+
+To change how the pages look, copy `feather/templates/auth/email_sign_in.html` to
+`templates/auth/email_sign_in.html` in your app.
+
 ## Routes
 
 | Route | Description |
 | --- | --- |
-| `/auth/google/login` | Start the OAuth flow |
-| `/auth/google/callback` | OAuth callback, handled for you |
+| `/auth/google/login` | Start Google sign-in |
+| `/auth/google/callback` | Google's callback, handled for you |
+| `/auth/email/login` | Ask for an address and send a sign-in link |
+| `/auth/email/verify` | The link's page, and the **Sign in** button that uses it |
 | `/auth/logout` | End session |
 
+Only the routes for your `SIGN_IN_METHOD` answer; the others return 404. Pages behind
+`@auth_required` send signed-out visitors to the right one.
+
 ```html
-<a href="/auth/google/login">Sign in with Google</a>
-<a href="/auth/logout">Sign out</a>
+<a href="{{ url_for('email_auth.login') }}">Sign in</a>   {# or google_auth.login #}
+<form method="post" action="/auth/logout">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit">Sign out</button>
+</form>
 ```
 
 <Warning>

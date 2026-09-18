@@ -92,6 +92,13 @@
         {% else %}
         <!-- Not logged in: Show sign in card -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            {% if config.SIGN_IN_METHOD == "email" %}
+            <p class="text-gray-600 dark:text-gray-400 mb-4 text-sm">Sign in with a link sent to your email, with automatic user creation and admin approval.</p>
+            <a href="{{ url_for('email_auth.login') }}"
+               class="inline-flex items-center gap-3 px-6 py-3 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800">
+                Sign in with email
+            </a>
+            {% else %}
             <p class="text-gray-600 dark:text-gray-400 mb-4 text-sm">Try Google OAuth with automatic user creation and admin approval workflow.</p>
             <a href="{{ url_for('google_auth.login') }}"
                class="inline-flex items-center gap-3 px-6 py-3 text-sm font-medium text-white bg-black rounded-lg hover:bg-gray-800">
@@ -103,6 +110,7 @@
                 </svg>
                 Sign in with Google
             </a>
+            {% endif %}
         </div>
         {% endif %}
 
