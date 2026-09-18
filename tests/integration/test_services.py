@@ -127,6 +127,7 @@ class TestInjectDecorator:
         from feather import inject, Service
 
         instance_ids = []
+        instances = []
 
         class PerRequestService(Service):
             def __init__(self):
@@ -136,6 +137,9 @@ class TestInjectDecorator:
         @test_app.route('/test/per-request')
         @inject(PerRequestService)
         def per_request(per_request_service):  # Must match snake_case class name
+            # Keep the instance itself: once the first is collected, the second
+            # can be given the same address, so comparing id()s alone is flaky.
+            instances.append(per_request_service)
             instance_ids.append(per_request_service.instance_id)
             return {'id': per_request_service.instance_id}
 
@@ -145,7 +149,7 @@ class TestInjectDecorator:
 
         # Each request should get new instance
         assert len(instance_ids) == 2
-        assert instance_ids[0] != instance_ids[1]
+        assert instances[0] is not instances[1]
 
 
 class TestSingletonDecorator:
