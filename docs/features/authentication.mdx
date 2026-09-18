@@ -116,6 +116,10 @@ Only the routes for your `SIGN_IN_METHOD` answer; the others return 404. Pages b
 
 ## Approval workflows
 
+In a single-tenant app, the address in `ADMIN_EMAIL` (in `config.py`, filled in from
+`feather new --admin-email`) is an active admin from its first sign-in, so the app's owner
+is never held for approval. Everyone else follows the rules below.
+
 New users can be approved automatically or held for admin review.
 
 | Workflow | CLI option | Best for |

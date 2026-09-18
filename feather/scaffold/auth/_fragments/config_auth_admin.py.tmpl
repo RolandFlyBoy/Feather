@@ -1,6 +1,9 @@
 
     # Admin Panel
     ADMIN_ENABLED = True
+    # The first sign-in from this address makes an active admin (single-tenant),
+    # so the app works before anyone runs seeds.py. ADMIN_EMAIL overrides it.
+    ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "__FEATHER_ADMIN_EMAIL_VALUE__")
 
     # Google OAuth
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")

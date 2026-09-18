@@ -626,11 +626,17 @@ def _get_or_create_user(user_info: dict, token: dict = None, source: str = "Goog
 
         # Build user attributes
         auto_approve = current_app.config.get("AUTO_APPROVE_USERS", False)
+        # The app's own admin (ADMIN_EMAIL in config.py) is an active admin
+        # from their first sign-in, so an app nobody has run seeds.py for
+        # doesn't lock its owner out. Single-tenant only: in a multi-tenant
+        # app admins belong to tenants, and platform admins come from the CLI.
+        admin_email = (current_app.config.get("ADMIN_EMAIL") or "").strip().lower()
+        is_owner = bool(admin_email) and email.strip().lower() == admin_email and not multi_tenant
         user_attrs = {
             "email": email,
             "username": username,
-            "active": auto_approve,  # Active immediately if auto-approve, else suspended
-            "role": "user",
+            "active": auto_approve or is_owner,  # Active immediately if auto-approve, else suspended
+            "role": "admin" if is_owner else "user",
         }
 
         # Add optional fields only if User model has them
@@ -657,12 +663,15 @@ def _get_or_create_user(user_info: dict, token: dict = None, source: str = "Goog
 
         # Create user
         user = User(**user_attrs)
-        if auto_approve and hasattr(user, "approved_at"):
+        if (auto_approve or is_owner) and hasattr(user, "approved_at"):
             user.approved_at = datetime.now(timezone.utc)
         db.session.add(user)
         db.session.commit()
 
-        if auto_approve:
+        if is_owner:
+            current_app.logger.info(f"Created the admin from {source}: {mask_email(email)} (ADMIN_EMAIL)")
+            _set_toast("Welcome! You're signed in as the admin.", "success")
+        elif auto_approve:
             current_app.logger.info(
                 f"Created new user from {source}: {mask_email(email)} (auto-approved)"
             )

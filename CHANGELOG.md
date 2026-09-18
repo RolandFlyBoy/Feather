@@ -10,6 +10,18 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.24 (2026-09-18): the app's admin is let in on their first sign-in
+
+Upgrading from 0.9.23 is a pin bump; add `ADMIN_EMAIL` to `config.py` to use it
+in an existing app.
+
+- **`ADMIN_EMAIL` in config.py: the first sign-in from that address creates an
+  active admin**, by Google or by email link, in a single-tenant app. Before,
+  a new app's owner signed in to a pending account and was locked out of it
+  until someone ran `seeds.py`, which nobody does for an app built for them.
+  Everyone else still waits for approval. New apps get it from
+  `--admin-email`. Multi-tenant apps keep their tenant rules.
+
 ## 0.9.23 (2026-09-18): sign in by email link
 
 Upgrading from 0.9.22 is a pin bump. Nothing changes for an app that signs in

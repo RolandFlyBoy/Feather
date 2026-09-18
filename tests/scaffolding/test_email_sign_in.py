@@ -86,6 +86,47 @@ def test_a_link_signs_in_once_and_only_after_the_button(scaffold_project):
     assert result["tampered"] == 400
 
 
+OWNER_FIRST_SIGN_IN = r"""
+import json, os, sys
+sys.path.insert(0, os.getcwd())
+import feather.auth.email_link as email_link
+sent = []
+email_link.send_link = lambda email, link: sent.append(link) or True
+from app import app
+from feather.db import db
+from models import User
+app.config["TESTING"] = True
+app.config["WTF_CSRF_ENABLED"] = False
+with app.app_context():
+    db.create_all()
+client = app.test_client()
+
+def sign_in(address):
+    client.post("/auth/email/login", data={"email": address})
+    token = sent[-1].split("token=", 1)[1]
+    client.post("/auth/email/verify", data={"token": token})
+
+sign_in("admin@test.com")
+owner = client.get("/admin/users").status_code
+client.post("/auth/logout")
+sign_in("stranger@test.com")
+with app.app_context():
+    stranger = User.query.filter_by(email="stranger@test.com").one()
+    admin = User.query.filter_by(email="admin@test.com").one()
+    print("RESULT " + json.dumps({"owner_admin": owner, "admin_role": admin.role, "admin_active": admin.active,
+                                  "stranger_active": stranger.active, "stranger_role": stranger.role}))
+"""
+
+
+def test_the_apps_own_admin_is_let_in_on_their_first_sign_in(scaffold_project):
+    # Nobody runs seeds.py for an app built for them; the owner must not be
+    # locked out of it, and nobody else gets in without approval.
+    result = _run_in_project(scaffold_project(EMAIL_APP), OWNER_FIRST_SIGN_IN)
+    assert result["owner_admin"] == 200
+    assert result["admin_role"] == "admin" and result["admin_active"] is True
+    assert result["stranger_active"] is False and result["stranger_role"] == "user"
+
+
 def test_email_sign_in_is_off_for_a_google_app(scaffold_project):
     result = _run_in_project(scaffold_project({**EMAIL_APP, "sign_in": "google"}), GOOGLE_ONLY)
     assert result["email_login"] == 404
