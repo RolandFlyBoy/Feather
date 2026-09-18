@@ -110,7 +110,10 @@ def _probe(project, **extra_env):
     tests/scaffolding/test_app_types_096.py).
     """
     env = dict(os.environ)
-    env["FLASK_ENV"] = "testing"
+    # Not the app's own testing config: rate_limits._exempt() lets a suite
+    # make hundreds of requests from one address, so under TESTING the probe
+    # would measure an app that deliberately enforces nothing.
+    env["FLASK_ENV"] = "development"
     env["PYTHONPATH"] = str(project)
     env.pop("DATABASE_URL", None)
     env.pop("REDIS_URL", None)

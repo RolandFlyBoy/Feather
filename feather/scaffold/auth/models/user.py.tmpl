@@ -43,8 +43,13 @@ __FEATHER_USER_FIELD_DEFS__
     role = db.Column(db.String(50), default="user", nullable=False)  # user, editor, moderator, admin
 
     # Account relationship - the account that owns this user's subscription
-    # use_alter=True defers FK creation to handle circular dependency with Account model
-    subscription_owner_account_id = db.Column(db.String(36), db.ForeignKey("accounts.id", use_alter=True), nullable=True)
+    # Named for the same reason as the one on Account: a deferred constraint
+    # with no name cannot be dropped, and a test suite drops its schema.
+    subscription_owner_account_id = db.Column(
+        db.String(36),
+        db.ForeignKey("accounts.id", use_alter=True, name="fk_users_subscription_owner_account_id"),
+        nullable=True,
+    )
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

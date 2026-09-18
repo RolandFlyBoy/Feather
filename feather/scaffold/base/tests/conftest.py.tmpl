@@ -1,15 +1,19 @@
-"""Pytest configuration for Feather apps."""
+"""Pytest configuration for Feather apps.
+
+The app under test is built here from TestingConfig rather than imported from
+app.py. The app in app.py is configured for development, and a suite that
+adopted those settings would be running against your own environment.
+"""
 
 import pytest
 
-from app import app as flask_app
+from feather import Feather
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def app():
     """Create application for testing."""
-    flask_app.config["TESTING"] = True
-    return flask_app
+    return Feather("app", config_class="config.TestingConfig")
 
 
 @pytest.fixture

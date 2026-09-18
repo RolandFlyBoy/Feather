@@ -1,0 +1,20 @@
+class TestingConfig(Config):
+    """Configuration for `feather test`.
+
+    The test suite builds the app from this class rather than importing the
+    one app.py starts, and it creates and drops the schema around the run.
+    Run against DATABASE_URL, that would empty the database you develop with,
+    so tests get a database of their own.
+    """
+
+    TESTING = True
+
+    # TEST_DATABASE_URL wins when it is set, which is how CI points a suite at
+    # a database of its own. Otherwise a PostgreSQL app gets a "_test" database
+    # next to the real one, which you create once with `createdb <name>_test`,
+    # and anything else runs in memory, starting each run from an empty schema.
+    DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or (
+        Config.DATABASE_URL + "_test"
+        if Config.DATABASE_URL.startswith("postgres")
+        else "sqlite:///:memory:"
+    )

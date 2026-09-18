@@ -9,6 +9,10 @@ icon: "terminal"
 ```bash
 feather new <name>                   # create project (interactive)
 feather new <name> --no-prompt       # use minimal defaults
+feather new <name> --app-type single-tenant --database postgresql --db-name shop \
+  --jobs --cache --storage --no-email --no-auto-approve-users \
+  --admin-email you@example.com      # every prompt answered by a flag, so no prompt
+feather new <name> --no-prompt --json  # print the result as JSON instead of next steps
 feather dev                          # dev server with Vite HMR (port 5173)
 feather dev --no-vite                # Flask only (port 5000)
 feather build                        # build assets for production

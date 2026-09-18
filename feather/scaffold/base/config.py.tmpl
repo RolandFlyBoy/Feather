@@ -31,10 +31,13 @@ class ProductionConfig(Config):
     TRUSTED_HOSTS = os.environ.get("TRUSTED_HOSTS")
 __FEATHER_CONFIG_PROD_AUTH____FEATHER_CONFIG_PROD_JOBS__
 
+__FEATHER_CONFIG_TESTING__
+
 # Map environment names to config classes
 config = {
     "development": DevelopmentConfig,
     "production": ProductionConfig,
+    "testing": TestingConfig,
     "default": DevelopmentConfig,
 }
 __FEATHER_CONFIG_JOBS_GUARD__

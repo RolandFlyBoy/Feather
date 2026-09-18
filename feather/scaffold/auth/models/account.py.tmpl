@@ -36,8 +36,14 @@ class Account(Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(100), nullable=False)
     avatar_url = db.Column(db.String(500))
-    # use_alter=True defers FK creation to handle circular dependency with User model
-    owner_user_id = db.Column(db.String(36), db.ForeignKey("users.id", use_alter=True), nullable=False)
+    # use_alter defers this FK so the circular dependency with User can be
+    # created; it is named because an unnamed deferred constraint cannot be
+    # dropped again, which breaks a test suite's teardown on PostgreSQL.
+    owner_user_id = db.Column(
+        db.String(36),
+        db.ForeignKey("users.id", use_alter=True, name="fk_accounts_owner_user_id"),
+        nullable=False,
+    )
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

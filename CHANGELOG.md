@@ -10,6 +10,50 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.19 (2026-09-18) — scaffolding from flags, and tests with their own database
+
+### `feather new` runs from flags, and a new app's tests get their own database
+
+Both found building a platform that scaffolds a Feather app on a server and
+then tests it in a container. The command could only be driven by hand, and the
+tests it generated ran against the app's own database.
+
+- **Every question the prompts ask now has a flag**: `--app-type`,
+  `--database`, `--db-name`, `--jobs/--no-jobs`, `--cache/--no-cache`,
+  `--storage/--no-storage`, `--email/--no-email`,
+  `--auto-approve-users/--no-auto-approve-users` and `--admin-email`. A flag
+  answers its question outright, and once the flags answer every question the
+  chosen app type needs, the command runs without a terminal even without
+  `--no-prompt`. Until now `--no-prompt` was the only way to skip the prompts
+  and it always produced a simple app with no database, so an orchestrator
+  could not scaffold a real one. It still means "defaults for anything not
+  given".
+- **A generated app's circular foreign keys are named.** `Account.owner_user_id`
+  and `User.subscription_owner_account_id` are deferred with `use_alter` to
+  break the circle between the two tables, and an unnamed deferred constraint
+  cannot be dropped again. On SQLite nothing noticed; on PostgreSQL the new test
+  suite failed in teardown with "Can't emit DROP CONSTRAINT ... it has no name".
+  Both are named now. An app generated before this keeps working; only a suite
+  that drops its schema was affected.
+- **A combination the prompts could never produce fails with a message naming
+  the flag**, rather than with a traceback or a half-built project:
+  multi-tenant on anything but PostgreSQL, an app with user accounts and no
+  database, an auth-only flag on a simple app, `--db-name` without PostgreSQL,
+  and a missing `--admin-email` when there is nobody to ask.
+- **`feather new --json` prints one JSON object and nothing else**: the path,
+  the app type, the database and its URL, the feature flags, the admin email
+  and whether the first migration was created. A caller reads the result
+  instead of parsing "Next steps", so this flag never prompts either. Without
+  `--json` the output is unchanged.
+- **Scaffolded apps carry a `TestingConfig` and their `tests/conftest.py`
+  builds the app from it.** The generated conftest used to import the app from
+  `app.py`, which configures it from `DATABASE_URL`, while creating and
+  dropping the schema around the run: `feather test` emptied the database the
+  app was being developed against. Tests now run against `TEST_DATABASE_URL`
+  when it is set, otherwise the app's own database with `_test` appended for
+  PostgreSQL, otherwise in-memory SQLite. `FLASK_ENV=testing` selects the same
+  config. Scaffold only: an app generated earlier keeps its own conftest.
+
 ## 0.9.18 (2026-09-17) — a new app carries its first migration
 
 Found deploying a freshly scaffolded app: `feather new` left

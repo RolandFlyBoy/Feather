@@ -1,6 +1,14 @@
-"""feather new - Create a new Feather project."""
+"""feather new - Create a new Feather project.
 
+Every question the prompts ask also has a flag, so the command can be driven
+from arguments alone. That is what lets a server-side agent scaffold an app:
+it has no terminal to answer prompts on, and it needs the result as data
+rather than as the "Next steps" text a person reads.
+"""
+
+import contextlib
 import importlib.metadata
+import io
 import json
 import os
 import subprocess
@@ -54,20 +62,101 @@ def _extract_db_name(db_url: str) -> str | None:
         return None
 
 
-@click.command()
-@click.argument("name")
-@click.option("--no-prompt", is_flag=True, help="Skip prompts, use defaults (simple app, no database)")
-def new(name: str, no_prompt: bool):
-    """Create a new Feather project.
+#: The app types, in the spelling the ``--app-type`` flag and the prompt use.
+#: ``options["app_type"]`` carries the underscored form the scaffold expects.
+APP_TYPES = ("simple", "single-tenant", "multi-tenant")
 
-    NAME is the name of the project directory to create.
+#: The database each app type gets when nothing answers the question.
+DEFAULT_DATABASE = {
+    "simple": "none",
+    "single-tenant": "sqlite",
+    "multi-tenant": "postgresql",
+}
+
+#: Flags the prompts only ever ask about for an app with user accounts, and
+#: the option key each one answers. Used to refuse them on a simple app, the
+#: way the prompt flow never offers them there.
+AUTH_ONLY_FLAGS = {
+    "auto_approve_users": "--auto-approve-users/--no-auto-approve-users",
+    "cache": "--cache/--no-cache",
+    "storage": "--storage/--no-storage",
+    "email": "--email/--no-email",
+    "admin_email": "--admin-email",
+}
+
+
+def _has_auth(app_type: str) -> bool:
+    """Whether this app type comes with user accounts."""
+    return app_type in ("single-tenant", "multi-tenant")
+
+
+def _questions_for(app_type: str) -> tuple[str, ...]:
+    """The flags that have to be given for this app type to skip the prompts.
+
+    The database is not among them for multi-tenant (PostgreSQL is the only
+    answer), and neither the database name nor the User profile fields are
+    ever among them: both have a default that needs no terminal.
     """
-    project_path = Path.cwd() / name
+    questions = () if app_type == "multi-tenant" else ("database",)
+    questions += ("jobs",)
+    if _has_auth(app_type):
+        questions += ("auto_approve_users", "cache", "storage", "email", "admin_email")
+    return questions
 
-    if project_path.exists():
-        raise click.ClickException(f"Directory '{name}' already exists")
 
-    # Default options - minimal app (just pressing Enter through prompts)
+def _fully_specified(given: dict) -> bool:
+    """Whether the flags answer every question the prompts would ask."""
+    app_type = given["app_type"]
+    if app_type is None:
+        return False
+    return all(given[question] is not None for question in _questions_for(app_type))
+
+
+def _validate_flags(given: dict) -> None:
+    """Refuse flag combinations the prompt flow could never produce.
+
+    Called with the flags as given, and again once the app type and the
+    database are settled, so an answer that came from a default or a prompt
+    cannot slip through a combination an explicit flag is refused for.
+    """
+    app_type = given["app_type"]
+    database = given["database"]
+
+    if app_type == "multi-tenant" and database not in (None, "postgresql"):
+        raise click.ClickException(
+            "--app-type multi-tenant requires --database postgresql "
+            f"(got --database {database}); tenants are rows in one PostgreSQL database"
+        )
+
+    if app_type is not None and _has_auth(app_type) and database == "none":
+        raise click.ClickException(
+            f"--app-type {app_type} stores user accounts, so it needs a database: "
+            "pass --database sqlite or --database postgresql"
+        )
+
+    if app_type is not None and not _has_auth(app_type):
+        for key, flag in AUTH_ONLY_FLAGS.items():
+            if given[key] is not None:
+                raise click.ClickException(
+                    f"{flag} applies to an app with user accounts: "
+                    "pass --app-type single-tenant or --app-type multi-tenant"
+                )
+
+    if given["db_name"] is not None and database not in (None, "postgresql"):
+        raise click.ClickException(
+            "--db-name names the PostgreSQL database to create, so it applies "
+            f"only with --database postgresql (got --database {database})"
+        )
+
+
+def _resolve_options(name: str, given: dict, no_prompt: bool) -> dict:
+    """Settle every scaffolding question from the flags, a prompt or a default.
+
+    A flag answers its question outright, which is what lets an orchestrator
+    drive the command from arguments. Whatever is left over is prompted for,
+    unless the caller passed --no-prompt or the flags already answer every
+    question, in which case the default answer stands and nothing is asked.
+    """
     options = {
         "app_type": "simple",  # "simple", "single_tenant", or "multi_tenant"
         "database": "none",  # "none", "sqlite", or "postgresql"
@@ -83,114 +172,115 @@ def new(name: str, no_prompt: bool):
         "admin_email": None,
     }
 
-    # Interactive prompts
-    if not no_prompt:
+    prompting = not no_prompt and not _fully_specified(given)
+    shown = []
+
+    def section(title: str, suffix: str = "") -> None:
+        """Head a group of questions, separated from the group before it.
+
+        The separator is tracked rather than printed with the group above
+        because a flag can remove any group, and a section the caller
+        answered by flag should leave no gap behind.
+        """
+        if shown:
+            click.echo()
+        click.echo(click.style(title, fg="cyan") + suffix)
+        shown.append(title)
+
+    if prompting:
         click.echo()
         click.echo(click.style("Project Configuration", fg="cyan", bold=True))
         click.echo()
 
-        # App type selection (drives all other options)
-        click.echo(click.style("App Type", fg="cyan"))
-        click.echo("  Simple       - Static pages, no authentication")
-        click.echo("  Single-tenant - One organization, user accounts")
-        click.echo("  Multi-tenant  - Multiple organizations (SaaS)")
-        click.echo()
-        app_type = click.prompt(
-            "  Select type",
-            type=click.Choice(["simple", "single-tenant", "multi-tenant"]),
-            default="simple",
+    # App type selection (drives all other options)
+    app_type = given["app_type"]
+    if app_type is None:
+        if prompting:
+            section("App Type")
+            click.echo("  Simple       - Static pages, no authentication")
+            click.echo("  Single-tenant - One organization, user accounts")
+            click.echo("  Multi-tenant  - Multiple organizations (SaaS)")
+            click.echo()
+            app_type = click.prompt(
+                "  Select type",
+                type=click.Choice(list(APP_TYPES)),
+                default="simple",
+            )
+        else:
+            app_type = "simple"
+
+    options["app_type"] = app_type.replace("-", "_")
+    if _has_auth(app_type):
+        options["include_auth"] = True
+        options["tenant_mode"] = "multi" if app_type == "multi-tenant" else "single"
+
+    # Database options depend on app type. Multi-tenant has no choice to make,
+    # so its only question is the name of the database to create.
+    database = given["database"]
+    if database is None and app_type == "multi-tenant":
+        database = "postgresql"
+
+    asks_database = prompting and database is None
+    asks_db_name = prompting and given["db_name"] is None and (
+        database == "postgresql" or asks_database
+    )
+    if asks_database or asks_db_name:
+        section("Database")
+
+    if asks_database:
+        choices = ["none", "sqlite", "postgresql"] if app_type == "simple" else ["sqlite", "postgresql"]
+        database = click.prompt(
+            "  Type",
+            type=click.Choice(choices),
+            default=DEFAULT_DATABASE[app_type],
         )
-        options["app_type"] = app_type.replace("-", "_")
+    elif database is None:
+        database = DEFAULT_DATABASE[app_type]
 
-        # Database options depend on app type
-        click.echo()
-        click.echo(click.style("Database", fg="cyan"))
+    options["database"] = database
+    _validate_flags({**given, "app_type": app_type, "database": database})
 
-        if app_type == "simple":
-            # Simple: Ask, default none
-            db_choice = click.prompt(
-                "  Type",
-                type=click.Choice(["none", "sqlite", "postgresql"]),
-                default="none",
-            )
-            options["database"] = db_choice
+    if database == "postgresql":
+        db_name = given["db_name"]
+        if db_name is None and prompting:
+            label = "Database name (PostgreSQL required)" if app_type == "multi-tenant" else "Database name"
+            db_name = click.prompt(f"  {label}", default=name)
+        options["db_url"] = f"postgresql://localhost/{db_name or name}"
 
-            if db_choice == "postgresql":
-                db_name = click.prompt(
-                    "  Database name",
-                    default=name,
-                )
-                options["db_url"] = f"postgresql://localhost/{db_name}"
-
-        elif app_type == "single-tenant":
-            # Single-tenant: Ask SQLite or PostgreSQL, default SQLite
-            db_choice = click.prompt(
-                "  Type",
-                type=click.Choice(["sqlite", "postgresql"]),
-                default="sqlite",
-            )
-            options["database"] = db_choice
-            options["include_auth"] = True
-            options["tenant_mode"] = "single"
-
-            if db_choice == "postgresql":
-                db_name = click.prompt(
-                    "  Database name",
-                    default=name,
-                )
-                options["db_url"] = f"postgresql://localhost/{db_name}"
-
-        else:  # multi-tenant
-            # Multi-tenant: PostgreSQL required, just ask for name
-            options["database"] = "postgresql"
-            options["include_auth"] = True
-            options["tenant_mode"] = "multi"
-
-            db_name = click.prompt(
-                "  Database name (PostgreSQL required)",
-                default=name,
-            )
-            options["db_url"] = f"postgresql://localhost/{db_name}"
-
-        # Background jobs: Available for all app types
-        click.echo()
-        click.echo(click.style("Background Jobs", fg="cyan"))
+    # Background jobs: Available for all app types
+    if given["jobs"] is not None:
+        options["include_jobs"] = given["jobs"]
+    elif prompting:
+        section("Background Jobs")
         options["include_jobs"] = click.confirm(
             "  Include background jobs?",
             default=True,
         )
 
-        # Additional features: Only for authenticated apps
-        if options["include_auth"]:
-            click.echo()
-            click.echo(click.style("Features", fg="cyan") + " (press Enter for defaults):")
+    # Additional features: Only for authenticated apps
+    if options["include_auth"]:
+        features = (
+            ("auto_approve_users", "auto_approve_users", "  Auto-approve new user signups?", False),
+            ("include_cache", "cache", "  Include Redis caching?", True),
+            ("include_storage", "storage", "  Include cloud storage (S3 or GCS)?", True),
+            ("include_email", "email", "  Include email support (Resend)?", False),
+        )
+        if prompting and any(given[flag] is None for _, flag, _, _ in features):
+            section("Features", " (press Enter for defaults):")
 
-            options["auto_approve_users"] = click.confirm(
-                "  Auto-approve new user signups?",
-                default=False,
-            )
+        for key, flag, question, default in features:
+            if given[flag] is not None:
+                options[key] = given[flag]
+            elif prompting:
+                options[key] = click.confirm(question, default=default)
 
-            options["include_cache"] = click.confirm(
-                "  Include Redis caching?",
-                default=True,
-            )
+        if options["include_storage"]:
+            options["storage_backend"] = "gcs"
 
-            options["include_storage"] = click.confirm(
-                "  Include cloud storage (S3 or GCS)?",
-                default=True,
-            )
-
-            if options["include_storage"]:
-                options["storage_backend"] = "gcs"
-
-            options["include_email"] = click.confirm(
-                "  Include email support (Resend)?",
-                default=False,
-            )
-
-            # User model field selection
-            click.echo()
-            click.echo(click.style("User Profile Fields", fg="cyan") + " (optional):")
+        # User model field selection. Only ever asked: an app driven by flags
+        # keeps the model's own default, which is every field.
+        if prompting:
+            section("User Profile Fields", " (optional):")
             options["user_fields"] = {
                 "display_name": click.confirm(
                     "  Include display_name?",
@@ -200,15 +290,151 @@ def new(name: str, no_prompt: bool):
                 "profile_image_url": True,
             }
 
-            # Admin email (required for auth)
-            click.echo()
-            click.echo(click.style("Admin Setup", fg="cyan"))
+        # Admin email (required for auth)
+        if given["admin_email"] is not None:
+            options["admin_email"] = given["admin_email"]
+        elif prompting:
+            section("Admin Setup")
             admin_label = "Platform admin email" if app_type == "multi-tenant" else "Admin email"
-            email = click.prompt(f"  {admin_label}")
-            options["admin_email"] = email
+            options["admin_email"] = click.prompt(f"  {admin_label}")
+        else:
+            # Nothing else can supply it: seeds.py has no admin to create, so
+            # the app would have no way in.
+            raise click.ClickException(
+                f"--admin-email is required for --app-type {app_type} when running "
+                "without prompts; it is the account seeds.py makes an admin"
+            )
 
+    if prompting:
         click.echo()
 
+    return options
+
+
+@contextlib.contextmanager
+def _quiet(enabled: bool):
+    """Swallow the progress narration while ``--json`` is on.
+
+    The helpers below say what they are doing as they go, which is what a
+    person wants to watch. A caller that asked for JSON has to be able to
+    parse the whole of stdout, so for them it goes nowhere.
+    """
+    if not enabled:
+        yield
+        return
+    with contextlib.redirect_stdout(io.StringIO()):
+        yield
+
+
+def _result(project_path: Path, name: str, options: dict, migrated: bool) -> dict:
+    """What ``--json`` prints: the choices made, and what came of them."""
+    return {
+        "path": str(project_path),
+        "name": name,
+        "app_type": options["app_type"].replace("_", "-"),
+        "database": options["database"],
+        "database_url": options["db_url"],
+        "jobs": bool(options["include_jobs"]),
+        "cache": bool(options["include_cache"]),
+        "storage": bool(options["include_storage"]),
+        "email": bool(options["include_email"]),
+        "auto_approve_users": bool(options["auto_approve_users"]),
+        "admin_email": options["admin_email"],
+        "migration_created": bool(migrated),
+    }
+
+
+@click.command()
+@click.argument("name")
+@click.option("--no-prompt", is_flag=True, help="Skip prompts, use defaults for anything no flag answers")
+@click.option(
+    "--app-type",
+    type=click.Choice(list(APP_TYPES)),
+    default=None,
+    help="App type (default: simple)",
+)
+@click.option(
+    "--database",
+    type=click.Choice(["none", "sqlite", "postgresql"]),
+    default=None,
+    help="Database (default: none for simple, sqlite for single-tenant, postgresql for multi-tenant)",
+)
+@click.option("--db-name", default=None, help="PostgreSQL database to create (default: the project name)")
+@click.option("--jobs/--no-jobs", default=None, help="Background jobs")
+@click.option("--cache/--no-cache", default=None, help="Redis caching (apps with user accounts)")
+@click.option("--storage/--no-storage", default=None, help="Cloud storage (apps with user accounts)")
+@click.option("--email/--no-email", default=None, help="Email support via Resend (apps with user accounts)")
+@click.option(
+    "--auto-approve-users/--no-auto-approve-users",
+    default=None,
+    help="New signups are active without admin approval",
+)
+@click.option("--admin-email", default=None, help="Admin account seeds.py creates; required for an app with user accounts")
+@click.option(
+    "--json",
+    "as_json",
+    is_flag=True,
+    help="Print the result as one JSON object instead of the next steps, and never prompt",
+)
+def new(
+    name: str,
+    no_prompt: bool,
+    app_type: str,
+    database: str,
+    db_name: str,
+    jobs: bool,
+    cache: bool,
+    storage: bool,
+    email: bool,
+    auto_approve_users: bool,
+    admin_email: str,
+    as_json: bool,
+):
+    """Create a new Feather project.
+
+    NAME is the name of the project directory to create.
+
+    Every prompt has a flag, so the command runs without a terminal once the
+    flags answer the questions the chosen app type needs:
+
+    \b
+        feather new shop --app-type single-tenant --database postgresql \\
+            --jobs --cache --storage --no-email --no-auto-approve-users \\
+            --admin-email you@example.com --json
+    """
+    project_path = Path.cwd() / name
+
+    if project_path.exists():
+        raise click.ClickException(f"Directory '{name}' already exists")
+
+    given = {
+        "app_type": app_type,
+        "database": database,
+        "db_name": db_name,
+        "jobs": jobs,
+        "cache": cache,
+        "storage": storage,
+        "email": email,
+        "auto_approve_users": auto_approve_users,
+        "admin_email": admin_email,
+    }
+    _validate_flags(given)
+
+    # A caller reading JSON off stdout has no terminal to answer a prompt on.
+    options = _resolve_options(name, given, no_prompt or as_json)
+
+    with _quiet(as_json):
+        migrated = _build_project(project_path, name, options)
+
+    if as_json:
+        click.echo(json.dumps(_result(project_path, name, options, migrated)))
+        return
+
+    _print_next_steps(name, options, migrated)
+
+
+def _build_project(project_path: Path, name: str, options: dict) -> bool:
+    """Create the project on disk. Returns whether the first migration ran."""
     # Handle database creation based on type
     if options["database"] == "postgresql":
         # Extract database name from URL and create database
@@ -251,8 +477,11 @@ def new(name: str, no_prompt: bool):
     _setup_venv(project_path)
 
     # The first migration, so the app is deployable straight from the repo.
-    migrated = options["database"] != "none" and _create_initial_migration(project_path)
+    return options["database"] != "none" and _create_initial_migration(project_path)
 
+
+def _print_next_steps(name: str, options: dict, migrated: bool):
+    """The closing text a person reads: what to run, and what it needs."""
     click.echo()
     click.echo(click.style("Project created successfully!", fg="green", bold=True))
     click.echo()

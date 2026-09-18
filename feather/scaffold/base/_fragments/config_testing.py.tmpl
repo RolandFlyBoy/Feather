@@ -1,0 +1,14 @@
+class TestingConfig(Config):
+    """Configuration for `feather test`.
+
+    The test suite builds the app from this class instead of importing the one
+    app.py starts, so a run can never pick up the settings you develop and
+    deploy with. This app has no database of its own, so tests get an
+    in-memory SQLite one and nothing a test writes outlives the run.
+    """
+
+    TESTING = True
+
+    # TEST_DATABASE_URL wins when it is set, which is how CI points a suite at
+    # a database of its own.
+    DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite:///:memory:")

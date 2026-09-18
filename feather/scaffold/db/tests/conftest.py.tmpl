@@ -1,8 +1,15 @@
-"""Pytest configuration for Feather apps."""
+"""Pytest configuration for Feather apps.
+
+The app under test is built here from TestingConfig rather than imported from
+app.py. The app in app.py is configured for development, so a suite that
+adopted its settings would create and drop its tables in the database you
+develop with. See TestingConfig in config.py for where the test database
+comes from.
+"""
 
 import pytest
 
-from app import app as flask_app
+from feather import Feather
 from feather.db import db
 
 
@@ -76,15 +83,17 @@ def _register_csrf_endpoint(app):
 # Fixtures
 # =============================================================================
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def app():
     """Create application for testing."""
-    flask_app.config["TESTING"] = True
-    flask_app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+    flask_app = Feather("app", config_class="config.TestingConfig")
 
     # Register CSRF endpoint BEFORE any requests
     _register_csrf_endpoint(flask_app)
 
+    # The schema is created once for the run, so rows a test writes outlive
+    # it. Give each fixture data of its own rather than counting on an empty
+    # table.
     with flask_app.app_context():
         db.create_all()
 
