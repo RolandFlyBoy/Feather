@@ -10,6 +10,18 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.26 (2026-09-19): AGENTS.md carries the components and tests reference
+
+Upgrading from 0.9.25 is a pin bump. New apps only.
+
+- **New apps' AGENTS.md lists the components with their arguments, the
+  `feather test` syntax for one file or one test, and the test fixture pattern
+  that avoids `DetachedInstanceError`.** Coding assistants were reading
+  framework source to find these, and guessing `feather test -k`, which isn't
+  an option: it is `feather test -p tests/test_x.py -- -k name`. It also says
+  plainly which components style themselves and which are starters to style
+  with your own classes.
+
 ## 0.9.25 (2026-09-18): email sign-in finds its settings, and never logs a live link
 
 Upgrading from 0.9.24 is a pin bump. Apps using email sign-in should take it.

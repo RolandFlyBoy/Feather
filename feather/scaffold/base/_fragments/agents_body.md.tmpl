@@ -124,6 +124,49 @@ island("counter", {
 __FEATHER_AGENTS_AUTH_PATTERNS____FEATHER_AGENTS_MULTI_TENANT_PATTERNS____FEATHER_AGENTS_DB_PATTERNS__
 __FEATHER_AGENTS_RATE_LIMITS__---
 
+### Components
+
+Import from `components/...`. These work as they are:
+
+```jinja
+{% from "components/icon.html" import icon %}          {{ icon("photo_camera", size="sm") }}  {# Material Symbols; sm|md|lg|xl #}
+{% from "components/dropdown.html" import dropdown %}  {{ dropdown(name="status", options=[{"value": "a", "label": "A"}], selected="a", label="Status") }}
+{% from "components/spinner.html" import spinner %}    {{ spinner(size="sm") }}
+```
+
+Confirmations use `hx-confirm="Delete this?"` (a styled modal, already on every page),
+toasts come from `redirect_with_toast(...)` in a route, and `window.showPrompt()` asks
+for text. `button`, `input`, `textarea`, `card`, `modal` and `alert` are thin starters
+(`card`, `modal` and `alert` take `{% call %}` and render only what you give them), so
+style buttons, fields and cards with your own named classes in `static/css/app.css`
+(`.btn-primary`, `.field`, `.card`) built from your design tokens.
+
+### Tests
+
+```bash
+feather test                                   # everything
+feather test -p tests/test_photos.py           # one file
+feather test -p tests/test_photos.py -- -k post  # one test (pytest args after --)
+```
+
+Create data and sign in inside one `app.app_context()`, and keep ids, not model objects,
+past it (an object used after its context is closed raises `DetachedInstanceError`):
+
+```python
+from feather.testing import login_as
+
+def test_post(app, csrf_client):
+    with app.app_context():
+        user = User(email="a@b.c", username="a", active=True)
+        db.session.add(user); db.session.commit()
+        user_id = user.id
+        login_as(csrf_client, user)
+    assert csrf_client.post("/photos", data={...}).status_code == 302
+```
+
+`feather generate model|service|route` writes files where you run it, so run it in
+the project you are editing.
+
 ## Deployment
 
 This project ships a Docker deployment layout. One host runs everything
