@@ -1,0 +1,131 @@
+---
+title: "UI foundation"
+description: "Design tokens and the components built on them: page shells, navigation, buttons, forms, an uploader, galleries, a lightbox, dialogs and empty states. Yours to restyle."
+icon: "palette"
+---
+
+Every app `feather new` creates starts with a foundation, so the first page you
+build is not a blank stylesheet.
+
+| Where | What |
+| --- | --- |
+| `static/css/ui.css` | The design tokens, and the components built on them |
+| `components/ui.html` | The macros that use those classes |
+| `/feather-static/ui.js` | The behaviours: lightbox, uploader, dialogs, confirms |
+
+`app.css` imports the stylesheet, `base.html` loads the script, and both are
+already wired when the project is created.
+
+## Start with the tokens
+
+The tokens are Tailwind theme variables, so each one is both a CSS variable and
+a utility (`bg-accent`, `text-ink-2`, `font-display`, `rounded-ui`). Setting an
+app's look means editing them, and their dark mode values, before building
+pages:
+
+```css static/css/ui.css
+@theme {
+  --color-bg: #fbfaf8;        /* page background */
+  --color-surface: #ffffff;   /* cards, inputs, menus */
+  --color-ink: #1c1b19;       /* body text */
+  --color-ink-2: #5c5955;     /* secondary text */
+  --color-line: #e6e2dc;      /* borders */
+  --color-accent: #1c1b19;    /* the primary action */
+  --font-display: "Fraunces", serif;
+  --radius-ui: 6px;
+}
+
+.dark {
+  --color-bg: #121110;
+  --color-surface: #1a1918;
+  --color-ink: #f2efea;
+  /* ... */
+}
+```
+
+Change those eight values and every button, field, card and dialog follows.
+
+## The components
+
+Classes, used in your templates the way any named class is:
+
+| Need | Use |
+| --- | --- |
+| Page shell | `.ui-page` (`-narrow`, `-wide`), `.ui-stack`, `.ui-row`, `.ui-section` |
+| Header | `page_header(title, subtitle)`, `.ui-eyebrow` |
+| Navigation | `.ui-nav`, `.ui-nav-link`, `.ui-tabbar` for phones |
+| Buttons | `.ui-btn` with `-primary`, `-secondary`, `-ghost`, `-danger`, `-sm`, `-lg`, `-block`, `-icon` |
+| Forms | `.ui-form`, `.ui-field`, `.ui-label`, `.ui-input`, `.ui-textarea`, `.ui-select`, `.ui-check`, `.ui-error` |
+| Uploads | `uploader(name, multiple=True, accept="image/*")` |
+| Cards, lists | `.ui-card`, `.ui-list`, `.ui-list-item` |
+| Tables | `.ui-table`, plus `.ui-table-stack` to become rows on a phone |
+| Images | `.ui-gallery` (`-portrait`, `-masonry`), `lightbox_item(url, thumb_url, alt)` |
+| Dialogs | `dialog(id, title)`, `notice(kind, text)`, `.ui-badge` |
+| States | `empty_state(icon, title, text)`, `skeleton()`, `.ui-loading` |
+
+```html templates/pages/photos.html
+{% extends "base.html" %}
+{% from "components/ui.html" import page_header, empty_state, lightbox_item %}
+
+{% block content %}
+<div class="ui-page">
+  {% call page_header("Photos", "Everything shared so far") %}
+    <a href="/add" class="ui-btn ui-btn-primary">Add photos</a>
+  {% endcall %}
+
+  {% if photos %}
+  <div class="ui-gallery">
+    {% for photo in photos %}
+      {{ lightbox_item(photo.url, photo.thumb_url, photo.caption, group="album") }}
+    {% endfor %}
+  </div>
+  {% else %}
+    {{ empty_state("photo_camera", "No photos yet", "Be the first to share one.",
+                   action_href="/add", action_text="Add photos") }}
+  {% endif %}
+</div>
+{% endblock %}
+```
+
+## Behaviours, with no JavaScript of your own
+
+```html
+{# Tap to view full screen, swipe or arrow between them #}
+<a href="{{ full }}" class="ui-gallery-item" data-lightbox="album">
+  <img src="{{ thumb }}" alt="">
+</a>
+
+{# Choose or drop files, with previews before sending #}
+<label class="ui-uploader" data-uploader>
+  <input type="file" name="photos" multiple accept="image/*">
+  <span class="ui-uploader-title">Choose photos</span>
+  <div class="ui-uploader-previews"></div>
+</label>
+
+{# A dialog that closes on Escape, on the backdrop, and on its own button #}
+<button type="button" class="ui-btn ui-btn-secondary" data-dialog-open="share">Share</button>
+```
+
+Add `data-upload-progress` to a form containing an uploader and it submits with
+a progress bar instead of a blank page.
+
+## Making it yours
+
+Extend a class rather than replacing it:
+
+```css static/css/app.css
+.ui-btn-primary { @apply rounded-full tracking-wide; }
+.ui-gallery     { @apply gap-4; }
+
+/* Something the foundation doesn't have */
+.ticket-row { @apply flex items-center justify-between gap-3 border-b border-line py-3; }
+```
+
+Rules that apply to the foundation as they do to the rest of a Feather app: the
+classes live in CSS, not in template attributes, there are no inline styles or
+scripts, and dialogs and confirms are the framework's, never the browser's.
+
+<Note>
+  The foundation is copied into your project, so it is yours to edit. The macros
+  and behaviours come from the framework, so a pin bump brings fixes to them.
+</Note>

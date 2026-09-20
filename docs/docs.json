@@ -122,6 +122,7 @@
             "icon": "layout-template",
             "pages": [
               "ui/overview",
+              "ui/foundation",
               "ui/components",
               "ui/htmx",
               "ui/islands",

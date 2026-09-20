@@ -22,11 +22,29 @@ by default and skipped in development, so most apps never touch this page.
 default-src 'self'
 script-src  'self'
 style-src   'self' 'unsafe-inline' https://fonts.googleapis.com
+img-src     'self' data: blob: https://*.googleusercontent.com
+media-src   'self' blob:
 font-src    'self' https://fonts.gstatic.com
-img-src     'self' data: https://*.googleusercontent.com
 connect-src 'self'
 frame-ancestors 'none'
 ```
+
+`data:` and `blob:` are there so a page can preview a file someone has just
+chosen, before it is uploaded anywhere.
+
+## Files you store elsewhere
+
+An app that keeps uploads in a bucket has to be able to show them. When
+`S3_PUBLIC_URL` or `S3_ENDPOINT` is set, that origin is added to `img-src` and
+`media-src` for you:
+
+```text
+img-src   'self' data: blob: https://*.googleusercontent.com https://s3.example.com
+media-src 'self' blob: https://s3.example.com
+```
+
+Nothing to configure, and a blocked image stops being the first thing you meet
+after building an upload page.
 
 ## Extending it
 
