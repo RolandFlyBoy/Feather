@@ -1,0 +1,218 @@
+/* Feather's UI foundation, in Tailwind.
+
+   Yours to change: the tokens below are Tailwind theme variables (@theme), so
+   they exist both as CSS variables and as utilities (bg-accent, text-ink-2,
+   font-display, rounded-ui). Set the look of this app by editing them, and
+   their dark mode values, before building pages.
+
+   The components are named classes built with @apply, which is the house rule
+   for a Feather app: no utility classes in templates. Compose them and add
+   what this product needs in app.css; do not rewrite buttons, fields, dialogs
+   or grids from scratch.
+
+   The macros that use these classes are in components/ui.html, and the
+   behaviours (lightbox, uploader, dialogs, confirms) in /feather-static/ui.js. */
+
+@theme {
+  /* Colour: one dominant, one accent, a tinted neutral scale. */
+  --color-bg: #fbfaf8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f3f1ed;
+  --color-ink: #1c1b19;
+  --color-ink-2: #5c5955;
+  --color-ink-3: #8a8680;
+  --color-line: #e6e2dc;
+  --color-accent: #1c1b19;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #edeae4;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-success: #1f7a4d;
+  --color-success-soft: #e6f4ec;
+  --color-warn: #a15c00;
+  --color-warn-soft: #fff4e0;
+  /* Type: a pairing and a scale. */
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-body);
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.1;
+  /* Shape and rhythm. */
+  --radius-ui: 6px;
+  --radius-ui-lg: 10px;
+  --shadow-ui: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --ease-ui: 180ms ease;
+}
+
+/* Dark mode retints the tokens; every component follows without a change.
+   Outside @theme so the .dark class (Feather's toggle) can switch them. */
+.dark {
+  --color-bg: #121110;
+  --color-surface: #1a1918;
+  --color-surface-2: #242220;
+  --color-ink: #f2efea;
+  --color-ink-2: #b8b3ab;
+  --color-ink-3: #86817a;
+  --color-line: #2e2b28;
+  --color-accent: #f2efea;
+  --color-accent-ink: #121110;
+  --color-accent-soft: #2a2825;
+  --color-danger-soft: #3a1a17;
+  --color-success-soft: #14301f;
+  --color-warn-soft: #3a2a10;
+  --shadow-ui: none;
+}
+
+@layer base {
+  html { @apply font-body text-ink bg-bg; }
+  body { @apply bg-bg text-ink antialiased leading-relaxed; }
+  h1, h2, h3, h4 { @apply font-display text-ink leading-tight tracking-tight; }
+  img, video { @apply block max-w-full h-auto; }
+  :focus-visible { @apply outline-none ring-[3px] ring-accent/30 rounded-ui; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+}
+
+@layer components {
+  /* ── Layout ─────────────────────────────────────────────── */
+  .ui-page { @apply w-full max-w-6xl mx-auto p-4 sm:p-6; }
+  .ui-page-narrow { @apply max-w-2xl; }
+  .ui-page-wide { @apply max-w-[96rem]; }
+  .ui-prose { @apply max-w-prose; }
+  .ui-stack { @apply flex flex-col gap-4; }
+  .ui-stack-tight { @apply gap-2; }
+  .ui-stack-loose { @apply gap-8; }
+  .ui-row { @apply flex items-center gap-3 flex-wrap; }
+  .ui-row-between { @apply justify-between; }
+  .ui-section { @apply py-8 sm:py-12; }
+  .ui-divider { @apply border-0 border-t border-line my-6; }
+
+  /* ── Page header ─────────────────────────────────────────── */
+  .ui-page-header { @apply flex flex-col gap-2 mb-6 sm:flex-row sm:items-end sm:justify-between; }
+  .ui-page-title { @apply text-3xl sm:text-display font-semibold; }
+  .ui-page-subtitle { @apply text-ink-2 text-base max-w-prose; }
+  .ui-page-actions { @apply flex gap-2 flex-wrap; }
+  .ui-eyebrow { @apply text-sm uppercase tracking-[0.08em] text-ink-3 font-medium; }
+
+  /* ── Navigation ─────────────────────────────────────────── */
+  .ui-nav { @apply flex items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4 border-b border-line bg-surface sticky top-0 z-30; }
+  .ui-nav-brand { @apply font-display font-semibold text-xl text-ink no-underline tracking-tight; }
+  .ui-nav-links { @apply flex gap-1 items-center; }
+  .ui-nav-link { @apply text-ink-2 no-underline px-3 py-2 rounded-ui text-sm min-h-11 inline-flex items-center transition-colors duration-150 hover:text-ink hover:bg-surface-2; }
+  .ui-nav-link.active { @apply text-ink font-semibold; }
+  /* A bottom bar for phones when the app has three to five destinations. */
+  .ui-tabbar { @apply fixed inset-x-0 bottom-0 grid grid-flow-col bg-surface border-t border-line z-30 pb-[env(safe-area-inset-bottom)] sm:hidden; }
+  .ui-tabbar-item { @apply flex flex-col items-center gap-0.5 py-2 min-h-14 text-ink-3 no-underline text-xs; }
+  .ui-tabbar-item.active { @apply text-ink; }
+  .ui-has-tabbar { @apply pb-18 sm:pb-0; }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  .ui-btn { @apply inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-ui text-base font-medium border border-transparent cursor-pointer no-underline whitespace-nowrap transition-colors duration-150; }
+  .ui-btn-primary { @apply bg-accent text-accent-ink hover:bg-accent/90; }
+  .ui-btn-secondary { @apply bg-surface text-ink border-line hover:bg-surface-2; }
+  .ui-btn-ghost { @apply bg-transparent text-ink-2 hover:text-ink hover:bg-surface-2; }
+  .ui-btn-danger { @apply bg-danger text-white hover:bg-danger/90; }
+  .ui-btn-sm { @apply min-h-9 px-3 text-sm; }
+  .ui-btn-lg { @apply min-h-13 px-6 text-lg; }
+  .ui-btn-block { @apply w-full; }
+  .ui-btn-icon { @apply min-w-11 px-0; }
+  .ui-btn[disabled], .ui-btn[aria-disabled="true"] { @apply opacity-50 cursor-not-allowed; }
+  .ui-link { @apply text-ink underline underline-offset-[3px]; }
+
+  /* ── Forms ──────────────────────────────────────────────── */
+  .ui-form { @apply flex flex-col gap-4; }
+  .ui-field { @apply flex flex-col gap-2; }
+  .ui-label { @apply text-sm font-medium text-ink; }
+  .ui-hint { @apply text-sm text-ink-3; }
+  .ui-input, .ui-textarea, .ui-select { @apply w-full min-h-11 px-3 py-2 text-[16px] text-ink bg-surface border border-line rounded-ui transition-[border-color,box-shadow] duration-150 placeholder:text-ink-3 focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/30; }
+  .ui-textarea { @apply min-h-30 resize-y leading-relaxed; }
+  .ui-field-error .ui-input, .ui-field-error .ui-textarea { @apply border-danger; }
+  .ui-error { @apply text-sm text-danger; }
+  .ui-check { @apply flex items-center gap-2 min-h-11 text-base; }
+  .ui-check input { @apply size-5 accent-accent; }
+  .ui-form-actions { @apply flex flex-col gap-2 sm:flex-row sm:justify-end; }
+
+  /* ── Uploader ───────────────────────────────────────────── */
+  .ui-uploader { @apply relative flex flex-col items-center justify-center gap-2 min-h-40 p-6 border-[1.5px] border-dashed border-line rounded-ui-lg bg-surface text-center text-ink-2 cursor-pointer transition-colors duration-150 hover:border-accent hover:bg-accent-soft; }
+  .ui-uploader.is-dragging { @apply border-accent bg-accent-soft; }
+  .ui-uploader input[type="file"] { @apply absolute inset-0 opacity-0 cursor-pointer; }
+  .ui-uploader-title { @apply text-ink font-medium; }
+  .ui-uploader-previews { @apply grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2 w-full mt-2 empty:hidden; }
+  .ui-uploader-previews img { @apply aspect-square object-cover rounded-ui; }
+  .ui-progress { @apply w-full h-1 bg-line rounded-sm overflow-hidden; }
+  .ui-progress-bar { @apply h-full w-0 bg-accent transition-[width] duration-100; }
+
+  /* ── Cards, lists, tables ───────────────────────────────── */
+  .ui-card { @apply bg-surface border border-line rounded-ui-lg p-4; }
+  .ui-card-title { @apply text-lg font-semibold mb-2; }
+  .ui-list { @apply flex flex-col; }
+  .ui-list-item { @apply flex items-center gap-3 py-3 border-b border-line min-h-14 last:border-b-0; }
+  .ui-list-item-body { @apply flex-1 min-w-0; }
+  .ui-list-item-title { @apply font-medium text-ink; }
+  .ui-list-item-meta { @apply text-sm text-ink-3; }
+  .ui-table { @apply w-full border-collapse text-sm; }
+  .ui-table th { @apply text-left font-medium text-ink-3 px-3 py-2 border-b border-line; }
+  .ui-table td { @apply p-3 border-b border-line align-top; }
+  .ui-table-num { @apply text-right tabular-nums; }
+  .ui-table-stack thead { @apply max-sm:hidden; }
+  .ui-table-stack tr { @apply max-sm:block max-sm:py-3 max-sm:border-b max-sm:border-line; }
+  .ui-table-stack td { @apply max-sm:flex max-sm:justify-between max-sm:gap-3 max-sm:border-0 max-sm:py-1 max-sm:px-0; }
+  .ui-table-stack td::before { content: attr(data-label); @apply text-ink-3 sm:hidden; }
+
+  /* ── Media: galleries and the lightbox ──────────────────── */
+  .ui-gallery { @apply grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4; }
+  .ui-gallery-loose { @apply gap-3; }
+  .ui-gallery-item { @apply relative block aspect-square overflow-hidden bg-surface-2 rounded-ui; }
+  .ui-gallery-item img { @apply w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]; }
+  .ui-gallery-item:hover img { @apply scale-[1.02]; }
+  .ui-gallery-item-caption { @apply absolute inset-x-0 bottom-0 px-3 py-2 text-sm text-white bg-gradient-to-t from-black/55 to-transparent; }
+  .ui-gallery-portrait .ui-gallery-item { @apply aspect-[4/5]; }
+  .ui-gallery-masonry { @apply columns-2 gap-1 sm:columns-3 lg:columns-4; }
+  .ui-gallery-masonry .ui-gallery-item { @apply aspect-auto min-h-24 break-inside-avoid mb-1; }
+  .ui-gallery-masonry .ui-gallery-item img { @apply h-auto; }
+  .ui-figure { @apply m-0; }
+  .ui-figure img { @apply w-full rounded-ui; }
+  .ui-figure figcaption { @apply mt-2 text-sm text-ink-3; }
+  .ui-bleed { @apply -mx-4 sm:mx-0; }
+
+  .ui-lightbox { @apply border-0 p-0 bg-transparent max-w-[100vw] max-h-[100vh] w-screen h-screen backdrop:bg-black/90; }
+  .ui-lightbox-frame { @apply relative flex items-center justify-center w-screen h-screen; }
+  .ui-lightbox-frame img { @apply max-w-[100vw] max-h-[100vh] w-auto h-auto object-contain; }
+  .ui-lightbox-caption { @apply absolute bottom-0 inset-x-0 p-4 text-white text-center text-sm bg-gradient-to-t from-black/60 to-transparent; }
+  .ui-lightbox-close, .ui-lightbox-prev, .ui-lightbox-next { @apply absolute inline-flex items-center justify-center size-11 border-0 rounded-full bg-white/10 text-white cursor-pointer; }
+  .ui-lightbox-close { @apply top-3 right-3; }
+  .ui-lightbox-prev { @apply left-3 top-1/2 -translate-y-1/2; }
+  .ui-lightbox-next { @apply right-3 top-1/2 -translate-y-1/2; }
+  .ui-lightbox-single .ui-lightbox-prev, .ui-lightbox-single .ui-lightbox-next { @apply hidden; }
+
+  /* ── Dialogs, notices, badges ───────────────────────────── */
+  .ui-dialog { @apply border border-line rounded-ui-lg p-0 bg-surface text-ink w-[min(92vw,28rem)] shadow-ui backdrop:bg-black/45; }
+  .ui-dialog-body { @apply p-6 flex flex-col gap-4; }
+  .ui-dialog-title { @apply text-lg font-semibold; }
+  .ui-dialog-close { @apply absolute top-2 right-2; }
+  .ui-notice { @apply flex gap-3 px-4 py-3 rounded-ui border border-line bg-surface-2 text-ink text-sm; }
+  .ui-notice-error { @apply bg-danger-soft border-transparent text-danger; }
+  .ui-notice-success { @apply bg-success-soft border-transparent text-success; }
+  .ui-notice-warn { @apply bg-warn-soft border-transparent text-warn; }
+  .ui-badge { @apply inline-flex items-center px-2 py-0.5 rounded-ui text-xs font-medium bg-surface-2 text-ink-2; }
+  .ui-badge-accent { @apply bg-accent-soft text-ink; }
+
+  /* ── Empty, loading, error states ───────────────────────── */
+  .ui-empty { @apply flex flex-col items-center text-center gap-3 px-4 py-12 text-ink-2; }
+  .ui-empty .icon { @apply text-[40px] text-ink-3; }
+  .ui-empty-title { @apply text-lg font-semibold text-ink; }
+  .ui-empty-text { @apply max-w-[36ch]; }
+  .ui-skeleton { @apply relative overflow-hidden bg-surface-2 rounded-ui min-h-[1em]; }
+  .ui-skeleton::after { content: ""; @apply absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent animate-[ui-shimmer_1.4s_infinite]; }
+  .ui-skeleton-text { @apply h-[0.9em] my-[0.3em]; }
+  .ui-skeleton-media { @apply aspect-[4/3]; }
+  @keyframes ui-shimmer { to { transform: translateX(100%); } }
+  .ui-loading { @apply inline-flex items-center gap-2 text-ink-3 text-sm; }
+  .htmx-request .ui-hide-while-loading { @apply hidden; }
+  .ui-show-while-loading { @apply hidden; }
+  .htmx-request .ui-show-while-loading, .htmx-request.ui-show-while-loading { @apply inline-flex; }
+
+  /* ── Small utilities that stay small on purpose ─────────── */
+  .ui-muted { @apply text-ink-3; }
+  .ui-small { @apply text-sm; }
+  .ui-truncate { @apply truncate; }
+  .ui-visually-hidden { @apply sr-only; }
+}

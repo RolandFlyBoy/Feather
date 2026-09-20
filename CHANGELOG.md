@@ -10,6 +10,27 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.27 (2026-09-20): a UI foundation in every new app, and uploads that show
+
+Upgrading from 0.9.26 is a pin bump. The foundation is new apps only; the
+content policy change applies to every app on this version.
+
+- **New apps start with a UI foundation**: `static/css/ui.css` holds the design
+  tokens (colour, type, radius, spacing, and their dark mode values) as Tailwind
+  `@theme` variables and the components built on them, `components/ui.html` has
+  the macros, and `/feather-static/ui.js` the behaviours. Page shells,
+  navigation, buttons, forms, an uploader with previews and drag and drop,
+  cards, lists, tables that stack on a phone, galleries, an image lightbox,
+  dialogs, notices, and empty, loading and error states. Set an app's look by
+  editing the tokens, then compose the classes; AGENTS.md lists them, so an
+  assistant builds with them instead of inventing a button.
+- **A page can show the files it stores.** The default content policy blocked
+  both an upload preview (`blob:`) and any image served from the app's own
+  bucket, silently, which looked like a broken page rather than a policy. The
+  defaults now allow `blob:` for images and media, and the app's storage host
+  is added from `S3_PUBLIC_URL` or `S3_ENDPOINT`. `FEATHER_CSP_DIRECTIVES`
+  still has the last word.
+
 ## 0.9.26 (2026-09-19): AGENTS.md carries the components and tests reference
 
 Upgrading from 0.9.25 is a pin bump. New apps only.

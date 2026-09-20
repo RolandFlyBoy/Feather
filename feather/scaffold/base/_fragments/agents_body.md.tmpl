@@ -137,9 +137,34 @@ Import from `components/...`. These work as they are:
 Confirmations use `hx-confirm="Delete this?"` (a styled modal, already on every page),
 toasts come from `redirect_with_toast(...)` in a route, and `window.showPrompt()` asks
 for text. `button`, `input`, `textarea`, `card`, `modal` and `alert` are thin starters
-(`card`, `modal` and `alert` take `{% call %}` and render only what you give them), so
-style buttons, fields and cards with your own named classes in `static/css/app.css`
-(`.btn-primary`, `.field`, `.card`) built from your design tokens.
+(`card`, `modal` and `alert` take `{% call %}` and render only what you give them).
+
+### The UI foundation
+
+`static/css/ui.css` holds this app's design tokens and the components built on
+them; `components/ui.html` has the macros; `/feather-static/ui.js` the behaviours.
+Set the look by editing the tokens (colour, type, radius, spacing, and their dark
+mode values) before building pages, then compose these classes. Extend one with
+`@apply` in `app.css` when a product needs more; don't rewrite them.
+
+```jinja
+{% from "components/ui.html" import page_header, empty_state, uploader, lightbox_item, dialog, notice, skeleton %}
+```
+
+| Need | Class or macro |
+|---|---|
+| Page shell, header | `.ui-page`, `page_header(title, subtitle)` |
+| Navigation | `.ui-nav`, `.ui-nav-link`, `.ui-tabbar` (phones) |
+| Buttons | `.ui-btn` with `-primary`, `-secondary`, `-ghost`, `-danger`, `-sm`, `-lg`, `-block` |
+| Forms | `.ui-form`, `.ui-field`, `.ui-label`, `.ui-input`, `.ui-textarea`, `.ui-select`, `.ui-check` |
+| File upload | `uploader(name, multiple=True, accept="image/*")` with previews and drag and drop |
+| Lists, tables | `.ui-list`, `.ui-table` (add `.ui-table-stack` to stack on a phone) |
+| Images | `.ui-gallery` (`-portrait`, `-masonry`), `lightbox_item(url, thumb_url, alt)` |
+| Dialogs, messages | `dialog(id, title)`, `notice(kind, text)`, `.ui-badge` |
+| States | `empty_state(icon, title, text)`, `skeleton()`, `.ui-loading` |
+
+Uploads and the lightbox need no JavaScript of your own: `data-uploader` on the
+label and `data-lightbox="group"` on the link are wired already.
 
 ### Tests
 

@@ -1,0 +1,74 @@
+{#
+  Feather's UI foundation: the macros behind static/css/ui.css and
+  /feather-static/ui.js.
+
+  {% from "components/ui.html" import page_header, empty_state, uploader, lightbox_item, dialog, notice, skeleton %}
+
+  page_header("Your photos", "Everything you have shared so far") with a
+  caller block for actions; empty_state("photo_camera", "No photos yet",
+  "Share the first one", action_href="/upload", action_text="Add photos");
+  uploader("photos", multiple=True, accept="image/*"); lightbox_item(url,
+  thumb_url, alt, group="album", caption=...); dialog("share", "Share this
+  album") with a caller block for the body; notice("error", "...");
+  skeleton("media") while something loads.
+#}
+{% from "components/icon.html" import icon %}
+
+{% macro page_header(title, subtitle=None, eyebrow=None) %}
+<header class="ui-page-header">
+  <div class="ui-stack ui-stack-tight">
+    {% if eyebrow %}<p class="ui-eyebrow">{{ eyebrow }}</p>{% endif %}
+    <h1 class="ui-page-title">{{ title }}</h1>
+    {% if subtitle %}<p class="ui-page-subtitle">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if caller %}<div class="ui-page-actions">{{ caller() }}</div>{% endif %}
+</header>
+{% endmacro %}
+
+{% macro empty_state(icon_name, title, text=None, action_href=None, action_text=None) %}
+<div class="ui-empty">
+  {{ icon(icon_name, size="lg") }}
+  <p class="ui-empty-title">{{ title }}</p>
+  {% if text %}<p class="ui-empty-text">{{ text }}</p>{% endif %}
+  {% if caller %}{{ caller() }}{% elif action_href and action_text %}<a href="{{ action_href }}" class="ui-btn ui-btn-primary">{{ action_text }}</a>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro uploader(name, multiple=False, accept=None, title="Choose files", hint="or drop them here", submit_on_choose=False) %}
+<label class="ui-uploader" data-uploader{% if submit_on_choose %} data-submit-on-choose{% endif %}>
+  <input type="file" name="{{ name }}"{% if multiple %} multiple{% endif %}{% if accept %} accept="{{ accept }}"{% endif %}>
+  {{ icon("upload", size="lg") }}
+  <span class="ui-uploader-title">{{ title }}</span>
+  <span class="ui-hint">{{ hint }}</span>
+  <div class="ui-uploader-previews"></div>
+</label>
+{% endmacro %}
+
+{% macro lightbox_item(url, thumb_url, alt, group="gallery", caption=None, class="") %}
+<a href="{{ url }}" class="ui-gallery-item {{ class }}" data-lightbox="{{ group }}"{% if caption %} data-caption="{{ caption }}"{% endif %}>
+  <img src="{{ thumb_url }}" alt="{{ alt }}" loading="lazy">
+  {% if caption %}<span class="ui-gallery-item-caption">{{ caption }}</span>{% endif %}
+</a>
+{% endmacro %}
+
+{% macro dialog(id, title) %}
+<dialog id="{{ id }}" class="ui-dialog" aria-labelledby="{{ id }}-title">
+  <div class="ui-dialog-body">
+    <h2 class="ui-dialog-title" id="{{ id }}-title">{{ title }}</h2>
+    {{ caller() }}
+  </div>
+  <button type="button" class="ui-btn ui-btn-ghost ui-btn-icon ui-dialog-close" data-dialog-close aria-label="Close">{{ icon("close") }}</button>
+</dialog>
+{% endmacro %}
+
+{% macro notice(kind, text) %}
+<div class="ui-notice{% if kind in ('error', 'success', 'warn') %} ui-notice-{{ kind }}{% endif %}" role="{% if kind == 'error' %}alert{% else %}status{% endif %}">
+  {{ icon({"error": "error", "success": "check_circle", "warn": "warning"}.get(kind, "info"), size="sm") }}
+  <span>{{ text }}</span>
+</div>
+{% endmacro %}
+
+{% macro skeleton(kind="text", lines=3) %}
+{% if kind == "media" %}<div class="ui-skeleton ui-skeleton-media" aria-hidden="true"></div>
+{% else %}{% for _ in range(lines) %}<div class="ui-skeleton ui-skeleton-text" aria-hidden="true"></div>{% endfor %}{% endif %}
+{% endmacro %}

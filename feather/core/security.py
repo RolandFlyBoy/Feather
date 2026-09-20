@@ -8,6 +8,10 @@ Configuration:
     FEATHER_HSTS_MAX_AGE: int (default 31536000 = 1 year).
     FEATHER_CSP_DIRECTIVES: dict — override or extend default CSP directives.
 
+The app's own storage host is added to the image and media directives
+automatically (``storage_origin``), so an app that keeps uploads in a bucket
+can show them without configuring anything.
+
 Example::
 
     # config.py
@@ -21,11 +25,53 @@ DEFAULT_CSP_DIRECTIVES = {
     "default-src": "'self'",
     "script-src": "'self'",
     "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
+    # data: and blob: are how a page previews a file someone just chose,
+    # before it has been uploaded anywhere.
+    "img-src": "'self' data: blob: https://*.googleusercontent.com",
+    "media-src": "'self' blob:",
     "font-src": "'self' https://fonts.gstatic.com",
-    "img-src": "'self' data: https://*.googleusercontent.com",
     "connect-src": "'self'",
     "frame-ancestors": "'none'",
 }
+
+#: Directives the storage host is added to, when the app stores files
+#: somewhere else: an app that uploads photos has to be able to show them.
+_STORAGE_DIRECTIVES = ("img-src", "media-src")
+
+
+def storage_origin(config) -> str | None:
+    """The origin files are served from, when it is not this app.
+
+    ``S3_PUBLIC_URL`` when the bucket has a public address, else
+    ``S3_ENDPOINT``, which is what a signed link is built on. Returns the
+    scheme and host only, which is what a policy directive takes.
+    """
+    from urllib.parse import urlsplit
+
+    for key in ("S3_PUBLIC_URL", "S3_ENDPOINT"):
+        value = (config.get(key) or "").strip()
+        if not value:
+            continue
+        parts = urlsplit(value if "//" in value else f"https://{value}")
+        if parts.netloc:
+            return f"{parts.scheme or 'https'}://{parts.netloc}"
+    return None
+
+
+def csp_directives(config) -> dict:
+    """The policy for this app: the defaults, plus wherever its files live,
+    with ``FEATHER_CSP_DIRECTIVES`` having the last word."""
+    directives = {**DEFAULT_CSP_DIRECTIVES}
+    origin = storage_origin(config)
+    if origin:
+        for key in _STORAGE_DIRECTIVES:
+            value = directives.get(key, "'self'")
+            if origin not in value:
+                directives[key] = f"{value} {origin}"
+    custom = config.get("FEATHER_CSP_DIRECTIVES")
+    if custom:
+        directives.update(custom)
+    return directives
 
 
 def init_security_headers(app):
@@ -53,10 +99,7 @@ def init_security_headers(app):
         )
 
         # CSP
-        directives = {**DEFAULT_CSP_DIRECTIVES}
-        custom = app.config.get("FEATHER_CSP_DIRECTIVES")
-        if custom:
-            directives.update(custom)
+        directives = csp_directives(app.config)
 
         csp_value = "; ".join(
             f"{key} {value}" for key, value in directives.items()
