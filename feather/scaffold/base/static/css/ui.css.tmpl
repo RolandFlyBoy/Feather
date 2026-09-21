@@ -41,6 +41,10 @@
   --radius-ui-lg: 10px;
   --shadow-ui: 0 1px 2px rgba(0, 0, 0, 0.06);
   --ease-ui: 180ms ease;
+  /* The select's arrow, drawn rather than left to the browser. Its own token
+     because a background image cannot read --color-ink-3: retint it here if
+     you retint the neutrals. */
+  --ui-chevron: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%20fill='none'%20stroke='%238a8680'%20stroke-width='1.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m4%206%204%204%204-4'/%3E%3C/svg%3E");
 }
 
 /* Dark mode retints the tokens; every component follows without a change.
@@ -60,6 +64,7 @@
   --color-success-soft: #14301f;
   --color-warn-soft: #3a2a10;
   --shadow-ui: none;
+  --ui-chevron: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%20fill='none'%20stroke='%2386817a'%20stroke-width='1.5'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m4%206%204%204%204-4'/%3E%3C/svg%3E");
 }
 
 @layer base {
@@ -124,7 +129,13 @@
   .ui-hint { @apply text-sm text-ink-3; }
   .ui-input, .ui-textarea, .ui-select { @apply w-full min-h-11 px-3 py-2 text-[16px] text-ink bg-surface border border-line rounded-ui transition-[border-color,box-shadow] duration-150 placeholder:text-ink-3 focus:outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/30; }
   .ui-textarea { @apply min-h-30 resize-y leading-relaxed; }
-  .ui-field-error .ui-input, .ui-field-error .ui-textarea { @apply border-danger; }
+  /* A native select draws its own arrow, in the browser's colour and size and
+     blind to dark mode, so the one select on a form never matched the inputs
+     beside it. Draw it from the tokens instead. A list (multiple, or a size
+     above one) has no arrow to replace. */
+  .ui-select { @apply appearance-none pr-10 bg-no-repeat; background-image: var(--ui-chevron); background-position: right 0.75rem center; background-size: 1rem 1rem; }
+  .ui-select[multiple], .ui-select[size]:not([size="1"]) { @apply pr-3; background-image: none; }
+  .ui-field-error .ui-input, .ui-field-error .ui-textarea, .ui-field-error .ui-select { @apply border-danger; }
   .ui-error { @apply text-sm text-danger; }
   .ui-check { @apply flex items-center gap-2 min-h-11 text-base; }
   .ui-check input { @apply size-5 accent-accent; }

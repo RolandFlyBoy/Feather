@@ -10,6 +10,22 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.28 (2026-09-21): a select that matches the form it is in
+
+Upgrading from 0.9.27 is a pin bump. New apps only: an app already scaffolded
+owns its `static/css/ui.css`, and takes these rules by hand.
+
+- **`.ui-select` draws its own arrow.** It was styled exactly like `.ui-input`
+  and left the browser to paint the chevron, so the one select on a form never
+  matched the fields beside it: the browser's colour, the browser's size, and
+  unchanged in dark mode. It now sets `appearance: none` and draws the arrow
+  from `--ui-chevron`, a token with a light and a dark value. A list
+  (`multiple`, or a `size` above one) keeps its normal padding and no arrow.
+  A background image cannot read `--color-ink-3`, so retint `--ui-chevron`
+  alongside the neutrals.
+- **An invalid select turns red.** `.ui-field-error` styled `.ui-input` and
+  `.ui-textarea`, and stopped there.
+
 ## 0.9.27 (2026-09-20): a UI foundation in every new app, and uploads that show
 
 Upgrading from 0.9.26 is a pin bump. The foundation is new apps only; the
