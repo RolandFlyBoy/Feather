@@ -204,11 +204,27 @@ class TestRequirementsPin:
     def test_dockerfile_installs_the_pinned_framework_first(self, scaffold_project):
         project = scaffold_project(FULL)
         dockerfile = (project / "Dockerfile").read_text()
-        # Feather goes on its own layer so the frontend stage can copy its
-        # templates out of the base image.
+        # Feather goes on its own layer, before the app's other requirements.
         assert "grep '^feather-framework' requirements.txt" in dockerfile
-        assert "COPY --from=base" in dockerfile
         assert ".feather-templates" in dockerfile
+
+    def test_the_frontend_build_does_not_wait_for_the_base_stage(self, scaffold_project):
+        # It copied Feather's templates out of the base stage, so vite waited
+        # for the system packages and the full install (43 s idle, cold). A
+        # stage with the framework alone and no dependencies supplies them.
+        dockerfile = (scaffold_project(FULL) / "Dockerfile").read_text()
+        frontend = dockerfile.split("AS frontend", 1)[1].split("\nFROM ", 1)[0]
+        assert "COPY --from=feather-templates" in frontend and "--from=base" not in frontend
+        stage = dockerfile.split("AS feather-templates", 1)[1].split("\nFROM ", 1)[0]
+        assert "--no-deps" in stage and "apt-get" not in stage
+
+    def test_logs_are_made_before_the_code_is_copied(self, scaffold_project):
+        # After `COPY . .` the step reran on every change; before it, a build
+        # cache keeps it.
+        dockerfile = (scaffold_project(FULL) / "Dockerfile").read_text()
+        for target in ("AS web", "AS worker"):
+            stage = dockerfile.split(target, 1)[1].split("\nFROM ", 1)[0]
+            assert stage.index("mkdir -p logs") < stage.index("COPY --chown=app:app . .")
 
 
 @pytest.mark.skipif(not _docker_available(), reason="docker is not on PATH")

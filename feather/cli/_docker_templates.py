@@ -124,15 +124,28 @@ RUN useradd --create-home --shell /usr/sbin/nologin app
 
 WORKDIR /app
 
-# Feather is installed on its own layer because the frontend stage copies its
-# templates out of this image: Tailwind scans them for the class names the
-# framework components use. Without that copy those styles are missing from
-# the production CSS and every framework component renders unstyled.
+# Feather is installed on its own layer, before the app's other requirements:
+# it is the largest install and changes least, so a build cache keeps it when
+# only the app's own requirements change.
 COPY requirements.txt ./
 RUN pip install "$(grep '^feather-framework' requirements.txt)"
 
 # -----------------------------------------------------------------------------
-# Stage 2: frontend build (Vite + Tailwind). No Node in the runtime image.
+# Stage 2: Feather's own templates, for the frontend stage. Tailwind scans them
+# for the class names the framework components use; without them those styles
+# are missing from the production CSS and every framework component renders
+# unstyled. Only the pinned framework, without its dependencies, so the
+# frontend build starts at once instead of waiting for the base stage's system
+# packages and full install.
+# -----------------------------------------------------------------------------
+FROM python:3.11-slim AS feather-templates
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --no-deps --disable-pip-version-check \
+    "$(grep '^feather-framework' requirements.txt)"
+
+# -----------------------------------------------------------------------------
+# Stage 3: frontend build (Vite + Tailwind). No Node in the runtime image.
 # -----------------------------------------------------------------------------
 FROM node:22-alpine AS frontend
 
@@ -151,22 +164,24 @@ RUN if [ -f package-lock.json ]; then \\
 COPY vite.config.js ./
 COPY static ./static
 COPY templates ./templates
-# Feather's own templates, from the Python base stage (there is no Python
-# here). static/css/app.css lists this directory as a Tailwind @source.
-COPY --from=base /usr/local/lib/python3.11/site-packages/feather/templates ./{templates_link}
+# Feather's own templates (there is no Python here). static/css/app.css lists
+# this directory as a Tailwind @source.
+COPY --from=feather-templates /usr/local/lib/python3.11/site-packages/feather/templates ./{templates_link}
 RUN npm run build
 '''
 
 _DOCKERFILE_WORKER = '''
 # -----------------------------------------------------------------------------
-# Stage 3: worker target - background jobs (RQ).
+# Stage 4: worker target - background jobs (RQ).
 # -----------------------------------------------------------------------------
 FROM base AS worker
 
 RUN pip install -r requirements.txt
+# Before the code, so a build cache keeps it: after `COPY . .` it ran again
+# on every change.
+RUN mkdir -p logs && chown app:app logs
 
 COPY --chown=app:app . .
-RUN mkdir -p logs && chown app:app logs
 
 USER app
 
@@ -186,10 +201,12 @@ _DOCKERFILE_WEB = '''
 FROM base AS web
 
 RUN pip install -r requirements.txt
+# Before the code, so a build cache keeps it: after `COPY . .` it ran again
+# on every change.
+RUN mkdir -p logs && chown app:app logs
 
 COPY --chown=app:app . .
 COPY --from=frontend --chown=app:app /build/static/dist ./static/dist
-RUN mkdir -p logs && chown app:app logs
 
 USER app
 
@@ -230,7 +247,7 @@ def render_dockerfile(app_name: str, *, worker: bool = True, port: int = DEFAULT
         body += _DOCKERFILE_WORKER
     body += _fill(
         _DOCKERFILE_WEB,
-        web_stage_number=4 if worker else 3,
+        web_stage_number=5 if worker else 4,
         port=port,
         health_path=HEALTH_PATH,
     )

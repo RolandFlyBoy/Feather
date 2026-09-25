@@ -76,10 +76,13 @@ export default defineConfig({
         assetFileNames: "[name]-[hash][extname]",
       },
     },
-    minify: "terser",
-    terserOptions: {
-      mangle: { toplevel: false },
-      compress: { keep_classnames: true, keep_fnames: true },
-    },
+    // esbuild, Vite's default: minifying with terser took 2.8 times as long
+    // (the echarts chunk is most of the work), for output about a tenth
+    // smaller. keepNames keeps function and class names, as terser's
+    // keep_fnames and keep_classnames did.
+    minify: "esbuild",
+  },
+  esbuild: {
+    keepNames: true,
   },
 });
