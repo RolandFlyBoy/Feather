@@ -10,6 +10,30 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.30 (2026-09-25): faster image builds
+
+Found timing deploys of the Kanban tutorial app on Appentic, where a one-line
+template change took two and a half minutes to build. Upgrading from 0.9.29 is
+a pin bump; the scaffold changes reach new apps, and the notes say what an
+existing app copies by hand.
+
+- **The frontend build no longer waits for the Python base stage.** It copied
+  Feather's own templates (which Tailwind scans) out of `base`, so `vite build`
+  waited for the system packages and the framework install: 43 s idle in a cold
+  build. A new `feather-templates` stage installs the pinned framework alone,
+  `--no-deps`, and the frontend stage copies from it, so it builds alongside
+  `base`. Existing apps: add the stage from a new app's Dockerfile and change
+  the frontend stage's `COPY --from=base` to `COPY --from=feather-templates`.
+- **`vite build` minifies with esbuild.** Terser took 2.8 times as long for
+  output about a tenth smaller (the lazy ECharts chunk is most of the work);
+  `esbuild.keepNames` keeps function and class names as terser's
+  `keep_fnames`/`keep_classnames` did. `terser` leaves the scaffold's
+  devDependencies. Existing apps: replace `minify: "terser"` and
+  `terserOptions` in `vite.config.js` with `minify: "esbuild"` and a top-level
+  `esbuild: { keepNames: true }`.
+- **`logs/` is made before the code is copied** in the web and worker stages,
+  so a build cache keeps that step instead of rerunning it on every change.
+
 ## 0.9.29 (2026-09-25): lessons from building the Kanban tutorial on Appentic
 
 Found building part 4 of the tutorial ("Personal Kanban") with email sign-in
