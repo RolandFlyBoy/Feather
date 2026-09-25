@@ -15,7 +15,7 @@ Everything else is an extra, so an app that renders no PDFs installs no PDF rend
 
 | Extra | Brings | Enable it when |
 | --- | --- | --- |
-| `postgres` | psycopg2-binary | `DATABASE_URL` is a `postgresql://` URL |
+| `postgres` | psycopg2-binary, psycopg 3 | `DATABASE_URL` is a `postgresql://` or `postgresql+psycopg://` URL |
 | `redis` | redis, rq | `CACHE_BACKEND=redis` or `JOB_BACKEND=rq`, or `REDIS_URL` is set and those two are not |
 | `email` | resend | Sending transactional email |
 | `s3` | boto3 | `STORAGE_BACKEND=s3`, or `S3_BUCKET` is set |

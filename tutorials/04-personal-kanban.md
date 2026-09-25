@@ -28,6 +28,17 @@
 
 ## Prerequisites
 
+> **Email sign-in instead of Google.** `feather new kanban --sign-in email`
+> needs no Google Cloud project: people get a single-use link by email (written
+> to the log in development; sent for you on Appentic). Everything below still
+> applies, with three differences for LLMs building it: skip the Google
+> credentials, send people to `url_for('email_auth.login')` rather than
+> `/auth/google/login` (unauthenticated requests already redirect there), and
+> restyle the sign-in page by adding `templates/auth/email_sign_in.html`
+> (states: `form`, `sent`, `confirm`, `invalid`). With no GCS bucket, set
+> `STORAGE_BACKEND_FALLBACK = "local"`; on Appentic, file storage sets
+> `S3_BUCKET` and `get_storage()` switches to it.
+
 ### Required Credentials
 
 Before starting, you'll need:
@@ -552,14 +563,17 @@ class CardService(Service):
         old_column_id = card.column_id
 
         if to_column_id != old_column_id:
-            card.column_id = to_column_id
+            # Read the end of the target column BEFORE changing column_id: the
+            # query autoflushes, and would otherwise count this card too.
             max_pos = Card.get_max_position(column_id=to_column_id)
+            card.column_id = to_column_id
             card.position = max_pos + 1
             self.db.commit()
             Card.reorder_all(column_id=old_column_id)
             self.db.commit()
 
-        card.move_to(to_position)
+        last = Card.get_max_position(column_id=to_column_id)
+        card.move_to(max(0, min(to_position, last)))
         self.db.commit()
         return card
 ```
@@ -740,33 +754,45 @@ def move_card(card_service: CardService):
     return {"success": True, "card": {"id": card.id, "position": card.position}}
 
 
-# PDF Export - weasyprint is a Feather core dependency
+# PDF Export - WeasyPrint comes with the `pdf` extra
+def _no_fetch(url, *args, **kwargs):
+    """Let WeasyPrint load inline data only. The HTML holds what people typed,
+    so a fetcher that followed URLs would let a card title make the server
+    request any address."""
+    if url.startswith("data:"):
+        from weasyprint.urls import default_url_fetcher
+        return default_url_fetcher(url, *args, **kwargs)
+    raise ValueError("External resources are not loaded in exports")
+
+
 @api.get("/kanbans/<kanban_id>/export")
 @auth_required
 @inject(KanbanService)
 def export_pdf(kanban_service: KanbanService, kanban_id: str):
     """Export a Kanban board to PDF (generated inline)."""
+    from markupsafe import escape
     from weasyprint import HTML
     from models import Column, Card
 
     kanban = kanban_service.get_by_id(kanban_id, current_user.id)
     columns = Column.query_ordered(kanban_id=kanban_id).all()
 
-    # Build HTML content for PDF
+    # Build HTML content for PDF. Every value people typed goes through
+    # escape(): a card titled "<img src=...>" must print as text, not markup.
     columns_html = ""
     for column in columns:
         cards = Card.query_ordered(column_id=column.id).all()
-        cards_html = "".join(f'<div class="card">{card.title}</div>' for card in cards)
+        cards_html = "".join(f'<div class="card">{escape(card.title)}</div>' for card in cards)
         if not cards:
             cards_html = '<div class="empty">(No cards)</div>'
-        columns_html += f'<div class="column"><h2>{column.title}</h2>{cards_html}</div>'
+        columns_html += f'<div class="column"><h2>{escape(column.title)}</h2>{cards_html}</div>'
 
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <style>
-            body {{ font-family: sans-serif; margin: 40px; }}
+            body {{ font-family: "Inter", "DejaVu Sans", sans-serif; margin: 40px; }}
             h1 {{ color: #1f2937; margin-bottom: 5px; }}
             .date {{ color: #6b7280; margin-bottom: 20px; }}
             .column {{ margin-bottom: 20px; }}
@@ -777,7 +803,7 @@ def export_pdf(kanban_service: KanbanService, kanban_id: str):
         </style>
     </head>
     <body>
-        <h1>{kanban.title}</h1>
+        <h1>{escape(kanban.title)}</h1>
         <div class="date">Exported on {datetime.now().strftime('%B %d, %Y')}</div>
         {columns_html}
     </body>
@@ -785,14 +811,16 @@ def export_pdf(kanban_service: KanbanService, kanban_id: str):
     """
 
     buffer = BytesIO()
-    HTML(string=html_content).write_pdf(buffer)
+    HTML(string=html_content, url_fetcher=_no_fetch).write_pdf(buffer)
     buffer.seek(0)
 
+    # The title goes into a header, so keep only characters that are safe there.
+    safe_name = "".join(c if c.isalnum() or c in " -_" else "-" for c in kanban.title).strip() or "board"
     return send_file(
         buffer,
         mimetype='application/pdf',
         as_attachment=True,
-        download_name=f'{kanban.title}.pdf'
+        download_name=f'{safe_name}.pdf'
     )
 
 
@@ -892,9 +920,12 @@ Create `templates/pages/pending.html` (shown to users awaiting approval):
             Your account ({{ current_user.email }}) is awaiting admin approval.
             You'll receive access once approved.
         </p>
-        <a href="/auth/logout" class="btn-secondary">
-            {{ icon("logout", size="sm") }} Sign Out
-        </a>
+        <form method="post" action="/auth/logout">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-secondary">
+                {{ icon("logout", size="sm") }} Sign Out
+            </button>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -936,7 +967,10 @@ Create `templates/pages/dashboard.html` (the home page):
                      alt="{{ current_user.display_name }}"
                      referrerpolicy="no-referrer"
                      class="user-avatar">
-                <a href="/auth/logout" class="btn-text">Logout</a>
+                <form method="post" action="/auth/logout">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-text">Logout</button>
+                </form>
             </div>
         </div>
     </header>
@@ -1062,7 +1096,10 @@ Create `templates/pages/board.html`:
                      alt="{{ current_user.display_name }}"
                      referrerpolicy="no-referrer"
                      class="user-avatar">
-                <a href="/auth/logout" class="btn-text">Logout</a>
+                <form method="post" action="/auth/logout">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-text">Logout</button>
+                </form>
             </div>
         </div>
     </header>

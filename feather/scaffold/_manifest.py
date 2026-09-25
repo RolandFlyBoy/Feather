@@ -69,6 +69,7 @@ OVERLAYS: list[Overlay] = [
 #: Tokens whose value comes from the options rather than from a fragment file.
 TOKENS: tuple[str, ...] = (
     "APP_NAME",
+    "APP_DISPLAY_NAME",
     "DB_URL",
     "ADMIN_EMAIL_LINE",
     "ACCOUNT_NAME_EXPR",
@@ -178,6 +179,10 @@ def token_values(options: dict) -> dict[str, Any]:
 
     return {
         "APP_NAME": options.get("name", ""),
+        # "my-shop" -> "My Shop": what people read in emails and page titles.
+        "APP_DISPLAY_NAME": " ".join(
+            part.capitalize() for part in options.get("name", "").replace("_", "-").split("-") if part
+        ).replace('"', ""),
         "DB_URL": options.get("db_url") or "",
         "ADMIN_EMAIL_LINE": (
             f'"{options["admin_email"]}"'

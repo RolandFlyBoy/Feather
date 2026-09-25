@@ -100,7 +100,9 @@
         if (!isOpen(els) || !els.modal.contains(e.target)) {
             return;
         }
-        const action = e.target.dataset ? e.target.dataset.action : null;
+        // closest(): a click on the icon inside a button is still that button.
+        const trigger = e.target.closest ? e.target.closest('[data-action]') : null;
+        const action = trigger ? trigger.dataset.action : null;
         if (action === 'confirm') {
             confirmValue();
         } else if (action === 'cancel') {

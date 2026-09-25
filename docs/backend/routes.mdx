@@ -71,6 +71,38 @@ reported as the `unprotected-route` warning. A deliberately public one carries a
 
 See [Authentication](/features/authentication) for the full decorator set.
 
+## Template filters, globals and error pages
+
+Register app-wide helpers on the `page` blueprint, in a module under `routes/pages/`, not
+in `app.py`:
+
+```python routes/pages/template_helpers.py
+from feather import page
+from feather.exceptions import NotFoundError
+
+
+@page.app_template_filter("timeago")
+def timeago(value): ...
+
+
+@page.app_context_processor
+def inject_permissions():
+    return {"can_edit": can_edit()}
+
+
+@page.app_errorhandler(NotFoundError)
+def not_found(error): ...
+```
+
+The test suite builds its app from `TestingConfig` and never imports `app.py`, so anything
+registered there exists when you run the app and is missing in every test. The blueprint's
+`app_*` hooks reach every app Feather builds from the project.
+
+<Warning>
+  Discovery skips any module whose name starts with an underscore. `routes/pages/_helpers.py`
+  is never imported and its decorators never run, so name it `template_helpers.py`.
+</Warning>
+
 ## Seeing what is registered
 
 ```bash

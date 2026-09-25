@@ -106,6 +106,8 @@ ENV PYTHONUNBUFFERED=1 \\
 
 # curl: the HEALTHCHECK below. The pango/gdk-pixbuf set: WeasyPrint, which
 # Feather imports wherever an app renders PDFs. Drop them if yours never will.
+# The fonts: the slim image ships none, so a rendered PDF had no typeface to
+# draw its text with.
 RUN apt-get update && apt-get install -y --no-install-recommends \\
     curl \\
     libpango-1.0-0 \\
@@ -113,6 +115,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \\
     libgdk-pixbuf-2.0-0 \\
     libffi8 \\
     shared-mime-info \\
+    fonts-dejavu-core \\
+    fonts-inter \\
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root runtime user.

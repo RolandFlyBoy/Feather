@@ -452,14 +452,17 @@ class CardService(Service):
         old_column_id = card.column_id
 
         if to_column_id != old_column_id:
-            card.column_id = to_column_id
+            # Read the end of the target column BEFORE changing column_id: the
+            # query autoflushes, and would otherwise count this card too.
             max_pos = Card.get_max_position(column_id=to_column_id)
+            card.column_id = to_column_id
             card.position = max_pos + 1
             self.db.commit()
             Card.reorder_all(column_id=old_column_id)
             self.db.commit()
 
-        card.move_to(to_position)
+        last = Card.get_max_position(column_id=to_column_id)
+        card.move_to(max(0, min(to_position, last)))
         self.db.commit()
         return card
 ```
@@ -803,9 +806,12 @@ Create `templates/pages/dashboard.html`:
                     {% if current_user.is_admin or current_user.is_platform_admin %}
                     <hr class="user-menu-divider">
                     {% endif %}
-                    <a href="/auth/logout" class="user-menu-item">
-                        {{ icon("logout", size="sm") }} Sign out
-                    </a>
+                    <form method="post" action="/auth/logout">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="user-menu-item">
+                            {{ icon("logout", size="sm") }} Sign out
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -950,9 +956,12 @@ Create `templates/pages/board.html`:
                     {% if current_user.is_admin or current_user.is_platform_admin %}
                     <hr class="user-menu-divider">
                     {% endif %}
-                    <a href="/auth/logout" class="user-menu-item">
-                        {{ icon("logout", size="sm") }} Sign out
-                    </a>
+                    <form method="post" action="/auth/logout">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="user-menu-item">
+                            {{ icon("logout", size="sm") }} Sign out
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

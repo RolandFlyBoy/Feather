@@ -181,6 +181,7 @@ def register_error_handlers(app: "Flask") -> None:
         AuthorizationError,
         AccountPendingError,
         AccountSuspendedError,
+        NotFoundError,
     )
 
     @app.errorhandler(FeatherException)
@@ -239,6 +240,28 @@ def register_error_handlers(app: "Flask") -> None:
                     return redirect(url_for('page.account_suspended'))
                 except Exception:
                     pass  # Fall through to generic auth error
+
+            # A page route whose service raised NotFoundError (a record that
+            # is gone, or that belongs to someone else) is a 404 page, the
+            # same as any other missing page, not a JSON body in the browser.
+            # HTMX requests keep the JSON (they are fragments, not pages), as do
+            # clients that don't ask for HTML.
+            if (
+                isinstance(error, NotFoundError)
+                and not request.headers.get("HX-Request")
+                and request.accept_mimetypes.accept_html
+            ):
+                try:
+                    return render_template(
+                        "errors/error.html",
+                        error_code=404,
+                        error_title="Page Not Found",
+                        error_message="The page you're looking for doesn't exist or has been moved.",
+                        error_detail=f"Path: {request.path}",
+                        error_icon="search_off",
+                    ), 404
+                except Exception:
+                    pass  # Fall through to JSON
 
             if isinstance(error, AuthorizationError):
                 # Render authorization error template with next_url

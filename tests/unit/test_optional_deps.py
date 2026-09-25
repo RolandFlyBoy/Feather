@@ -42,7 +42,7 @@ class TestExtrasMetadata:
         assert EXTRAS["pdf"] == ("weasyprint",)
         assert EXTRAS["gcs"] == ("google-cloud-storage",)
         assert EXTRAS["s3"] == ("boto3",)
-        assert EXTRAS["postgres"] == ("psycopg2-binary",)
+        assert EXTRAS["postgres"] == ("psycopg2-binary", "psycopg")
         assert EXTRAS["redis"] == ("redis", "rq")
         assert EXTRAS["email"] == ("resend",)
         assert EXTRAS["ratelimit"] == ("flask-limiter",)

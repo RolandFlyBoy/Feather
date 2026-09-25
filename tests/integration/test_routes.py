@@ -117,6 +117,24 @@ class TestApiErrorResponses:
             assert data['success'] is False
             assert data['error']['code'] == 'NOT_FOUND'
 
+    def test_not_found_error_on_a_page_is_a_404_page(self, test_app):
+        """A page route that raises NotFoundError shows the 404 page, not JSON."""
+        from feather import NotFoundError
+
+        @test_app.route('/test/page/missing')
+        def missing_page():
+            raise NotFoundError('Board', '123')
+
+        with test_app.test_client() as client:
+            response = client.get('/test/page/missing', headers={'Accept': 'text/html'})
+            assert response.status_code == 404
+            assert response.mimetype == 'text/html'
+            assert b'Not Found' in response.data
+
+            fragment = client.get('/test/page/missing', headers={'HX-Request': 'true'})
+            assert fragment.status_code == 404
+            assert fragment.get_json()['error']['code'] == 'NOT_FOUND'
+
     def test_authentication_error_response(self, test_app):
         """AuthenticationError returns 401 for API routes."""
         from feather import AuthenticationError

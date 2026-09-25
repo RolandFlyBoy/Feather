@@ -69,6 +69,7 @@ LOG_FORMAT=json
 | Key | Default | Purpose |
 | --- | --- | --- |
 | `SECRET_KEY` | dev key | Signs sessions. Refused outside debug if left at the default. |
+| `APP_NAME` | the project name | The app's name for people: sign-in emails and the admin panel. New apps set it from the project name ("my-shop" becomes "My Shop"). |
 | `DATABASE_URL` | sqlite | SQLAlchemy connection string. |
 | `FLASK_CONFIG` / `FLASK_ENV` | development | Which config class to load. Accepts `production`, `prod`, `development`, `dev`, `testing`, `test`. Leaving both unset logs a warning and selects development. |
 | `SESSION_LIFETIME_DAYS` | `7` | Session expiry. |

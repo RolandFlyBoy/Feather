@@ -63,7 +63,7 @@ export default defineConfig({
     manifest: true,
     rollupOptions: {
       input: {
-        // Vendor libs (htmx, echarts) - must load before other scripts
+        // Vendor libs (htmx; echarts as a lazy chunk) - must load before other scripts
         vendor: resolve(__dirname, "static/js/vendor.js"),
         // Styles
         styles: resolve(__dirname, "static/css/app.css"),

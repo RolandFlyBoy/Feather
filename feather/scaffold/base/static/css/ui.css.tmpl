@@ -195,7 +195,9 @@
   .ui-lightbox-single .ui-lightbox-prev, .ui-lightbox-single .ui-lightbox-next { @apply hidden; }
 
   /* ── Dialogs, notices, badges ───────────────────────────── */
-  .ui-dialog { @apply border border-line rounded-ui-lg p-0 bg-surface text-ink w-[min(92vw,28rem)] shadow-ui backdrop:bg-black/45; }
+  /* m-auto: Tailwind's preflight zeroes every margin, including the auto
+     margins that centre a modal <dialog>. */
+  .ui-dialog { @apply m-auto border border-line rounded-ui-lg p-0 bg-surface text-ink w-[min(92vw,28rem)] shadow-ui backdrop:bg-black/45; }
   .ui-dialog-body { @apply p-6 flex flex-col gap-4; }
   .ui-dialog-title { @apply text-lg font-semibold; }
   .ui-dialog-close { @apply absolute top-2 right-2; }

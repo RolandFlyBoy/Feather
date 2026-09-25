@@ -46,7 +46,7 @@
 
         <!-- Actions -->
         <div class="space-y-3">
-            <form action="{{ url_for('page.account_logout') }}" method="post">
+            <form action="{{ url_for('auth.logout') }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors">
                     Sign Out

@@ -39,6 +39,12 @@ raise ValidationError('Email is required', field='email')
 
 </CodeGroup>
 
+API routes (`/api/...`), htmx requests and requests that ask for JSON get that body. A page
+gets a page: `AuthenticationError` sends the visitor to sign in, the account status errors
+below redirect, and since 0.9.29 a `NotFoundError` raised under a page route renders the
+404 page for a browser (a request that accepts HTML) (`templates/errors/error.html`), so a service can raise it for a record that is
+gone, or belongs to someone else, and the browser shows a proper "not found".
+
 ## Account status exceptions
 
 `AccountPendingError` and `AccountSuspendedError` inherit from `AuthorizationError`, but

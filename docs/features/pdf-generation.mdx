@@ -12,43 +12,64 @@ pip install "feather-framework[pdf]"
 
 ## Basic usage
 
+Build the document from a Jinja template, the same way you build a page. It escapes what
+people typed, so a card titled `<img src=...>` prints as text instead of becoming markup.
+
 ```python
-from io import BytesIO
-from weasyprint import HTML
+from flask import render_template
+from weasyprint import CSS, HTML
 
-def generate_report(title, data):
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: sans-serif; margin: 40px; }}
-            h1 {{ color: #1f2937; }}
-            table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
-            td, th {{ border: 1px solid #d1d5db; padding: 8px; text-align: left; }}
-            th {{ background-color: #f3f4f6; }}
-        </style>
-    </head>
-    <body>
-        <h1>{title}</h1>
-        <table>
-            <tr><th>Item</th></tr>
-            {''.join(f'<tr><td>{row}</td></tr>' for row in data)}
-        </table>
-    </body>
-    </html>
-    """
 
-    buffer = BytesIO()
-    HTML(string=html_content).write_pdf(buffer)
-    buffer.seek(0)
-    return buffer
+def _no_fetch(url, *args, **kwargs):
+    """Load inline data only. The HTML holds what users typed, so a fetcher that
+    followed URLs would let them make your server request any address."""
+    if url.startswith("data:"):
+        from weasyprint.urls import default_url_fetcher
+
+        return default_url_fetcher(url, *args, **kwargs)
+    raise ValueError("External resources are not loaded in exports")
+
+
+def report_pdf(report) -> bytes:
+    html = render_template("exports/report.html", report=report)
+    css = CSS(string=render_template("exports/report.css"), url_fetcher=_no_fetch)
+    return HTML(string=html, url_fetcher=_no_fetch).write_pdf(stylesheets=[css])
 ```
 
-<Tip>
-  Move to a Jinja2 template once the document grows past a few elements. You get the same
-  escaping and partials as the rest of your views.
-</Tip>
+Return it from a route as a download:
+
+```python
+@page.get("/reports/<report_id>/export")
+@auth_required
+@inject(ReportService)
+def export_report(report_service, report_id):
+    report = report_service.get_for_user(report_id, current_user.id)
+    response = make_response(report_pdf(report))
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = 'attachment; filename="report.pdf"'
+    return response
+```
+
+<Warning>
+  Don't build the HTML with an f-string. Nothing is escaped, and anything a user typed
+  becomes markup in the PDF, including tags that make WeasyPrint fetch URLs.
+</Warning>
+
+Keep the stylesheet free of template variables too. A running footer that repeats the
+title takes it from the page with `string-set`, so nothing a user typed is ever parsed as
+CSS:
+
+```css
+@page { @bottom-left { content: string(doctitle); } }
+h1 { string-set: doctitle content(text); }
+```
+
+<Note>
+  The Docker image Feather generates installs `fonts-inter` and `fonts-dejavu-core`
+  (since 0.9.29). The slim base image has no fonts of its own, so without them a PDF
+  rendered in production has no typeface for its text. Name a font the image has
+  (`font-family: "Inter", "DejaVu Sans", sans-serif`) or bundle your own.
+</Note>
 
 ## Saving to storage
 

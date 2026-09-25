@@ -635,10 +635,11 @@ class CardService(Service):
 
         # If moving to a different column
         if to_column_id != old_column_id:
-            # Update column first
-            card.column_id = to_column_id
-            # Set position at end temporarily
+            # Find the end of the target column BEFORE changing column_id: the
+            # query autoflushes, so afterwards it would count this card too and
+            # leave a gap at the top of the column.
             max_pos = Card.get_max_position(column_id=to_column_id)
+            card.column_id = to_column_id
             card.position = max_pos + 1
             self.db.commit()
 
@@ -646,8 +647,10 @@ class CardService(Service):
             Card.reorder_all(column_id=old_column_id)
             self.db.commit()
 
-        # Move to specific position in target column
-        card.move_to(to_position)
+        # Move to specific position in target column (clamped: a drop below
+        # the last card is "the end", not a gap)
+        last = Card.get_max_position(column_id=to_column_id)
+        card.move_to(max(0, min(to_position, last)))
         self.db.commit()
 
         return card

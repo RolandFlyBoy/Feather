@@ -15,7 +15,7 @@
                 <a href="{{ url_for('admin.index') }}" class="sidebar-logo">
                     __FEATHER_ADMIN_LOGO_SVG__
                     <div class="sidebar-logo-text-group">
-                        <span class="sidebar-logo-text">Feather</span>
+                        <span class="sidebar-logo-text">{{ config.APP_NAME or "Feather" }}</span>
                         <span class="sidebar-logo-subtitle">Admin</span>
                     </div>
                 </a>
@@ -68,7 +68,7 @@
             <a href="{{ url_for('admin.index') }}" class="sidebar-logo">
                 __FEATHER_ADMIN_LOGO_SVG__
                 <div class="sidebar-logo-text-group">
-                    <span class="sidebar-logo-text">Feather</span>
+                    <span class="sidebar-logo-text">{{ config.APP_NAME or "Feather" }}</span>
                     <span class="sidebar-logo-subtitle">Admin</span>
                 </div>
             </a>

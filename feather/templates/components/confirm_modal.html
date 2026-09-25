@@ -18,7 +18,11 @@ Usage (automatic):
 
     <!-- Modal -->
     <div class="fixed inset-0 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+            <button type="button" data-action="cancel" aria-label="Close"
+                    class="absolute top-3 right-3 p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700">
+                <span class="material-symbols-outlined">close</span>
+            </button>
             <div class="flex items-center gap-4">
                 <div class="shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                     <span class="material-symbols-outlined text-red-600 dark:text-red-400">warning</span>

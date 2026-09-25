@@ -6,6 +6,9 @@ __FEATHER_CONFIG_IMPORTS__
 class Config:
     """Base configuration."""
 
+    # The app's name for people: sign-in emails, the admin panel, page titles.
+    APP_NAME = os.environ.get("APP_NAME", "__FEATHER_APP_DISPLAY_NAME__")
+
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 
     # CSRF tokens live as long as the session (the 1-hour default expires forms

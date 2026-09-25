@@ -130,3 +130,39 @@ one of your domains has the same problem.
 
 Setting the block list replaces it. The allow-list wins over the block list, which is how
 you permit SVG when you need it.
+
+An extension says nothing about content. When an upload has to be a particular type, check
+its first bytes as well: a PDF starts with `%PDF-`, and a renamed HTML file does not.
+
+```python
+data = file.read(MAX_BYTES + 1)
+if len(data) > MAX_BYTES or not data.startswith(b"%PDF-"):
+    raise ValidationError("That file isn't a PDF under 10 MB.", field="file")
+get_storage().upload(data, path, content_type="application/pdf")
+```
+
+## Private files, and showing a PDF in the page
+
+A signed URL works for anyone who holds it until it expires. For files that belong to one
+person, stream them through a route that checks access on every request instead:
+
+```python
+@page.get("/cards/<card_id>/attachment")
+@auth_required
+@inject(CardService)
+def view_attachment(card_service, card_id):
+    card = card_service.get_by_id(card_id, current_user.id)  # 404 unless it's theirs
+    response = make_response(get_storage().download(card.attachment_path))
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = 'inline; filename="attachment.pdf"'
+    return response
+```
+
+To show that PDF in an `<iframe>` on your own page, allow same-origin framing. The
+[security headers](/features/security-headers) default to `frame-ancestors 'none'`, which
+blocks your own iframe as well:
+
+```python
+# config.py
+FEATHER_CSP_DIRECTIVES = {"frame-ancestors": "'self'"}   # still DENY for other sites
+```

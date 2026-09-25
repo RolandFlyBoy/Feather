@@ -250,6 +250,36 @@ folded into the framework or the scaffold.
       scripts and fonts earns a 429 unless `static` and `feather_static` are
       exempted through `limiter.request_filter`.
 
+## Lessons from building the Kanban tutorial on Appentic (2026-09)
+
+Part 4 built with email sign-in and a product-grade UI, then deployed. Ticked
+items are in 0.9.29.
+
+- [x] **`postgresql+psycopg://` needs psycopg 3**, which the `postgres` extra
+      did not install; the first deploy's release step failed.
+- [x] **`use_alter` foreign keys vanished from the first migration.** Alembic
+      renders them inside `op.create_table`, where SQLAlchemy drops them.
+      `feather.db.migrations.process_revision_directives` moves them out.
+- [x] **`NotFoundError` on a page route showed JSON.** Now the 404 page for
+      requests that accept HTML.
+- [x] **Foundation dialogs opened top-left**: Tailwind's preflight zeroes the
+      `margin: auto` that centres a `<dialog>`.
+- [x] **ECharts shipped on every page** for one admin chart (1.2 MB).
+- [ ] **No-jobs apps select rq** once a `REDIS_URL` appears for the cache,
+      with no worker. Deliberately not defaulted to `sync`: config never
+      hard-defaults a backend (`test_scaffold_backends`). The host sets
+      `JOB_BACKEND` (Appentic does); worth a `feather check` warning.
+- [x] **Scaffold's `/account/logout`** was `@login_only` and kept the
+      remember-me cookie alive.
+- [x] **Modals without a close button** (confirm, prompt), against the rule.
+- [x] **Slim Docker image had no fonts**, so production PDFs had no typeface.
+- [x] **Docs taught f-string HTML for WeasyPrint**, unescaped user input.
+- [x] **Tutorial card move left a gap**: `get_max_position` autoflushed the
+      card into its new column before counting it.
+- [ ] **Things registered in `app.py` don't exist under the test suite** (it
+      builds its own app), and discovery silently skips `_`-prefixed modules.
+      Documented in Routes; `feather check` could warn about both.
+
 ## Testing
 
 ```bash

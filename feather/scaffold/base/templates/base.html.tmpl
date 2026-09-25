@@ -37,7 +37,7 @@
     {{ htmx_indicator() }}
     {% block content %}{% endblock %}
 
-    <!-- Vendor libs (htmx, idiomorph, echarts) - bundled from npm -->
+    <!-- Vendor libs (htmx, idiomorph; echarts on pages with [data-echarts]) - bundled from npm -->
     {% if config.DEBUG %}
     <script type="module" src="http://localhost:5173/static/js/vendor.js"></script>
     {% else %}

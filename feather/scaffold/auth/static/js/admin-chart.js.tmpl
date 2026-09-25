@@ -40,8 +40,20 @@
     }
   }
 
-  function renderChart(data) {
+  // vendor.js loads ECharts only on a page with a [data-echarts] element,
+  // and as a module it runs after this script: wait for it. It has started
+  // by DOMContentLoaded.
+  function echartsLoaded() {
+    if (window.echartsReady) return window.echartsReady;
+    return new Promise(function(resolve) {
+      document.addEventListener("DOMContentLoaded", function() { resolve(window.echartsReady); }, { once: true });
+    });
+  }
+
+  async function renderChart(data) {
     if (!chartEl) return;
+    var echarts = await echartsLoaded();
+    if (!echarts) return;
     if (chart) chart.dispose();
 
     chart = echarts.init(chartEl);

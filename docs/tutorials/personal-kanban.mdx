@@ -50,6 +50,16 @@ Sort your credentials out first. Nothing here runs without them.
 | **GCS bucket** | [Cloud Storage](https://console.cloud.google.com/storage/browser) | A bucket name |
 | **Service account** | [IAM service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) | A JSON key |
 
+<Tip>
+  **No Google Cloud project?** Skip both rows. Scaffold with `feather new kanban --sign-in
+  email` and people sign in with a link sent to their inbox: in development the link is
+  written to the log, and on [Appentic](/deployment/appentic) the email is sent for you.
+  Set `STORAGE_BACKEND_FALLBACK = "local"` in `config.py` and attachments go to disk while
+  you build. On Appentic, provisioning file storage sets `S3_BUCKET`, and the same
+  `get_storage()` code writes to the bucket. The prompts below work unchanged: say "email
+  sign-in" where they say Google.
+</Tip>
+
 <AccordionGroup>
   <Accordion title="Google OAuth setup" icon="key-round">
     1. Open [APIs and Credentials](https://console.cloud.google.com/apis/credentials).

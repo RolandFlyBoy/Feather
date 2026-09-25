@@ -1,10 +1,16 @@
 // Vendor libraries - bundled to avoid external CDN dependencies
 import htmx from 'htmx.org';
-import * as echarts from 'echarts';
 
 // Expose to global scope FIRST (before extensions load)
 window.htmx = htmx;
-window.echarts = echarts;
+
+// ECharts is a megabyte of JavaScript, so it is its own chunk, loaded only on
+// a page with a chart: put data-echarts on the element a chart draws into.
+// window.echartsReady resolves to the library (or null on a page without a
+// chart); chart scripts await it rather than reading window.echarts at load.
+window.echartsReady = document.querySelector('[data-echarts]')
+  ? import('echarts').then((module) => (window.echarts = module))
+  : Promise.resolve(null);
 
 // Load htmx extensions AFTER htmx is global (they expect window.htmx)
 await import('idiomorph/dist/idiomorph-ext.min.js');
