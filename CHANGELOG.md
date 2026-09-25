@@ -10,6 +10,70 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.29 (2026-09-25): lessons from building the Kanban tutorial on Appentic
+
+Found building part 4 of the tutorial ("Personal Kanban") with email sign-in
+and deploying it to Appentic. Upgrading from 0.9.28 is a pin bump; the
+scaffold changes reach new apps, and the notes say what an existing app copies
+by hand.
+
+- **The `postgres` extra installs psycopg 3 as well as psycopg2.** A
+  `postgresql+psycopg://` `DATABASE_URL` (what Appentic, and SQLAlchemy 2's own
+  docs, hand out) failed the first deploy's `feather db upgrade` with
+  `No module named 'psycopg'`. Existing apps: bump the pin and reinstall.
+- **The first migration creates the circular foreign keys.** The scaffold's
+  `users` and `accounts` point at each other, one side `use_alter=True`.
+  Autogenerate rendered that key inside `op.create_table`, where SQLAlchemy
+  leaves a `use_alter` key out, so neither key was ever created, and the next
+  `feather db migrate` added both inside an unrelated change. The new
+  `feather.db.migrations.process_revision_directives` moves such keys into
+  `op.create_foreign_key` after the tables (and drops them first on the way
+  down); new apps' `migrations/env.py` passes it to `context.configure`.
+  SQLite, which cannot add a constraint to an existing table, is unchanged.
+  Existing apps: add the import and the keyword argument to `env.py`. An app
+  whose database already lacks the keys gets them from its next migration.
+- **A `NotFoundError` raised under a page route renders the 404 page.** It
+  returned the JSON error body to the browser, so a service that raised it for
+  a missing or someone else's record showed JSON in place of a page. Only a
+  request that accepts HTML gets the page (browsers do); API routes, htmx
+  requests and clients that ask for JSON, or send no Accept header, still get
+  JSON.
+- **The confirm and prompt modals have a close button**, as the house rules
+  require of every modal, and the prompt's click handling uses `closest()`,
+  so a click on the icon inside a button counts as that button.
+- **Dialogs are centred** (new apps: `.ui-dialog` gains `m-auto` in
+  `static/css/ui.css`). Tailwind's preflight zeroes every margin, including the
+  auto margins that centre a modal `<dialog>`, so every foundation dialog
+  opened in the top-left corner.
+- **ECharts loads only on a page with a chart** (new apps). `vendor.js` put
+  1.2 MB of charting code on every page for the admin analytics chart alone;
+  it now imports ECharts as its own chunk when an element has `data-echarts`,
+  and exposes `window.echartsReady`, a promise of the library. `vendor.js`
+  drops from 1.24 MB to 64 KB. Existing apps: copy `vendor.js` and
+  `admin-chart.js` from a new app and add `data-echarts` to
+  `#user-growth-chart`.
+- **The pending and suspended pages sign out through `/auth/logout`** (new
+  apps). The scaffold's own `/account/logout` used `@login_only`, which
+  `feather check` flags, and skipped clearing the session, so the remember-me
+  cookie signed the person straight back in. The route is gone.
+- **`APP_NAME` is in every new app's config**, from the project name ("my-shop"
+  becomes "My Shop"). Sign-in emails said "Sign in to the app" without it, and
+  the admin sidebar now shows it instead of "Feather".
+- **The Docker image installs fonts** (`fonts-inter`, `fonts-dejavu-core`).
+  The slim base image has none, so a PDF rendered in production had no
+  typeface for its text.
+- **Docs.** PDF generation builds its document from a template with a URL
+  fetcher that refuses outside addresses (the old f-string example put user
+  input straight into markup). File storage covers checking content, not just
+  the extension, and serving private files through a route, with the
+  `frame-ancestors 'self'` needed to show a PDF in an iframe. Routes cover
+  registering template filters and error handlers on the `page` blueprint:
+  `app.py` never runs under the test suite, and discovery skips modules whose
+  name starts with an underscore. Tutorials 3 to 5 fix a card move that left
+  a gap (the end-of-column query autoflushed the card into its new column
+  first) and sign out by POST. Tutorial 4 escapes card titles in its PDF
+  export and explains building it with email sign-in instead of Google.
+
 ## 0.9.28 (2026-09-21): a select that matches the form it is in
 
 Upgrading from 0.9.27 is a pin bump. New apps only: an app already scaffolded
