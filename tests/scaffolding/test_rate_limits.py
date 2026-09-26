@@ -81,7 +81,9 @@ login = [client.get("/auth/google/login").status_code for _ in range(6)]
 # Exempt: 12 calls against a default limit of 4 per minute.
 static = [client.get("/feather-static/api.js").status_code for _ in range(12)]
 # Not exempt: the default limit applies.
-live = [client.get("/health/live").status_code for _ in range(6)]
+page = [client.get("/").status_code for _ in range(6)]
+# Exempt: a platform's health probes, far more often than the default allows.
+health = [client.get(path).status_code for path in ("/health/ready", "/health/live", "/health") for _ in range(8)]
 
 admin = {}
 module = importlib.import_module("routes.pages.admin")
@@ -94,7 +96,8 @@ for endpoint in ("admin.toggle_user_status", "admin.update_user_role"):
 print("RESULT " + json.dumps({
     "login": login,
     "static": static,
-    "live": live,
+    "page": page,
+    "health": health,
     "admin_rewrapped": admin,
     "limiter_installed": bool(app.extensions.get("limiter")),
 }))
@@ -176,7 +179,8 @@ class TestGeneratedFiles:
     def test_static_endpoints_are_exempt(self, scaffold_project):
         """Trap 2: a page load's own assets must not spend the limit."""
         body = (scaffold_project(AUTH_APP) / "rate_limits.py").read_text()
-        assert 'EXEMPT_ENDPOINTS = {"static", "feather_static"}' in body
+        assert '"static", "feather_static",' in body
+        assert '"health.health_check", "health.liveness_check", "health.readiness_check",' in body
         assert "limiter.request_filter(_exempt)" in body
 
     def test_storage_falls_back_to_memory_with_a_warning(self, scaffold_project):
@@ -268,7 +272,14 @@ class TestEnforcement:
         assert set(data["static"]) == {200}, data["static"]
         # ... while a non-exempt endpoint on the same default limit is cut off,
         # which is what makes the line above mean something.
-        assert 429 in data["live"], data["live"]
+        assert 429 in data["page"], data["page"]
+
+    def test_health_checks_never_hit_the_limit(self, scaffold_project, limiter_installed):
+        """A platform probes from one address every few seconds: at every 5
+        seconds, 720 an hour against the default 600, and an hour after each
+        deploy the app failed its own readiness check and left rotation."""
+        data = _probe(scaffold_project(AUTH_APP))
+        assert 429 not in data["health"], data["health"]
 
     def test_admin_post_routes_are_re_registered(self, scaffold_project, limiter_installed):
         """The view Flask calls is the limiter's wrapper, not the original."""

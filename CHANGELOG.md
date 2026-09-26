@@ -10,6 +10,15 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+- **Health checks never count against the rate limit.** The scaffold's
+  `rate_limits.py` exempted only static files, so `/health`, `/health/live`
+  and `/health/ready` spent the default 600 requests an hour per address. A
+  platform probing readiness every 5 seconds sends 720 an hour from one
+  address, so about an hour after each deploy the app answered its own check
+  with 429 and was taken out of rotation. Existing apps: add
+  `"health.health_check", "health.liveness_check", "health.readiness_check"`
+  to `EXEMPT_ENDPOINTS` in `rate_limits.py`.
+
 ## 0.9.30 (2026-09-25): faster image builds
 
 Found timing deploys of the Kanban tutorial app on Appentic, where a one-line

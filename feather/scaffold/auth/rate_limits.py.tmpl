@@ -39,9 +39,16 @@ import os
 
 from flask import current_app, request
 
-#: Endpoints that never count against a limit: Flask's own ``static`` and
-#: the framework assets Feather serves from ``/feather-static/``.
-EXEMPT_ENDPOINTS = {"static", "feather_static"}
+#: Endpoints that never count against a limit: Flask's own ``static``, the
+#: framework assets Feather serves from ``/feather-static/``, and the health
+#: checks. A platform probes those from one address every few seconds: at
+#: every 5 seconds that is 720 requests an hour against the default 600, and
+#: an hour after each deploy the app failed its own readiness check with 429
+#: and was taken out of rotation.
+EXEMPT_ENDPOINTS = {
+    "static", "feather_static",
+    "health.health_check", "health.liveness_check", "health.readiness_check",
+}
 
 #: Used only when config.py does not define the matching ``RATELIMIT_*``
 #: key. config.py is the place to change these.
