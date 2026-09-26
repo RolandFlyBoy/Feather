@@ -15,9 +15,11 @@ use it only as a quick guard in development.
   `app.view_functions[endpoint] = limiter.limit(rule)(view)`. Calling
   `limiter.limit(...)` and discarding what it returns enforces nothing and
   silently drops the endpoint out of the default limit too.
-- Static assets must never count against a limit - one page load fetches ten
-  or more files through Flask. `rate_limits.EXEMPT_ENDPOINTS` covers `static`
-  and `feather_static`; add to it, do not remove from it.
+- Static assets and health checks must never count against a limit - one page
+  load fetches ten or more files through Flask, and a platform probes
+  `/health/ready` every few seconds from one address. `rate_limits.EXEMPT_ENDPOINTS`
+  covers `static`, `feather_static` and the three `health.*` endpoints; add to
+  it, do not remove from it.
 - New routes get the default limit automatically. Give a route its own limit
   with `@limiter.limit(...)` at definition time, or `_apply()` in
   `rate_limits.py` for one that already exists.

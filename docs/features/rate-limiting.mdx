@@ -88,4 +88,12 @@ Both cost real debugging time if you wire this up by hand.
     `limiter.request_filter` exempting `static` and `feather_static`, a busy user gets a
     429 on the app's own JavaScript while the page is still loading.
   </Accordion>
+  <Accordion title="Exempt health checks" icon="circle-alert">
+    A platform probes `/health/ready` from one address every few seconds. At every
+    5 seconds that is 720 requests an hour, over the default 600, so about an hour
+    after each deploy the app answers its own readiness check with 429 and is taken
+    out of rotation. The scaffold exempts `health.health_check`,
+    `health.liveness_check` and `health.readiness_check`; an app scaffolded before
+    0.9.31 adds them to `EXEMPT_ENDPOINTS` in `rate_limits.py`.
+  </Accordion>
 </AccordionGroup>

@@ -248,7 +248,9 @@ folded into the framework or the scaffold.
       enforced and the endpoint also drops out of the default limit; and the
       default limit otherwise counts static assets, so a page load of ten
       scripts and fonts earns a 429 unless `static` and `feather_static` are
-      exempted through `limiter.request_filter`.
+      exempted through `limiter.request_filter`. The health endpoints are
+      exempt too: readiness probes every 5 s from one address exceed the
+      default 600/hour and take the app out of rotation (0.9.31).
 
 ## Lessons from building the Kanban tutorial on Appentic (2026-09)
 

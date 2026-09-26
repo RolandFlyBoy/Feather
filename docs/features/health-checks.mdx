@@ -65,6 +65,9 @@ Healthy returns `200 OK`. Unhealthy returns `503 Service Unavailable`.
       initialDelaySeconds: 5
       periodSeconds: 10
     ```
+
+    The health endpoints are exempt from the scaffold's rate limit, so a probe this
+    frequent never earns a 429. See [Rate limiting](/features/rate-limiting).
   </Tab>
   <Tab title="Docker">
     The generated Dockerfile already has `HEALTHCHECK ... curl /health`, and
