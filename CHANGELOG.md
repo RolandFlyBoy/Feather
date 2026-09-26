@@ -10,6 +10,12 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.31 (2026-09-26): health checks outside the rate limit
+
+Found on Appentic, where every Feather app dropped out of rotation about an
+hour after each deploy. Upgrading from 0.9.30 is a pin bump plus one line in an
+existing app's `rate_limits.py`.
+
 - **Health checks never count against the rate limit.** The scaffold's
   `rate_limits.py` exempted only static files, so `/health`, `/health/live`
   and `/health/ready` spent the default 600 requests an hour per address. A
