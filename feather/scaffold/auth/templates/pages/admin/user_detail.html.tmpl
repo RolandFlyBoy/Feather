@@ -1,4 +1,5 @@
 {% extends "pages/admin/base.html" %}
+{% from "components/avatar.html" import avatar %}
 
 {% block admin_title %}{{ user.display_name or user.email }}{% endblock %}
 
@@ -14,12 +15,7 @@
         <!-- User Profile Card (Left Column) -->
         <div class="bg-white rounded-lg shadow">
             <div class="p-6 text-center">
-                {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
-                <img src="{{ avatar_url }}"
-                     alt="{{ user.display_name or user.email }}"
-                     class="w-24 h-24 rounded-full mx-auto mb-4"
-                     referrerpolicy="no-referrer"
-                     crossorigin="anonymous">
+                {{ avatar(user, size="xl", class="mx-auto mb-4") }}
                 <h2 class="text-xl font-semibold text-gray-900">{{ user.display_name or user.email }}</h2>
                 {% if user.username is defined and user.username %}
                 <p class="text-gray-600">@{{ user.username }}</p>

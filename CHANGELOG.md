@@ -30,6 +30,13 @@ asked for it.
 - **The email carries only the code**, large and centred, and no link.
 - **Links are gone.** `GET /auth/email/verify` no longer answers; nothing signs
   in from a link.
+- **Avatars without a picture show an initial.** Someone who signs in by email
+  has no picture, and the scaffold's fallback was an image from ui-avatars.com,
+  which the content security policy blocks, so a broken image showed. A new
+  `components/avatar.html` draws the picture when there is one and the first
+  letter of the name or address otherwise; the admin pages, the header and the
+  home page use it. `AdminService.fallback_avatar` is gone
+  (`AdminService.initial` gives the letter).
 
 Upgrade notes
 
@@ -43,6 +50,11 @@ Upgrade notes
   `{"email", "code", "app_name", "minutes"}` instead of a link.
 - Existing apps: add `"email_auth.resend"` to the rate-limited endpoints in
   `rate_limits.py`, next to `"email_auth.login_post"`.
+- Existing apps: replace each `fallback_avatar(user)` image in
+  `templates/partials/admin/users_table.html`, `templates/pages/admin/user_detail.html`
+  and the admin header with `{{ avatar(user) }}` from `components/avatar.html`,
+  and drop `fallback_avatar` from `routes/pages/admin.py` and
+  `services/admin_service.py`.
 
 ## 0.9.31 (2026-09-26): health checks outside the rate limit
 

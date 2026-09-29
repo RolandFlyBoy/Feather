@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "components/icon.html" import icon %}
+{% from "components/avatar.html" import avatar %}
 
 {% block title %}{% block admin_title %}Admin{% endblock %} - Admin{% endblock %}
 
@@ -154,16 +155,7 @@
                 <summary class="header-profile-btn">
                     <span class="sr-only">Open user menu</span>
                     {% if current_user and current_user.is_authenticated %}
-                    {% if current_user.profile_image_url %}
-                    <img src="{{ current_user.profile_image_url }}"
-                         alt=""
-                         class="header-profile-avatar"
-                         referrerpolicy="no-referrer">
-                    {% else %}
-                    <div class="header-profile-avatar-fallback">
-                        {{ icon("person", size="sm") }}
-                    </div>
-                    {% endif %}
+                    {{ avatar(current_user, size="sm", class="header-profile-avatar") }}
                     <span class="header-profile-name">
                         <span aria-hidden="true">{{ current_user.display_name or current_user.username or current_user.email.split('@')[0] }}</span>
                         {{ icon("expand_more", size="sm") }}

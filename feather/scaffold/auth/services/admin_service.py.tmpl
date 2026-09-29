@@ -20,10 +20,11 @@ class AdminService(Service):
     # =========================================================================
 
     @staticmethod
-    def fallback_avatar(user) -> str:
-        """Generate fallback avatar URL for user."""
-        name = getattr(user, "display_name", None) or getattr(user, "email", "User")
-        return f"https://ui-avatars.com/api/?name={name}&background=random&color=fff&size=128"
+    def initial(user) -> str:
+        """The letter an avatar shows for someone with no picture: the first
+        letter or digit of their name or email address (components/avatar.html)."""
+        name = getattr(user, "display_name", None) or getattr(user, "email", None) or ""
+        return next((c.upper() for c in name if c.isalnum()), "?")
 
     @staticmethod
     def _empty_pagination() -> dict[str, Any]:

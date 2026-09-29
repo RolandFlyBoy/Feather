@@ -1,3 +1,4 @@
+{% from "components/avatar.html" import avatar %}
 <div class="bg-white rounded-lg shadow overflow-hidden">
     <table class="w-full">
         <thead class="admin-table-header">
@@ -15,12 +16,7 @@
                 data-href="{{ url_for('admin.user_detail_page', user_id=user.id) }}">
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
-                        {% set avatar_url = user.profile_image_url if user.profile_image_url is defined and user.profile_image_url else fallback_avatar(user) %}
-                        <img src="{{ avatar_url }}"
-                             alt="{{ user.display_name or user.email }}"
-                             class="w-10 h-10 rounded-full"
-                             referrerpolicy="no-referrer"
-                             crossorigin="anonymous">
+                        {{ avatar(user) }}
                         <div>
                             <p class="font-medium">{{ user.display_name or user.email }}</p>
                             {% if user.username is defined and user.username %}
