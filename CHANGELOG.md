@@ -12,8 +12,8 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## 0.9.32 (2026-09-29): sign in with a code, not a link
 
-Email sign-in sends a six-digit code instead of a link, the way WorkOS Magic
-Auth does. A link signs in whoever opens it, so a forwarded, intercepted or
+Email sign-in sends a six-digit code instead of a link. A link signs in
+whoever opens it, so a forwarded, intercepted or
 scanned email signed someone else in; a code works only in the browser that
 asked for it.
 

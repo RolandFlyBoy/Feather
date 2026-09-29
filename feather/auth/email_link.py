@@ -4,7 +4,7 @@ For apps whose users should not need a Google account, and for developers who
 should not need a Google Cloud project. Turn it on with
 ``SIGN_IN_METHOD = "email"`` (``feather new --sign-in email`` sets it).
 
-The flow, the way WorkOS Magic Auth does it:
+The flow:
 
 1. ``GET /auth/email/login`` asks for an email address.
 2. ``POST /auth/email/login`` emails a six-digit code and asks for it, whether

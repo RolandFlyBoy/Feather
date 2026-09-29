@@ -1,8 +1,7 @@
 /**
  * The email sign-in code (feather/templates/auth/email_sign_in.html).
  *
- * Turns the one code field into a box per digit, the way WorkOS Magic Auth
- * does, and signs in as soon as the last digit arrives: typed, pasted as a
+ * Turns the one code field into a box per digit, and signs in as soon as the last digit arrives: typed, pasted as a
  * whole (with or without spaces or a dash), or filled in by the phone from the
  * email (autocomplete="one-time-code"). No button to press. Without this
  * script the page still works: one field and a Sign in button.
