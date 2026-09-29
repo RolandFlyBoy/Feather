@@ -470,7 +470,7 @@ def _get_or_create_user(user_info: dict, token: dict = None, source: str = "Goog
         token: OAuth token dict (optional, for storing refresh token).
 
         source: Where the sign-in came from, for the log ("Google", or
-            "email" for a sign-in link, feather/auth/email_link.py). The
+            "email" for a sign-in code, feather/auth/email_link.py). The
             rules are the same either way.
 
     Returns:
@@ -552,7 +552,7 @@ def _get_or_create_user(user_info: dict, token: dict = None, source: str = "Goog
     user = User.query.filter_by(email=email).first()
 
     if user:
-        # Existing user - update profile info from Google. A sign-in link
+        # Existing user - update profile info from Google. A sign-in code
         # carries no name or picture, so only what was given is written.
         if hasattr(user, "display_name") and user_info.get("name"):
             user.display_name = user_info.get("name")

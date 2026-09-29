@@ -200,7 +200,7 @@ def register_error_handlers(app: "Flask") -> None:
         # For page routes (non-API), handle auth errors with HTML response
         if not _is_api_request():
             if isinstance(error, AuthenticationError):
-                # An app that signs in by email link has no Google to set up:
+                # An app that signs in by email code has no Google to set up:
                 # send the visitor to sign in, and back here afterwards.
                 if (app.config.get("SIGN_IN_METHOD") or "google").lower() == "email":
                     from feather.auth.decorators import login_next_value

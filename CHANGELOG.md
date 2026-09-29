@@ -10,6 +10,40 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.32 (2026-09-29): sign in with a code, not a link
+
+Email sign-in sends a six-digit code instead of a link, the way WorkOS Magic
+Auth does. A link signs in whoever opens it, so a forwarded, intercepted or
+scanned email signed someone else in; a code works only in the browser that
+asked for it.
+
+- **A six-digit code.** It works once, lasts `SIGN_IN_CODE_MINUTES` (15), and
+  stops working after five wrong tries. The browser's session holds a keyed
+  hash of it (never the code), the address and the expiry; the tries and
+  "works once" are counted in the cache as well, so replaying an old cookie
+  buys nothing. **Send a new code** replaces it.
+- **A box per digit, and no button.** The code page signs in as soon as the
+  last digit is typed, the code is pasted, or a phone fills it in from the
+  email (`autocomplete="one-time-code"`), through
+  `/feather-static/sign-in-code.js`. Without JavaScript it is one field and a
+  button.
+- **The email carries only the code**, large and centred, and no link.
+- **Links are gone.** `GET /auth/email/verify` no longer answers; nothing signs
+  in from a link.
+
+Upgrade notes
+
+- Bump the pin. Apps using the framework template need nothing else.
+- `SIGN_IN_LINK_MINUTES` is now `SIGN_IN_CODE_MINUTES`.
+- An app with its own `templates/auth/email_sign_in.html` must follow the new
+  states: `form`, `code` (the code form, posting `code` to
+  `email_auth.verify_post`) and `expired` (with `reason`: "expired" or
+  "attempts"). The `sent`, `confirm` and `invalid` states are gone.
+- `send_link`, `make_link` and `read_token` are gone; a relay now receives
+  `{"email", "code", "app_name", "minutes"}` instead of a link.
+- Existing apps: add `"email_auth.resend"` to the rate-limited endpoints in
+  `rate_limits.py`, next to `"email_auth.login_post"`.
+
 ## 0.9.31 (2026-09-26): health checks outside the rate limit
 
 Found on Appentic, where every Feather app dropped out of rotation about an

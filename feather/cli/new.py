@@ -381,7 +381,7 @@ def _result(project_path: Path, name: str, options: dict, migrated: bool) -> dic
     "sign_in",
     type=click.Choice(["google", "email"]),
     default=None,
-    help="How people sign in: google (default), or email sign-in links, which need no Google Cloud project",
+    help="How people sign in: google (default), or email sign-in codes, which need no Google Cloud project",
 )
 @click.option(
     "--json",
@@ -734,7 +734,7 @@ def _create_project_files(
     admin_email: str = None,
     app_type: str = None,  # "simple", "single_tenant", or "multi_tenant"
     user_fields: dict = None,  # Optional User model field selection
-    sign_in: str = "google",  # "google", or "email" for sign-in links
+    sign_in: str = "google",  # "google", or "email" for sign-in codes
 ):
     """Create project files from templates.
 

@@ -558,7 +558,7 @@ class Feather(Flask):
 
             init_google_oauth(self)
 
-            # Sign-in links by email; answers only when SIGN_IN_METHOD="email".
+            # Sign-in codes by email; answers only when SIGN_IN_METHOD="email".
             from feather.auth.email_link import init_email_sign_in
 
             init_email_sign_in(self)
