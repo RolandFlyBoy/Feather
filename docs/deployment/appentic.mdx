@@ -16,10 +16,10 @@ You pay for the machine plus a flat monthly fee per service. See
 
 ## Before you start
 
-- The app is in a GitHub repository with the generated `Dockerfile` at its root. An older
-  app can add it with `feather docker init`.
-- Your migrations are committed. `feather new` writes the first one for you (0.9.18 and
-  later); `feather security-check` fails if `migrations/versions` is empty. Without a
+- The app is in a GitHub repository with the generated `Dockerfile` at its root
+  (`feather docker init` adds one to an app without it).
+- Your migrations are committed. `feather new` writes the first one for you;
+  `feather security-check` fails if `migrations/versions` is empty. Without a
   migration the release command has nothing to apply and the app starts against an empty
   database.
 - You have an Appentic account with credits.
@@ -123,16 +123,16 @@ original is untouched:
 | `S3_BUCKET` and the other `S3_*` keys | a connected storage service | `s3` file storage, chosen automatically |
 
 Feather chooses the job, cache and storage backends from `REDIS_URL` and `S3_BUCKET` when
-the app doesn't set them (0.9.15 and later). Proxy headers need nothing either: Appentic
+the app doesn't set them. Proxy headers need nothing either: Appentic
 forwards through one proxy, which matches Feather's `FEATHER_PROXY_FIX_NUM=1` default.
 
 ## File uploads
 
 A container's files are replaced on every deploy. Add a storage service to the project and
 connect it to the web service and the worker: the `S3_*` variables select the `s3`
-backend, and `feather.storage.get_storage()` uploads to the bucket. Apps created with
-storage already install the `s3` extra. For an older app, add it to the
-`feather-framework[...]` line in `requirements.txt`.
+backend, and `feather.storage.get_storage()` uploads to the bucket. The app needs the `s3`
+extra on its `feather-framework[...]` line in `requirements.txt`; apps created with storage
+already have it.
 
 ## Scheduled tasks
 

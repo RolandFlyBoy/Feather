@@ -41,7 +41,7 @@ raise ValidationError('Email is required', field='email')
 
 API routes (`/api/...`), htmx requests and requests that ask for JSON get that body. A page
 gets a page: `AuthenticationError` sends the visitor to sign in, the account status errors
-below redirect, and since 0.9.29 a `NotFoundError` raised under a page route renders the
+below redirect, and a `NotFoundError` raised under a page route renders the
 404 page for a browser (a request that accepts HTML) (`templates/errors/error.html`), so a service can raise it for a record that is
 gone, or belongs to someone else, and the browser shows a proper "not found".
 
@@ -58,9 +58,3 @@ redirect to dedicated status pages instead of returning a generic 403.
 `@auth_required` raises them for you based on the user's `active` and `approved_at`
 fields, so you never raise them directly. Both pages are scaffolded into your app. Edit
 them in `templates/pages/account/` to match your branding.
-
-<Warning>
-  Upgrading an older app: a suspended user now reports the error code
-  `ACCOUNT_SUSPENDED` rather than `AUTHORIZATION_ERROR`. Check any string comparisons
-  against the old code. See [Upgrading](/reference/upgrading).
-</Warning>

@@ -207,7 +207,6 @@
             "pages": [
               "reference/cli",
               "reference/configuration",
-              "reference/upgrading",
               "reference/troubleshooting"
             ]
           }

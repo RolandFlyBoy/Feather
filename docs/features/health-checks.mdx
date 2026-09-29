@@ -80,9 +80,3 @@ Healthy returns `200 OK`. Unhealthy returns `503 Service Unavailable`.
   Prefer `/health` to a hand-written route. A container with a broken `DATABASE_URL`
   reports unhealthy instead of quietly serving 500s.
 </Tip>
-
-<Note>
-  Apps scaffolded before 0.9.7 also have a `routes/api/health.py` giving `/api/health`.
-  That route is yours rather than the framework's, and proves only that the process is
-  listening. Point new health checks at `/health`.
-</Note>

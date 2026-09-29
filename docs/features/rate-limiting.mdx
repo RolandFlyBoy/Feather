@@ -93,7 +93,7 @@ Both cost real debugging time if you wire this up by hand.
     5 seconds that is 720 requests an hour, over the default 600, so about an hour
     after each deploy the app answers its own readiness check with 429 and is taken
     out of rotation. The scaffold exempts `health.health_check`,
-    `health.liveness_check` and `health.readiness_check`; an app scaffolded before
-    0.9.31 adds them to `EXEMPT_ENDPOINTS` in `rate_limits.py`.
+    `health.liveness_check` and `health.readiness_check` in `EXEMPT_ENDPOINTS` in
+    `rate_limits.py`.
   </Accordion>
 </AccordionGroup>

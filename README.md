@@ -83,7 +83,6 @@ Everything lives at **[docs.featherframework.org](https://docs.featherframework.
 | [CLI reference](https://docs.featherframework.org/reference/cli) | Every command, grouped by what you are doing |
 | [Configuration](https://docs.featherframework.org/reference/configuration) | Every key Feather reads, with its default |
 | [Deployment](https://docs.featherframework.org/deployment/docker) | Docker and Caddy on one server, with automatic HTTPS |
-| [Upgrading](https://docs.featherframework.org/reference/upgrading) | What to check when you bump the pin |
 
 The tutorials are also in this repository, under [`tutorials/`](tutorials/), with every
 code block written out.

@@ -28,8 +28,9 @@ icon: "circle-help"
     Either `DEBUG=False` and `feather build` was never run, or `static/dist/` is stale. Run
     `feather build` before deploying.
 
-    If only the *framework* components are unstyled, check the Tailwind `@source` path. See
-    [Upgrading](/reference/upgrading).
+    If only the *framework* components are unstyled, check the Tailwind `@source` line in
+    `static/css/app.css`: it must be `@source "../../.feather-templates/**/*.html";`, with
+    `.feather-templates` in `.gitignore`.
   </Accordion>
 
   <Accordion title="Background jobs are killed mid-execution" icon="clock">

@@ -65,22 +65,3 @@ icon: "list-checks"
 <Check>
   **Server backups or snapshots enabled** at the provider as well.
 </Check>
-
-## Upgrading from `feather deploy render`
-
-0.9.7 removed `feather deploy render`. Your existing `Dockerfile` and `render.yaml` are
-your files and keep working, since nothing was deleted from your repo. To adopt the new
-layout, run `feather docker init`. It won't overwrite anything without `--force`.
-
-<Warning>
-  One change matters even if you stay where you are. Replace the absolute `@source` line in
-  `static/css/app.css` with:
-
-  ```css
-  @source "../../.feather-templates/**/*.html";
-  ```
-
-  and add `.feather-templates` to `.gitignore`. Older scaffolds baked the absolute path of
-  the installed Feather package into that file, so images built anywhere but the machine
-  that ran `feather new` silently lack every framework component style.
-</Warning>
