@@ -38,7 +38,6 @@ def inject_admin_context():
     """Inject common admin context into all templates."""
     pending_toast = session.pop("_pending_toast", None)
     return {
-        "fallback_avatar": AdminService.fallback_avatar,
         "pending_toast": pending_toast,
     }
 

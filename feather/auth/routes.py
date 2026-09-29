@@ -5,7 +5,7 @@ Authentication Routes
 Basic authentication routes for logout functionality.
 
 The login route should be implemented by your application since it may
-require custom logic (email/password, magic links, OAuth only, etc.).
+require custom logic (email/password, email codes, OAuth only, etc.).
 
 Provided Routes
 --------------

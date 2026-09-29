@@ -29,13 +29,13 @@
 ## Prerequisites
 
 > **Email sign-in instead of Google.** `feather new kanban --sign-in email`
-> needs no Google Cloud project: people get a single-use link by email (written
-> to the log in development; sent for you on Appentic). Everything below still
+> needs no Google Cloud project: people get a six-digit sign-in code by email
+> (written to the log in development; sent for you on Appentic). Everything below still
 > applies, with three differences for LLMs building it: skip the Google
 > credentials, send people to `url_for('email_auth.login')` rather than
 > `/auth/google/login` (unauthenticated requests already redirect there), and
 > restyle the sign-in page by adding `templates/auth/email_sign_in.html`
-> (states: `form`, `sent`, `confirm`, `invalid`). With no GCS bucket, set
+> (states: `form`, `code`, `expired`). With no GCS bucket, set
 > `STORAGE_BACKEND_FALLBACK = "local"`; on Appentic, file storage sets
 > `S3_BUCKET` and `get_storage()` switches to it.
 

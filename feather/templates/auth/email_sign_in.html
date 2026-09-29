@@ -8,19 +8,32 @@
 .fsi-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.5rem; max-width: 24rem; width: 100%; padding: 2rem; }
 .fsi-title { font-size: 1.25rem; font-weight: 600; color: #111827; margin: 0 0 0.5rem; }
 .fsi-text { font-size: 0.875rem; line-height: 1.5; color: #4b5563; margin: 0 0 1.25rem; }
+.fsi-text strong { color: #111827; font-weight: 600; }
 .fsi-label { display: block; font-size: 0.8125rem; font-weight: 500; color: #374151; margin-bottom: 0.375rem; }
 .fsi-input { width: 100%; box-sizing: border-box; padding: 0.625rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; background: #fff; color: #111827; }
 .fsi-input:focus { outline: 2px solid #111827; outline-offset: 1px; }
 .fsi-button { margin-top: 1rem; width: 100%; padding: 0.625rem 1rem; border: 0; border-radius: 0.375rem; background: #111827; color: #fff; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
-.fsi-error { font-size: 0.8125rem; color: #b91c1c; margin: 0.5rem 0 0; }
-.fsi-link { color: #111827; font-size: 0.8125rem; }
-.dark .fsi-page { background: #111827; }
-.dark .fsi-card { background: #1f2937; border-color: #374151; }
-.dark .fsi-title { color: #f9fafb; }
-.dark .fsi-text, .dark .fsi-label { color: #9ca3af; }
-.dark .fsi-input { background: #111827; border-color: #4b5563; color: #f9fafb; }
-.dark .fsi-button { background: #f9fafb; color: #111827; }
-.dark .fsi-link { color: #e5e7eb; }
+.fsi-error { font-size: 0.8125rem; color: #b91c1c; margin: 0.75rem 0 0; }
+.fsi-notice { font-size: 0.8125rem; color: #047857; margin: 0.75rem 0 0; }
+.fsi-link { color: #111827; font-size: 0.8125rem; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; font-family: inherit; }
+.fsi-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; gap: 1rem; }
+/* The code: one field without JavaScript; six boxes with it (feather-static/sign-in-code.js). */
+.fsi-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.5rem; letter-spacing: 0.5em; text-align: center; }
+.fsi-boxes { display: flex; gap: 0.5rem; justify-content: center; }
+.fsi-box { width: 2.75rem; height: 3.25rem; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 0.5rem; background: #fff; color: #111827; text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.5rem; font-weight: 600; }
+.fsi-box:focus { outline: 2px solid #111827; outline-offset: 1px; border-color: #111827; }
+.fsi-boxes[aria-busy="true"] .fsi-box { opacity: 0.5; }
+.fsi-sep { width: 0.5rem; }
+.dark .fsi-page { background: #0A0A0A; }
+.dark .fsi-card { background: #141414; border-color: #2A2A2A; }
+.dark .fsi-title, .dark .fsi-text strong { color: #F5F5F5; }
+.dark .fsi-text, .dark .fsi-label { color: #A0A0A0; }
+.dark .fsi-input, .dark .fsi-box { background: #0A0A0A; border-color: #2A2A2A; color: #F5F5F5; }
+.dark .fsi-input:focus, .dark .fsi-box:focus { outline-color: #F5F5F5; border-color: #F5F5F5; }
+.dark .fsi-button { background: #F5F5F5; color: #0A0A0A; }
+.dark .fsi-link { color: #F5F5F5; }
+.dark .fsi-error { color: #F87171; }
+.dark .fsi-notice { color: #34D399; }
 </style>
 {% endblock %}
 
@@ -33,30 +46,44 @@ any app. Override it with templates/auth/email_sign_in.html in your own app.
   <div class="fsi-card">
     {% if state == "form" %}
       <h1 class="fsi-title">Sign in to {{ app_name }}</h1>
-      <p class="fsi-text">Enter your email address and we'll send you a link to sign in. No password needed.</p>
+      <p class="fsi-text">Enter your email address and we'll send you a code to sign in. No password needed.</p>
       <form method="post" action="{{ url_for('email_auth.login_post') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label class="fsi-label" for="fsi-email">Email address</label>
         <input class="fsi-input" id="fsi-email" name="email" type="email" autocomplete="email" required autofocus value="{{ email or '' }}">
         {% if error %}<p class="fsi-error" role="alert">{{ error }}</p>{% endif %}
-        <button class="fsi-button" type="submit">Email me a sign-in link</button>
+        <button class="fsi-button" type="submit">Email me a code</button>
       </form>
-    {% elif state == "sent" %}
+
+    {% elif state == "code" %}
       <h1 class="fsi-title">Check your email</h1>
-      <p class="fsi-text">If {{ email }} can sign in to {{ app_name }}, a link is on its way. It works once and expires in {{ minutes }} minutes.</p>
-      <a class="fsi-link" href="{{ url_for('email_auth.login') }}">Use a different address</a>
-    {% elif state == "confirm" %}
-      <h1 class="fsi-title">Sign in to {{ app_name }}</h1>
-      <p class="fsi-text">You're signing in as {{ email }}.</p>
-      <form method="post" action="{{ url_for('email_auth.verify_post') }}">
+      <p class="fsi-text">Enter the {{ code_length }}-digit code we sent to <strong>{{ email }}</strong>. It expires in {{ minutes }} minutes.</p>
+      <form method="post" action="{{ url_for('email_auth.verify_post') }}" data-sign-in-code>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="token" value="{{ token }}">
-        <button class="fsi-button" type="submit">Sign in</button>
+        <label class="fsi-label" for="fsi-code">Code</label>
+        <input class="fsi-input fsi-code" id="fsi-code" name="code" type="text" inputmode="numeric"
+               autocomplete="one-time-code" pattern="[0-9 -]*" minlength="{{ code_length }}"
+               maxlength="{{ code_length + 2 }}" required autofocus data-length="{{ code_length }}">
+        {% if error %}<p class="fsi-error" role="alert">{{ error }}</p>{% endif %}
+        {% if notice %}<p class="fsi-notice" role="status">{{ notice }}</p>{% endif %}
+        <button class="fsi-button" type="submit" data-sign-in-submit>Sign in</button>
       </form>
+      <div class="fsi-actions">
+        <form method="post" action="{{ url_for('email_auth.resend') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="fsi-link" type="submit">Send a new code</button>
+        </form>
+        <a class="fsi-link" href="{{ url_for('email_auth.login') }}">Use a different email</a>
+      </div>
+      <script src="/feather-static/sign-in-code.js" defer></script>
+
     {% else %}
-      <h1 class="fsi-title">This link has expired</h1>
-      <p class="fsi-text">Sign-in links work once and expire after {{ minutes }} minutes. Ask for a new one.</p>
-      <a class="fsi-link" href="{{ url_for('email_auth.login') }}">Send a new link</a>
+      <h1 class="fsi-title">{{ "Too many tries" if reason == "attempts" else "This code has expired" }}</h1>
+      <p class="fsi-text">
+        {% if reason == "attempts" %}That code had too many wrong tries, so it no longer works.{% else %}Codes work once and expire after {{ minutes }} minutes.{% endif %}
+        Ask for a new one.
+      </p>
+      <a class="fsi-link" href="{{ url_for('email_auth.login') }}">Get a new code</a>
     {% endif %}
   </div>
 </div>

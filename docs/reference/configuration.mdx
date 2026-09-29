@@ -92,10 +92,10 @@ LOG_FORMAT=json
 
 | Key | Default | Purpose |
 | --- | --- | --- |
-| `SIGN_IN_METHOD` | `google` | `google`, or `email` for sign-in links. See [Authentication](/features/authentication). |
+| `SIGN_IN_METHOD` | `google` | `google`, or `email` for sign-in codes. See [Authentication](/features/authentication). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Google OAuth credentials. |
 | `SIGN_IN_RELAY_URL`, `SIGN_IN_RELAY_TOKEN` | unset | A relay that sends sign-in emails. Hosts such as Appentic set them. |
-| `SIGN_IN_LINK_MINUTES` | `15` | How long a sign-in link works. |
+| `SIGN_IN_CODE_MINUTES` | `15` | How long a sign-in code works. |
 | `ADMIN_EMAIL` | the `--admin-email` | Single-tenant: this address is an active admin from its first sign-in. |
 | `FEATHER_MULTI_TENANT` | `False` | Enable multi-tenant mode. |
 | `FEATHER_ALLOW_PUBLIC_EMAILS` | `False` | Allow Gmail, Outlook and similar domains. |

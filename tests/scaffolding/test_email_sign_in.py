@@ -1,4 +1,4 @@
-"""Sign-in links by email (feather/auth/email_link.py), in a generated app.
+"""Sign-in codes by email (feather/auth/email_link.py), in a generated app.
 
 Each app runs in its own interpreter, like test_app_types_096, because
 generated apps all define ``app``, ``config`` and ``models``.
@@ -22,12 +22,11 @@ EMAIL_APP = {
 FLOW = r"""
 import json, os, sys
 sys.path.insert(0, os.getcwd())
-from urllib.parse import urlparse
 
 import feather.auth.email_link as email_link
 
 sent = []
-email_link.send_link = lambda email, link: sent.append((email, link)) or True
+email_link.send_code = lambda email, code: sent.append((email, code)) or True
 
 from app import app
 from feather.db import db
@@ -46,19 +45,20 @@ anon = client.get("/admin/users")
 result["anonymous_admin"] = [anon.status_code, anon.headers.get("Location", ""), "/auth/email/login" in anon.get_data(as_text=True)]
 result["form"] = client.get("/auth/email/login").status_code
 result["bad_address"] = client.post("/auth/email/login", data={"email": "not-an-address"}).status_code
-sent_page = client.post("/auth/email/login", data={"email": "Owner@Test.com "})
-result["sent"] = sent_page.status_code
+code_page = client.post("/auth/email/login", data={"email": "Owner@Test.com "})
+page = code_page.get_data(as_text=True)
+result["code_page"] = code_page.status_code
+result["boxes_script"] = "/feather-static/sign-in-code.js" in page and 'autocomplete="one-time-code"' in page
 result["sent_to"] = sent[-1][0] if sent else None
-link = urlparse(sent[-1][1])
-token = link.query.split("token=", 1)[1]
-confirm = client.get(link.path + "?" + link.query)
-result["confirm"] = confirm.status_code
-result["confirm_signs_nobody_in"] = client.get("/admin/users").status_code
-result["verify"] = client.post("/auth/email/verify", data={"token": token}).status_code
+code = sent[-1][1]
+result["email_has_no_link"] = "http" not in code
+other = app.test_client()  # a forwarded email: another browser has the code
+result["forwarded"] = other.post("/auth/email/verify", data={"code": code}).status_code
+result["wrong"] = client.post("/auth/email/verify", data={"code": "000000" if code != "000000" else "111111"}).status_code
+result["verify"] = client.post("/auth/email/verify", data={"code": code}).status_code
 result["admin_after"] = client.get("/admin/users").status_code
-other = app.test_client()
-result["reused"] = other.post("/auth/email/verify", data={"token": token}).status_code
-result["tampered"] = other.post("/auth/email/verify", data={"token": token[:-3] + "abc"}).status_code
+result["reused"] = client.post("/auth/email/verify", data={"code": code}).status_code
+result["old_link"] = app.test_client().get("/auth/email/verify?token=abc").status_code
 print("RESULT " + json.dumps(result))
 """
 
@@ -71,19 +71,20 @@ print("RESULT " + json.dumps({"email_login": app.test_client().get("/auth/email/
 """
 
 
-def test_a_link_signs_in_once_and_only_after_the_button(scaffold_project):
+def test_a_code_signs_in_once_and_only_in_the_browser_that_asked(scaffold_project):
     result = _run_in_project(scaffold_project(EMAIL_APP), FLOW)
     assert result["method"] == "email"
     status, location, linked = result["anonymous_admin"]
     assert "/auth/email/login" in location or linked, result["anonymous_admin"]  # pointed at email sign-in
     assert result["form"] == 200
     assert result["bad_address"] == 400
-    assert result["sent"] == 200 and result["sent_to"] == "owner@test.com"
-    # Opening the link shows a button; a mail scanner opening it signs nobody in.
-    assert result["confirm"] == 200 and result["confirm_signs_nobody_in"] in (302, 401, 403)
+    assert result["code_page"] == 200 and result["boxes_script"]
+    assert result["sent_to"] == "owner@test.com" and result["email_has_no_link"]
+    assert result["forwarded"] == 400  # the code alone signs nobody in
+    assert result["wrong"] == 400
     assert result["verify"] == 302 and result["admin_after"] == 200
     assert result["reused"] == 400
-    assert result["tampered"] == 400
+    assert result["old_link"] == 405  # links are gone: nothing answers a GET
 
 
 OWNER_FIRST_SIGN_IN = r"""
@@ -91,7 +92,7 @@ import json, os, sys
 sys.path.insert(0, os.getcwd())
 import feather.auth.email_link as email_link
 sent = []
-email_link.send_link = lambda email, link: sent.append(link) or True
+email_link.send_code = lambda email, code: sent.append(code) or True
 from app import app
 from feather.db import db
 from models import User
@@ -103,8 +104,7 @@ client = app.test_client()
 
 def sign_in(address):
     client.post("/auth/email/login", data={"email": address})
-    token = sent[-1].split("token=", 1)[1]
-    client.post("/auth/email/verify", data={"token": token})
+    client.post("/auth/email/verify", data={"code": sent[-1]})
 
 sign_in("admin@test.com")
 owner = client.get("/admin/users").status_code

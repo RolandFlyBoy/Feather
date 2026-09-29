@@ -1,6 +1,6 @@
 ---
 title: "Authentication"
-description: "Google sign-in or sign-in links by email, so there are no passwords to store, plus approval workflows, roles, permissions and hooks for onboarding."
+description: "Google sign-in or sign-in codes by email, so there are no passwords to store, plus approval workflows, roles, permissions and hooks for onboarding."
 icon: "key-round"
 ---
 
@@ -61,7 +61,7 @@ or with `feather new --sign-in email`.
     | --- | --- |
     | `SIGN_IN_RELAY_URL` and `SIGN_IN_RELAY_TOKEN` | A relay run by your host. [Appentic](/deployment/appentic) sets both on every Feather project, so there is nothing to do. |
     | `RESEND_API_KEY` | [Resend](/features/email), from `RESEND_FROM_EMAIL`. |
-    | Neither | Nothing. The link is written to the log, which is what you want in development. |
+    | Neither | Nothing. The code is written to the log, which is what you want in development. |
   </Step>
   <Step title="Create your admin user">
     ```bash
@@ -71,20 +71,28 @@ or with `feather new --sign-in email`.
   </Step>
 </Steps>
 
-### How a sign-in link works
+### How a sign-in code works
 
-1. `/auth/email/login` asks for an address and sends a link. It says the link is on its
-   way whether or not the address has an account, so the form can't be used to find out
-   who does.
-2. Opening the link shows a **Sign in** button rather than signing in straight away. Email
-   security scanners open every link in a message to check it, and would otherwise use up
-   the link before the person clicks it.
-3. The button signs the person in, and new addresses are handled exactly as a first Google
-   sign-in would be: created, and approved or held for approval.
+It's the same flow as WorkOS Magic Auth:
 
-A link is signed with `SECRET_KEY`, works once, and expires after `SIGN_IN_LINK_MINUTES`
-(15). "Works once" is kept in the cache, so with several workers configure Redis
-(`REDIS_URL`) to make it hold across all of them.
+1. `/auth/email/login` asks for an address and emails a six-digit code. The page asks for
+   the code whether or not the address has an account, so the form can't be used to find
+   out who does.
+2. The code page has a box per digit. Typing the last digit, pasting the code, or letting
+   a phone fill it in from the email signs the person in straight away, with no button to
+   press. Without JavaScript it's one field and a **Sign in** button.
+3. New addresses are handled exactly as a first Google sign-in would be: created, and
+   approved or held for approval.
+
+A code works only in the browser that asked for it. That browser's session holds a keyed
+hash of the code (never the code itself), the address and the expiry, so someone who sees
+or is forwarded the email has nowhere to use it. That is the point of a code over a link,
+which signs in whoever opens it.
+
+A code works once, expires after `SIGN_IN_CODE_MINUTES` (15), and stops working after five
+wrong tries; **Send a new code** replaces it. The tries and "works once" are counted in the
+cache, so with several workers configure Redis (`REDIS_URL`) to make them hold across all
+of them.
 
 To change how the pages look, copy `feather/templates/auth/email_sign_in.html` to
 `templates/auth/email_sign_in.html` in your app.
@@ -95,8 +103,9 @@ To change how the pages look, copy `feather/templates/auth/email_sign_in.html` t
 | --- | --- |
 | `/auth/google/login` | Start Google sign-in |
 | `/auth/google/callback` | Google's callback, handled for you |
-| `/auth/email/login` | Ask for an address and send a sign-in link |
-| `/auth/email/verify` | The link's page, and the **Sign in** button that uses it |
+| `/auth/email/login` | Ask for an address and email a sign-in code |
+| `/auth/email/verify` | Sign in with the code (POST) |
+| `/auth/email/resend` | Email a new code to the same address (POST) |
 | `/auth/logout` | End session |
 
 Only the routes for your `SIGN_IN_METHOD` answer; the others return 404. Pages behind
