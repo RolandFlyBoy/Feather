@@ -726,20 +726,6 @@ def _store_token(token: dict) -> None:
     session[_TOKEN_SESSION_KEY] = token_data
 
 
-def _pop_legacy_refresh_token(token: dict) -> Optional[str]:
-    """Remove a refresh token left in the session by Feather <= 0.9.5.
-
-    Returns the value so the caller can use it one last time; the session
-    copy is dropped either way.
-    """
-    if "refresh_token" not in token:
-        return None
-    legacy = token.pop("refresh_token", None)
-    session[_TOKEN_SESSION_KEY] = token
-    session.modified = True
-    return legacy
-
-
 def _user_refresh_token() -> Optional[str]:
     """The current user's stored refresh token, or None.
 
@@ -795,14 +781,11 @@ def get_google_token() -> Optional[dict]:
     if not token:
         return None
 
-    # Sessions issued before 0.9.6 carried the refresh token; drop it.
-    legacy_refresh_token = _pop_legacy_refresh_token(token)
-
     # Check if token is expired
     expires_at = token.get("expires_at")
     if expires_at and time.time() > expires_at - 60:  # 60 second buffer
         # Token is expired, try to refresh from the stored credential
-        refresh_token = _user_refresh_token() or legacy_refresh_token
+        refresh_token = _user_refresh_token()
 
         if refresh_token:
             new_token = _refresh_google_token(refresh_token)

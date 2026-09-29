@@ -217,11 +217,11 @@ def _build_queue(app) -> JobQueue:
     redis_url = get_setting("REDIS_URL", None)
     max_workers = get_setting("JOB_MAX_WORKERS", 4, cast=int)
     enable_monitoring = get_setting("JOB_ENABLE_MONITORING", False, cast=as_bool)
-    # `or "pickle"`, not a plain default: a config.py that reads
+    # `or "json"`, not a plain default: a config.py that reads
     # JOB_SERIALIZER straight from the environment leaves the key present
-    # but None, and falling back to pickle there would put the queue and
-    # `feather worker` on different serializers.
-    serializer = get_setting("JOB_SERIALIZER", None) or "pickle"
+    # but None, and the queue and `feather worker` must land on the same
+    # default.
+    serializer = get_setting("JOB_SERIALIZER", None) or "json"
 
     if backend == "rq":
         from feather.jobs.rq import RQQueue
@@ -258,7 +258,7 @@ def get_queue() -> JobQueue:
     Configuration:
         JOB_BACKEND: 'sync', 'thread', or 'rq'. Unset: 'rq' when REDIS_URL
             is set, otherwise JOB_BACKEND_FALLBACK or 'sync'
-        JOB_SERIALIZER: 'pickle' (default) or 'json' (rq backend; safer)
+        JOB_SERIALIZER: 'json' (default) or 'pickle' (rq backend)
         JOB_MAX_WORKERS: Thread pool size (for thread backend)
         JOB_ENABLE_MONITORING: Enable psutil resource tracking (thread backend)
         REDIS_URL: Redis connection URL (for rq backend)
@@ -299,8 +299,7 @@ def _backend_options(queue: JobQueue, decorated: Callable) -> dict[str, Any]:
     the RQ backend turns it into ``rq.Retry``. ``concurrency`` only reaches
     backends that advertise ``supports_concurrency``; RQ has no per-task
     concurrency limit (it is a worker-count setting), so rather than
-    silently dropping the option - which is what 0.9.7 did - the job warns
-    once and runs unthrottled.
+    silently dropping the option the job warns once and runs unthrottled.
 
     Args:
         queue: The backend the job is about to be enqueued on.
@@ -357,8 +356,7 @@ def job(
             failing - cap the number of workers there instead.
         retry: Number of retries on failure. The thread backend retries in
             process with exponential backoff; the RQ backend passes it to
-            ``rq.Retry`` so the worker re-queues the job. Before 0.9.8 this
-            was silently dropped on RQ.
+            ``rq.Retry`` so the worker re-queues the job.
         timeout: Max execution time in seconds. The thread backend marks the
             job TIMEOUT; RQ passes it as ``job_timeout``.
 
@@ -512,25 +510,3 @@ __all__ = [
     "setup_scheduler",
 ]
 
-
-def __getattr__(name):
-    """Deprecation shim for the 0.9.7 module-level queue singleton.
-
-    ``feather.jobs._queue_instance`` was the process-wide queue. It is now
-    per app (``app.extensions["feather"]["queue"]``); reading the old name
-    returns the current app's queue and warns. Assigning to it no longer
-    has any effect - use
-    ``feather.core.registry.set_backend("queue", queue)`` (or
-    ``reset_backends(None, "queue")``) instead.
-    """
-    if name == "_queue_instance":
-        warnings.warn(
-            "feather.jobs._queue_instance was replaced by the per-app registry in "
-            "0.9.8. Use feather.jobs.get_queue(), or "
-            "feather.core.registry.set_backend('queue', queue) to override it. "
-            "Assigning to _queue_instance no longer has any effect.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return get_queue()
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

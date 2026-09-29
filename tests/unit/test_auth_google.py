@@ -310,8 +310,7 @@ class TestGetGoogleToken:
     def test_refreshes_expired_token(self):
         """get_google_token refreshes an expired token with a refresh token.
 
-        Since 0.9.6 the refresh token comes from the User model, not from
-        the session; a session written by 0.9.5 is still honoured once.
+        The refresh token comes from the User model, never the session.
         """
         from flask import Flask, session
         from feather.auth.google import get_google_token, _TOKEN_SESSION_KEY
@@ -322,17 +321,17 @@ class TestGetGoogleToken:
         app.config["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
 
         with app.test_request_context():
-            # A legacy (0.9.5) session: expired token plus refresh token
             past_time = time.time() - 3600  # 1 hour ago
             session[_TOKEN_SESSION_KEY] = {
                 "access_token": "expired-token",
                 "expires_at": past_time,
-                "refresh_token": "test-refresh-token",
                 "token_type": "Bearer",
             }
 
-            # Mock the refresh endpoint
-            with patch("feather.auth.google._refresh_google_token") as mock_refresh:
+            # Mock the stored refresh token and the refresh endpoint
+            with patch(
+                "feather.auth.google._user_refresh_token", return_value="test-refresh-token"
+            ), patch("feather.auth.google._refresh_google_token") as mock_refresh:
                 mock_refresh.return_value = {
                     "access_token": "new-access-token",
                     "expires_at": time.time() + 3600,

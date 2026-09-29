@@ -1,19 +1,18 @@
 """Per-app storage for Feather's backends.
 
-Before 0.9.8 the queue, the cache, the Vite manifest and the rate limiter
-were module-level singletons, so two Feather apps in one process (a test
-suite creating several apps, a WSGI file mounting two apps, an admin app
-beside the public one) silently shared them: the first app's configuration
-won and the second app's cache entries leaked into the first.
+The queue, the cache, the Vite manifest and the rate limiter belong to an
+app, so two Feather apps in one process (a test suite creating several apps,
+a WSGI file mounting two apps, an admin app beside the public one) never
+share them: each app's configuration and cache entries stay its own.
 
-Everything now lives in ``app.extensions["feather"]``, the standard Flask
+Everything lives in ``app.extensions["feather"]``, the standard Flask
 place for extension state, and ``get_queue()`` / ``get_cache()`` /
 ``get_rate_limiter()`` are thin facades that resolve the current app.
 
 Outside an app context the facades keep working against a **process-level
 default** store, which is what a script, a CLI command or a module-level
 ``@job`` registration hits. That store is shared by everything with no app
-context; it is a compatibility fallback, not a second app.
+context; it is a fallback for code with no app, not a second app.
 
 Example::
 

@@ -48,7 +48,7 @@ DEV_SECRET_KEYS = {
 
 MIN_SECRET_KEY_LENGTH = 32
 
-#: Minimum versions with no known advisories at the 0.9.6 release.
+#: Minimum versions with no known advisories.
 MIN_DEPENDENCY_VERSIONS = {
     "flask": "3.1.3",
     "werkzeug": "3.1.5",
@@ -427,7 +427,7 @@ def check_job_serializer(settings: Settings) -> Check:
     if backend != "rq":
         return Check("job_serializer", SKIP, f"JOB_BACKEND is '{backend}'; serializer not checked")
 
-    serializer = str(settings.get("JOB_SERIALIZER", "pickle")).lower()
+    serializer = str(settings.get("JOB_SERIALIZER") or "json").lower()
     if serializer != "json":
         return Check(
             "job_serializer", WARN,

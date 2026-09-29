@@ -1,18 +1,6 @@
-"""Example API routes with authentication."""
+"""Example API route with authentication."""
 
 from feather import api, auth_required
-from feather.core.health import health_check
-
-
-@api.get("/health")
-def health():
-    """Public health check.
-
-    Delegates to Feather's own /health so this endpoint really does verify
-    the database: it returns 503 when the database is unreachable. Prefer
-    /health directly; this alias exists for clients already calling it.
-    """
-    return health_check()
 
 
 @api.get("/me")

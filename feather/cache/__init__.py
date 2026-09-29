@@ -93,8 +93,6 @@ Cache Invalidation
     get_user_stats.invalidate(123)
 """
 
-import warnings
-
 from feather.cache.base import CacheBackend
 from feather.cache.decorators import cached, cache_response, invalidate_cache
 from feather.core.config import get_setting, resolve_backend
@@ -184,25 +182,3 @@ __all__ = [
     "invalidate_cache",
 ]
 
-
-def __getattr__(name):
-    """Deprecation shim for the 0.9.7 module-level cache singleton.
-
-    ``feather.cache._cache_instance`` was the process-wide cache. It is now
-    per app (``app.extensions["feather"]["cache"]``); reading the old name
-    returns the current app's cache and warns. Assigning to it no longer
-    has any effect - use
-    ``feather.core.registry.set_backend("cache", cache)`` (or
-    ``reset_backends(None, "cache")``) instead.
-    """
-    if name == "_cache_instance":
-        warnings.warn(
-            "feather.cache._cache_instance was replaced by the per-app registry in "
-            "0.9.8. Use feather.cache.get_cache(), or "
-            "feather.core.registry.set_backend('cache', cache) to override it. "
-            "Assigning to _cache_instance no longer has any effect.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return get_cache()
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

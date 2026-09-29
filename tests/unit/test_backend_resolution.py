@@ -240,10 +240,12 @@ class TestBackendsFollowResolution:
     def test_security_check_treats_redis_url_as_rq(self):
         from feather.cli.security_check import Settings, check_job_serializer
 
-        result = check_job_serializer(Settings("env", {"REDIS_URL": REDIS}))
+        result = check_job_serializer(
+            Settings("env", {"REDIS_URL": REDIS, "JOB_SERIALIZER": "pickle"})
+        )
         assert result.status == "WARN"
         result = check_job_serializer(
-            Settings("env", {"REDIS_URL": REDIS, "JOB_BACKEND": "thread"})
+            Settings("env", {"REDIS_URL": REDIS, "JOB_BACKEND": "thread", "JOB_SERIALIZER": "pickle"})
         )
         assert result.status == "SKIP"
 

@@ -1,12 +1,10 @@
-"""Regression tests for 0.9.6 discovery strictness.
+"""Discovery is strict.
 
-A broken models/services/routes module used to be printed as a warning and
-swallowed, leaving the app running with routes silently missing. Discovery is
-now strict by default and lenient only when FEATHER_LENIENT_DISCOVERY is set.
+A broken models/services/routes module stops startup, rather than leaving the
+app running with routes silently missing.
 """
 
 import logging
-import os
 import sys
 from contextlib import contextmanager
 
@@ -32,14 +30,8 @@ class AppStub:
 
 
 @contextmanager
-def project(tmp_path, lenient_env=None):
+def project(tmp_path):
     """Put a temp project on sys.path and clean up its modules afterwards."""
-    saved = os.environ.get("FEATHER_LENIENT_DISCOVERY")
-    if lenient_env is None:
-        os.environ.pop("FEATHER_LENIENT_DISCOVERY", None)
-    else:
-        os.environ["FEATHER_LENIENT_DISCOVERY"] = lenient_env
-
     sys.path.insert(0, str(tmp_path))
     try:
         yield
@@ -52,10 +44,6 @@ def project(tmp_path, lenient_env=None):
             if m.split(".")[0] in ("models", "services", "routes")
         ]:
             del sys.modules[name]
-        if saved is None:
-            os.environ.pop("FEATHER_LENIENT_DISCOVERY", None)
-        else:
-            os.environ["FEATHER_LENIENT_DISCOVERY"] = saved
 
 
 def make_project(tmp_path, kind):
@@ -120,53 +108,19 @@ class TestStrictDiscovery:
 
 
 # =============================================================================
-# Lenient mode
-# =============================================================================
-
-
-class TestLenientDiscovery:
-    def test_env_flag_keeps_going(self, tmp_path, caplog):
-        make_project(tmp_path, "routes")
-        app = AppStub()
-
-        with project(tmp_path, lenient_env="1"):
-            with caplog.at_level(logging.ERROR):
-                discover_routes(app, tmp_path / "routes")
-
-        messages = " ".join(record.getMessage() for record in caplog.records)
-        assert "routes.api.broken" in messages
-
-    def test_config_flag_keeps_going(self, tmp_path):
-        make_project(tmp_path, "models")
-        app = AppStub(FEATHER_LENIENT_DISCOVERY=True)
-
-        with project(tmp_path):
-            # Must not raise
-            discover_models(tmp_path / "models", app=app)
-
-    def test_healthy_modules_still_import(self, tmp_path):
-        make_project(tmp_path, "services")
-        app = AppStub(FEATHER_LENIENT_DISCOVERY=True)
-
-        with project(tmp_path):
-            discover_services(tmp_path / "services", app=app)
-            assert "services.fine" in sys.modules
-
-
-# =============================================================================
-# Backwards compatibility
+# Signatures
 # =============================================================================
 
 
 class TestDiscoverySignatures:
-    def test_discover_models_still_accepts_a_single_argument(self, tmp_path):
+    def test_discover_models_accepts_a_single_argument(self, tmp_path):
         (tmp_path / "models").mkdir()
         (tmp_path / "models" / "__init__.py").write_text("")
 
         with project(tmp_path):
             assert discover_models(tmp_path / "models") == []
 
-    def test_discover_services_still_accepts_a_single_argument(self, tmp_path):
+    def test_discover_services_accepts_a_single_argument(self, tmp_path):
         (tmp_path / "services").mkdir()
         (tmp_path / "services" / "__init__.py").write_text("")
 

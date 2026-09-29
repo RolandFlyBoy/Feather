@@ -122,8 +122,8 @@ def _feather_version() -> str:
 def _requirement_spec(options: dict) -> str:
     """The requirements.txt line, naming the extras this app actually needs.
 
-    Since 0.9.8 a bare ``feather-framework`` installs neither psycopg2 nor
-    redis, resend, gunicorn or pytest, so a generated app that enables a
+    A bare ``feather-framework`` installs none of psycopg2, redis, resend,
+    gunicorn or pytest, so a generated app that enables a
     feature and does not name its extra fails at startup rather than at
     install time. `prod` and `test` are always included: every app is meant
     to be deployable with `feather start` and testable with `feather test`.

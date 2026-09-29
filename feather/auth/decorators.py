@@ -535,7 +535,7 @@ def rate_limit(
     limit and a restart resets everything. That is fine for slowing down a
     login form on a single box; for anything that must hold across workers
     use Flask-Limiter with a Redis storage backend instead. Apps scaffolded
-    from 0.9.9 with authentication get exactly that, wired up in their own
+    with authentication get exactly that, wired up in their own
     ``rate_limits.py`` (``pip install 'feather-framework[ratelimit]'``).
 
     The client address comes from ``request.remote_addr``. Feather wraps the
@@ -636,8 +636,8 @@ def get_rate_limiter() -> _RateLimiter:
     """Get the rate limiter for the current app.
 
     One limiter per Flask app, stored in ``app.extensions["feather"]``, so
-    two apps in one process do not share counters (before 0.9.8 they did,
-    and a burst against one app throttled the other). Outside an app
+    two apps in one process don't share counters (a burst against one app
+    must not throttle the other). Outside an app
     context it resolves to the process-level default limiter.
 
     Returns:
@@ -655,18 +655,3 @@ def get_rate_limiter() -> _RateLimiter:
 
     return get_backend(_RATE_LIMITER_KEY, _build_rate_limiter)
 
-
-def __getattr__(name):
-    """Deprecation shim for the 0.9.7 module-level rate limiter."""
-    if name == "_rate_limiter":
-        import warnings
-
-        warnings.warn(
-            "feather.auth.decorators._rate_limiter was replaced by the per-app "
-            "registry in 0.9.8. Use get_rate_limiter(); assigning to "
-            "_rate_limiter no longer has any effect.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return get_rate_limiter()
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

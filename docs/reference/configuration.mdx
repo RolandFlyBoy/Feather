@@ -124,7 +124,7 @@ LOG_FORMAT=json
 | `JOB_BACKEND` | automatic | `sync`, `thread` or `rq`. |
 | `JOB_BACKEND_FALLBACK` | `sync` | Backend when `JOB_BACKEND` and `REDIS_URL` are both unset. The scaffold sets `thread` for apps with background jobs. |
 | `JOB_MAX_WORKERS` | `4` | Thread pool size for the thread backend. |
-| `JOB_SERIALIZER` | pickle | Set to `json` for RQ. Pickle payloads are code execution for anyone who can write to Redis. |
+| `JOB_SERIALIZER` | json | `pickle` only if a job argument cannot be JSON-encoded. Pickle payloads are code execution for anyone who can write to Redis. |
 | `RATELIMIT_STORAGE_URI` | unset | Where Flask-Limiter keeps counters. Falls back to `REDIS_URL`, then to memory with a warning. |
 | `REDIS_URL` | unset | Redis for the `rq` and `redis` backends. Setting it selects them when `JOB_BACKEND` and `CACHE_BACKEND` are unset. |
 
@@ -164,7 +164,6 @@ Backends: jobs=rq (REDIS_URL is set), cache=redis (REDIS_URL is set), storage=lo
 | --- | --- | --- |
 | `VITE_DEV_SERVER` | `http://localhost:5173` | Where debug-mode island scripts are loaded from. |
 | `FEATHER_NO_VITE` | unset | Serve built island assets instead. `feather dev --no-vite` sets it. |
-| `FEATHER_LENIENT_DISCOVERY` | `False` | Warn and continue when a `models/`, `services/` or `routes/` module fails to import, instead of failing startup. |
 | `FEATHER_NO_UPDATE_CHECK` | unset | Skip the CLI's PyPI version check. |
 
 <Tip>

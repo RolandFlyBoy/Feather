@@ -48,8 +48,7 @@ Three directories are scanned at startup, and their contents registered for you.
 
 <Warning>
   Discovery is strict. A module that fails to import stops the app rather than being
-  dropped silently. Set `FEATHER_LENIENT_DISCOVERY=1` to warn and continue while you fix
-  it.
+  dropped silently, and the error names the module.
 </Warning>
 
 ## Framework-provided assets

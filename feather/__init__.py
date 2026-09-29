@@ -109,7 +109,7 @@ docstrings of each module (feather.core.app, feather.services, feather.jobs,
 feather.events, ...).
 """
 
-__version__ = "0.9.32"
+__version__ = "0.9.33"
 
 # =============================================================================
 # Core Application
@@ -306,6 +306,6 @@ __all__ = [
     "RateLimitError",
     "StorageError",
     "DatabaseError",
-    # Optional dependency extras (0.9.8)
+    # Optional dependency extras
     "MissingDependencyError",
 ]

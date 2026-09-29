@@ -17,7 +17,7 @@ Set in environment variables or config.py::
 
     JOB_BACKEND=rq
     REDIS_URL=redis://localhost:6379/0
-    JOB_SERIALIZER=json   # recommended; default 'pickle' for compatibility
+    JOB_SERIALIZER=json   # the default; 'pickle' if job arguments must be objects
 
 Running Workers
 ---------------
@@ -72,20 +72,20 @@ _RQ_FEATURE = "The RQ job backend"
 
 
 def resolve_serializer(name: str):
-    """Map JOB_SERIALIZER ('pickle' | 'json') to an RQ serializer.
+    """Map JOB_SERIALIZER ('json' | 'pickle') to an RQ serializer. JSON is
+    the default.
 
-    RQ's default is pickle, which means anyone who can write to the Redis
-    queue can execute arbitrary code in the worker when it unpickles the
-    job. JSON limits job arguments to plain data, which is all a job id
-    based design needs. The queue and the worker MUST agree; `feather
-    worker` reads the same setting.
+    Pickle means anyone who can write to the Redis queue can execute
+    arbitrary code in the worker when it unpickles the job. JSON limits job
+    arguments to plain data, which is all a job id based design needs. The
+    queue and the worker MUST agree; `feather worker` reads the same setting.
     """
     serializers = require("rq.serializers", feature=_RQ_FEATURE)
-    if name is None or str(name).lower() in ("pickle", "default", ""):
-        return serializers.DefaultSerializer
-    if str(name).lower() == "json":
+    if name is None or str(name).lower() in ("json", ""):
         return serializers.JSONSerializer
-    raise ValueError(f"Unknown JOB_SERIALIZER {name!r}; use 'pickle' or 'json'")
+    if str(name).lower() == "pickle":
+        return serializers.DefaultSerializer
+    raise ValueError(f"Unknown JOB_SERIALIZER {name!r}; use 'json' or 'pickle'")
 
 
 def _rq_status_to_job_status(rq_status: str) -> JobStatus:
@@ -135,7 +135,7 @@ class RQQueue(JobQueue):
         redis_url: str = "redis://localhost:6379/0",
         default_queue: str = "default",
         default_timeout: int = 300,
-        serializer: str = "pickle",
+        serializer: str = "json",
     ):
         redis_module = require("redis", feature=_RQ_FEATURE)
         rq_module = require("rq", feature=_RQ_FEATURE)

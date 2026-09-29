@@ -162,11 +162,6 @@ def _env_config_values() -> dict:
         not in ("false", "0", "no"),
         "FEATHER_PROXY_FIX_NUM": int(os.environ.get("FEATHER_PROXY_FIX_NUM", "1")),
         "TRUSTED_HOSTS": parse_trusted_hosts(os.environ.get("TRUSTED_HOSTS")),
-        # Discovery
-        "FEATHER_LENIENT_DISCOVERY": os.environ.get(
-            "FEATHER_LENIENT_DISCOVERY", ""
-        ).lower()
-        in ("true", "1", "yes"),
         # Vite dev server (used for island scripts in debug mode)
         "VITE_DEV_SERVER": os.environ.get("VITE_DEV_SERVER", "http://localhost:5173"),
         # Storage (optional)
@@ -267,10 +262,6 @@ def parse_trusted_hosts(value):
         hosts = [host.strip() for host in str(value).split(",")]
     hosts = [host for host in hosts if host]
     return hosts or None
-
-
-#: Backwards-compatible private alias.
-_parse_trusted_hosts = parse_trusted_hosts
 
 
 class Config:

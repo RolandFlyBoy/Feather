@@ -112,49 +112,6 @@ class TestRefreshTokenNotInSession:
             _store_token({"access_token": "old", "expires_at": time.time() - 10})
             assert get_google_token() is None
 
-    def test_legacy_session_refresh_token_is_used_once_then_dropped(self):
-        """Sessions issued by 0.9.5 still carry the key: honour it, then pop it."""
-        from feather.auth.google import get_google_token, _TOKEN_SESSION_KEY
-
-        app = _app()
-        user = _User(refresh_token=None)
-        _login_manager(app, user)
-
-        with app.test_request_context():
-            session["_user_id"] = user.id
-            session[_TOKEN_SESSION_KEY] = {
-                "access_token": "old",
-                "refresh_token": "rt-legacy",
-                "expires_at": time.time() - 10,
-                "token_type": "Bearer",
-            }
-            with patch("feather.auth.google._refresh_google_token") as refresh:
-                refresh.return_value = {
-                    "access_token": "new",
-                    "expires_at": time.time() + 3600,
-                    "refresh_token": "rt-legacy",
-                }
-                token = get_google_token()
-
-            refresh.assert_called_once_with("rt-legacy")
-            assert token["access_token"] == "new"
-            assert "refresh_token" not in session[_TOKEN_SESSION_KEY]
-
-    def test_legacy_key_is_popped_even_when_token_is_still_valid(self):
-        from feather.auth.google import get_google_token, _TOKEN_SESSION_KEY
-
-        with _app().test_request_context():
-            session[_TOKEN_SESSION_KEY] = {
-                "access_token": "ok",
-                "refresh_token": "rt-legacy",
-                "expires_at": time.time() + 3600,
-                "token_type": "Bearer",
-            }
-            token = get_google_token()
-            assert token["access_token"] == "ok"
-            assert "refresh_token" not in session[_TOKEN_SESSION_KEY]
-            assert "refresh_token" not in token
-
 
 # =============================================================================
 # 4. Outbound HTTP calls carry a timeout; logs never carry a full email

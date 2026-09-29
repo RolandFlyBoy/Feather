@@ -136,7 +136,10 @@ class TestEnvFileMode:
         assert parse(run())["csrf"][0] == "FAIL"
 
     def test_rq_with_pickle_warns(self, project):
-        write_env(project, **PRODUCTION_ENV, JOB_BACKEND="rq", REDIS_URL="redis://localhost:6379/0")
+        write_env(
+            project, **PRODUCTION_ENV,
+            JOB_BACKEND="rq", JOB_SERIALIZER="pickle", REDIS_URL="redis://localhost:6379/0",
+        )
         result = run()
         rows = parse(result)
 
@@ -144,6 +147,10 @@ class TestEnvFileMode:
         assert rows["job_serializer"][0] == "WARN"
         assert "JOB_SERIALIZER=json" in result.output
         assert rows["redis_url"][0] == "PASS"  # localhost without password is fine
+
+    def test_rq_defaults_to_json(self, project):
+        write_env(project, **PRODUCTION_ENV, JOB_BACKEND="rq")
+        assert parse(run())["job_serializer"][0] == "PASS"
 
     def test_rq_with_json_passes(self, project):
         write_env(project, **PRODUCTION_ENV, JOB_BACKEND="rq", JOB_SERIALIZER="json")
@@ -257,7 +264,7 @@ class TestDependencyVersions:
 
 class TestJsonOutput:
     def test_json_structure(self, project):
-        write_env(project, **PRODUCTION_ENV, JOB_BACKEND="rq")
+        write_env(project, **PRODUCTION_ENV, JOB_BACKEND="rq", JOB_SERIALIZER="pickle")
         result = run("--json")
 
         assert result.exit_code == 0, result.output

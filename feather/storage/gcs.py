@@ -36,9 +36,8 @@ class MissingGCSDependency(MissingDependencyError, StorageError):
     """google-cloud-storage is not installed.
 
     Subclasses both ``MissingDependencyError`` (an ``ImportError``) and
-    ``StorageError``, so code written against 0.9.7 - which caught
-    ``StorageError`` here - keeps working while the message now names the
-    extra to install.
+    ``StorageError``, like ``MissingS3Dependency``: it is a storage failure
+    whose message names the extra to install.
     """
 
     def __init__(self, message: str):

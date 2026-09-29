@@ -109,7 +109,7 @@ class TestLogoutBehavior:
                 sess['_user_id'] = "1"
 
             with patch('feather.auth.routes.logout_user') as mock_logout:
-                response = client.get('/auth/logout')
+                response = client.post('/auth/logout')
                 mock_logout.assert_called_once()
 
     def test_logout_redirects_to_home(self):
@@ -147,7 +147,7 @@ class TestLogoutBehavior:
             with client.session_transaction() as sess:
                 sess['_user_id'] = "1"
 
-            response = client.get('/auth/logout')
+            response = client.post('/auth/logout')
             assert response.status_code == 302
             assert response.location == "/"
 
@@ -182,7 +182,7 @@ class TestLogoutBehavior:
         app.add_url_rule('/', 'page.home', home)
 
         with app.test_client() as client:
-            response = client.get('/auth/logout')
+            response = client.post('/auth/logout')
             # Should redirect to login
             assert response.status_code == 302
             assert 'login' in response.location

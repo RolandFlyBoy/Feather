@@ -1,11 +1,8 @@
-"""Logout is POST-first, GET deprecated (0.9.8).
+"""Logout is POST only.
 
-GET /auth/logout is logout CSRF: any page can log a user out with an
-<img> tag. The scaffold already POSTs. GET keeps working for one more
-release but emits a DeprecationWarning and a log line.
+GET /auth/logout would be logout CSRF: any page could log a user out with an
+<img> tag.
 """
-
-import warnings
 
 import pytest
 from flask import Flask
@@ -55,46 +52,14 @@ class TestPost:
         assert response.status_code == 302
         assert response.location == "/"
 
-    def test_post_does_not_warn(self, app):
-        client = _logged_in_client(app)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            client.post("/auth/logout")
-        assert [w for w in caught if issubclass(w.category, DeprecationWarning)] == []
-
-    def test_route_accepts_both_methods(self, app):
+    def test_route_accepts_only_post(self, app):
         methods = set()
         for rule in app.url_map.iter_rules():
             if rule.rule == "/auth/logout":
                 methods = rule.methods
         assert "POST" in methods
-        assert "GET" in methods
+        assert "GET" not in methods
 
-
-class TestGetDeprecated:
-    def test_get_still_logs_out(self, app):
+    def test_get_does_not_log_out(self, app):
         client = _logged_in_client(app)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            response = client.get("/auth/logout")
-        assert response.status_code == 302
-        assert response.location == "/"
-
-    def test_get_emits_a_deprecation_warning(self, app):
-        client = _logged_in_client(app)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            client.get("/auth/logout")
-        deprecations = [
-            str(w.message) for w in caught if issubclass(w.category, DeprecationWarning)
-        ]
-        assert deprecations, "GET /auth/logout must warn"
-        assert "POST" in deprecations[0]
-
-    def test_get_logs_a_line(self, app, caplog):
-        client = _logged_in_client(app)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            with caplog.at_level("WARNING"):
-                client.get("/auth/logout")
-        assert any("logout" in record.message.lower() for record in caplog.records)
+        assert client.get("/auth/logout").status_code == 405

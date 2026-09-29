@@ -211,8 +211,8 @@ def _extras_line() -> str:
     """One line naming the optional extras that are installed.
 
     The heavy dependencies (weasyprint, google-cloud-storage, psycopg2,
-    redis/rq, resend, gunicorn, pytest) became extras in 0.9.8, so which
-    ones are present is the first thing to check when a backend refuses to
+    redis/rq, resend, gunicorn, pytest) are extras, so which ones are
+    present is the first thing to check when a backend refuses to
     start.
     """
     from feather._optional import installed_extras

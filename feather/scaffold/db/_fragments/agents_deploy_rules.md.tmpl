@@ -1,4 +1,4 @@
-- **Health is `/health`**, not `/api/health`. It checks the database, so a
+- **Health is `/health`**. It checks the database, so a
   container that cannot reach Postgres reports unhealthy instead of serving
   500s. Every generated healthcheck points at it.
 - **Migrations never run in the container `CMD`** - two web containers

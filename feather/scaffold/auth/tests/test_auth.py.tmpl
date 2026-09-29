@@ -48,8 +48,8 @@ class TestLoginFlow:
             # 503 = OAuth not configured (expected in tests without credentials)
             assert response.status_code in [302, 503]
 
-    def test_logout_route_exists(self, client):
-        """Logout route is registered and redirects."""
-        response = client.get("/auth/logout")
+    def test_logout_route_exists(self, csrf_client):
+        """Logout is a POST with a CSRF token, and redirects."""
+        response = csrf_client.post("/auth/logout")
         # Should redirect to home
         assert response.status_code == 302

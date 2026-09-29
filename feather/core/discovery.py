@@ -3,7 +3,6 @@
 import importlib
 import importlib.util
 import logging
-import os
 import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -14,41 +13,19 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-def _lenient_discovery(app: Optional["Flask"] = None) -> bool:
-    """Whether import failures during discovery should be tolerated.
-
-    Strict by default: a broken models/services/routes module is a bug, and
-    swallowing it leaves the app running with routes silently missing.
-
-    Set FEATHER_LENIENT_DISCOVERY (config key or environment variable) to a
-    truthy value to restore the pre-0.9.6 "warn and continue" behaviour.
-    """
-    if app is not None:
-        try:
-            value = app.config.get("FEATHER_LENIENT_DISCOVERY", None)
-        except Exception:  # pragma: no cover - app-like objects without config
-            value = None
-        if value is not None:
-            if isinstance(value, str):
-                return value.lower() in ("true", "1", "yes")
-            return bool(value)
-
-    return os.environ.get("FEATHER_LENIENT_DISCOVERY", "").lower() in ("true", "1", "yes")
-
-
 def _handle_discovery_error(
     app: Optional["Flask"],
     module_name: str,
     error: Exception,
 ) -> None:
-    """Log a discovery import failure and re-raise unless lenient mode is on."""
+    """Log a discovery import failure and re-raise it: a broken models,
+    services or routes module is a bug, and carrying on would leave the app
+    running with routes silently missing."""
     logger = getattr(app, "logger", None) or _logger
     logger.error(
         f"Could not import {module_name}: {error}\n{traceback.format_exc()}"
     )
-
-    if not _lenient_discovery(app):
-        raise error
+    raise error
 
 
 def discover_models(models_path: Path, app: Optional["Flask"] = None) -> list:
@@ -56,15 +33,13 @@ def discover_models(models_path: Path, app: Optional["Flask"] = None) -> list:
 
     Args:
         models_path: Path to the models directory.
-        app: Optional Flask app, used for logging and the
-            FEATHER_LENIENT_DISCOVERY config flag.
+        app: Optional Flask app, used for logging.
 
     Returns:
         List of discovered model classes.
 
     Raises:
-        ImportError: If a model module fails to import and
-            FEATHER_LENIENT_DISCOVERY is not set.
+        ImportError: If a model module fails to import.
     """
     models = []
 
@@ -98,15 +73,13 @@ def discover_services(services_path: Path, app: Optional["Flask"] = None) -> dic
 
     Args:
         services_path: Path to the services directory.
-        app: Optional Flask app, used for logging and the
-            FEATHER_LENIENT_DISCOVERY config flag.
+        app: Optional Flask app, used for logging.
 
     Returns:
         Dict mapping service names to classes.
 
     Raises:
-        ImportError: If a service module fails to import and
-            FEATHER_LENIENT_DISCOVERY is not set.
+        ImportError: If a service module fails to import.
     """
     services = {}
 

@@ -117,8 +117,6 @@ class TestHealthPath:
         dockerfile = (project / "Dockerfile").read_text()
         assert "HEALTHCHECK" in dockerfile
         assert "/health" in dockerfile
-        # The scaffolded alias must not be what the container polls: it used
-        # to answer {"status": "ok"} without touching the database.
         assert "/api/health" not in dockerfile
 
     def test_deploy_script_and_caddyfile_reference_health(self, scaffold_project):
@@ -127,12 +125,10 @@ class TestHealthPath:
         assert "/health" in (project / "deploy/Caddyfile").read_text()
         assert "/api/health" not in (project / "deploy/Caddyfile").read_text()
 
-    def test_api_health_route_delegates_to_the_framework(self, scaffold_project):
+    def test_there_is_one_health_check_the_frameworks(self, scaffold_project):
         project = scaffold_project(FULL)
-        route = (project / "routes/api/health.py").read_text()
-        assert "from feather.core.health import health_check" in route
-        assert "return health_check()" in route
-        assert '{"status": "ok"}' not in route
+        assert not (project / "routes/api/health.py").exists()
+        assert "@api.get(\"/me\")" in (project / "routes/api/me.py").read_text()
 
 
 class TestEnvExample:

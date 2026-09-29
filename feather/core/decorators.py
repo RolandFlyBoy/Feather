@@ -338,22 +338,11 @@ from feather.auth.decorators import admin_required, role_required  # noqa: E402
 # ---------------------------------------------------------------------------
 # auth_required lives in one place
 # ---------------------------------------------------------------------------
-# Until 0.9.8 there were two decorators with this name and different
-# behaviour, and which one an app got depended on the import it happened to
-# write:
-#
-#   from feather import auth_required        -> raised a plain
-#                                               AuthorizationError for a
-#                                               suspended user
-#   from feather.auth import auth_required   -> raised AccountSuspendedError
-#                                               / AccountPendingError, which
-#                                               is what the error handlers
-#                                               key on for the suspended and
-#                                               pending redirects
-#
-# Both names now resolve to the tenancy-aware implementation in
-# feather.auth.decorators, so the two import paths are the same object and
-# behave identically. Imported at the bottom of the module because
+# ``from feather import auth_required`` and ``from feather.auth import
+# auth_required`` are the same object: the tenancy-aware implementation in
+# feather.auth.decorators, which raises AccountSuspendedError /
+# AccountPendingError for the error handlers' suspended and pending
+# redirects. Imported at the bottom of the module because
 # feather.auth pulls in feather.exceptions and flask_login, neither of which
 # imports this module back.
 from feather.auth.decorators import auth_required  # noqa: E402,F401

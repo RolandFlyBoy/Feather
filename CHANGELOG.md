@@ -10,6 +10,26 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.33 (2026-09-29): no compatibility code
+
+Feather is pre-1.0 and every shim kept for an older release is gone. Each one
+is now the only behaviour:
+
+- **Discovery is always strict.** `FEATHER_LENIENT_DISCOVERY` no longer
+  exists; a module under `models/`, `services/` or `routes/` that fails to
+  import stops startup.
+- **Logout is POST only.** `GET /auth/logout` answers 405.
+- **JSON is the job serializer by default** on RQ. Set
+  `JOB_SERIALIZER=pickle` only if a job argument cannot be JSON-encoded.
+- **Removed:** `feather worker --simple-worker` (use `--simple`), the
+  `_queue_instance`, `_cache_instance` and `_rate_limiter` module attributes
+  (use `get_queue()`, `get_cache()`, `get_rate_limiter()`), the one-time
+  honouring of a Google refresh token kept in the session, and
+  `feather.core.config._parse_trusted_hosts` (use `parse_trusted_hosts`).
+- **One health check.** New apps get `/health` only; the scaffold no longer
+  writes `routes/api/health.py`, and `routes/api/me.py` holds the `/api/me`
+  example.
+
 ## 0.9.32 (2026-09-29): sign in with a code, not a link
 
 Email sign-in sends a six-digit code instead of a link. A link signs in

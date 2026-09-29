@@ -1,8 +1,8 @@
 """Optional dependencies and the extras that install them.
 
-From 0.9.8 the heavy packages are optional extras rather than hard
-dependencies of every app, so a minimal app no longer installs a PDF
-renderer and a cloud SDK it never imports::
+The heavy packages are optional extras rather than hard dependencies of
+every app, so a minimal app doesn't install a PDF renderer and a cloud SDK it
+never imports::
 
     pip install feather-framework            # core only
     pip install 'feather-framework[redis]'   # + redis, rq
@@ -195,9 +195,9 @@ def require_attr(
 def requirement_spec(version: Optional[str] = None, extras: "Iterable[str]" = ()) -> str:
     """The requirements.txt line for feather-framework with these extras.
 
-    From 0.9.8 a bare ``feather-framework==X.Y.Z`` no longer installs
-    weasyprint, google-cloud-storage, psycopg2, redis/rq, resend, gunicorn
-    or pytest, so anything that generates a requirements.txt (``feather
+    A bare ``feather-framework==X.Y.Z`` installs none of weasyprint,
+    google-cloud-storage, psycopg2, redis/rq, resend, gunicorn or pytest, so
+    anything that generates a requirements.txt (``feather
     new``) must name the extras the app actually enabled.
 
     Args:
@@ -206,12 +206,12 @@ def requirement_spec(version: Optional[str] = None, extras: "Iterable[str]" = ()
             a typo fails at generation time rather than at pip install time.
 
     Returns:
-        e.g. ``"feather-framework[email,postgres]==0.9.8"``.
+        e.g. ``"feather-framework[email,postgres]==1.2.3"``.
 
     Example::
 
-        requirement_spec("0.9.8", ["email", "redis"])
-        'feather-framework[email,redis]==0.9.8'
+        requirement_spec("1.2.3", ["email", "redis"])
+        'feather-framework[email,redis]==1.2.3'
     """
     names = sorted(set(extras))
     unknown = [name for name in names if name not in EXTRAS and name != "all"]

@@ -31,10 +31,6 @@ def _get_app():
          "the forking Worker isolates each job in a child. "
          "Default: simple on macOS, fork elsewhere.",
 )
-@click.option(
-    "--simple-worker", "force_simple", is_flag=True,
-    help="Deprecated alias for --simple.",
-)
 @click.option("--no-scheduler", is_flag=True, help="Disable built-in scheduler (delayed jobs won't execute)")
 @click.option("--name", default=None, help="Worker name")
 @click.option(
@@ -42,7 +38,7 @@ def _get_app():
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
     help="Logging level",
 )
-def worker(queues, burst, simple, force_simple, no_scheduler, name, log_level):
+def worker(queues, burst, simple, no_scheduler, name, log_level):
     """Start an RQ worker to process background jobs.
 
     Automatically provides Flask app context so jobs can access
@@ -82,12 +78,12 @@ def worker(queues, burst, simple, force_simple, no_scheduler, name, log_level):
 
         # `or` rather than dict.get's default: a config.py that does
         # JOB_SERIALIZER = os.environ.get("JOB_SERIALIZER") leaves the key
-        # present but None, which would have silently fallen back to pickle
-        # while the queue side used json - and then nothing runs.
+        # present but None, and the worker must land on the same default as
+        # the queue side.
         serializer_name = (
             app.config.get("JOB_SERIALIZER")
             or os.environ.get("JOB_SERIALIZER")
-            or "pickle"
+            or "json"
         )
         serializer = resolve_serializer(serializer_name)
         if not redis_url:
@@ -101,7 +97,7 @@ def worker(queues, burst, simple, force_simple, no_scheduler, name, log_level):
     # runtime, so SimpleWorker is the default there; in a Linux container
     # forking is right, because a job that leaks or segfaults dies with its
     # child instead of taking the worker down.
-    explicit = simple if simple is not None else (True if force_simple else None)
+    explicit = simple
     use_simple = explicit if explicit is not None else (sys.platform == "darwin")
 
     rq_module = require("rq", feature="feather worker")

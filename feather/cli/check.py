@@ -562,9 +562,9 @@ def check_tenant_isolation(root: Path) -> list:
 def check_imports(root: Path) -> list:
     """Compile every discoverable module, so a typo fails loudly here.
 
-    Feather imports these at startup, and before 0.9.6 an ImportError was
-    swallowed, which made a route silently disappear. Compiling catches the
-    syntax half of that without the side effects of a real import.
+    Feather imports these at startup and stops on an ImportError; compiling
+    them catches the syntax half of that here, without the side effects of a
+    real import.
     """
     findings = []
     for path in iter_files(root, "models/**/*.py", "services/**/*.py", "routes/**/*.py"):

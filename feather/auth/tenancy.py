@@ -84,9 +84,8 @@ def require_active_user(user) -> None:
         #
         # A model with no approved_at attribute at all has no approval
         # workflow, so an inactive user there was switched off by an admin:
-        # that is "suspended", not "pending". Before 0.9.8 the missing
-        # attribute read as None and every such user was told their account
-        # was awaiting approval that would never come.
+        # that is "suspended", not "pending", or they would be told their
+        # account awaits an approval that will never come.
         approved_at = getattr(user, "approved_at", _NO_APPROVAL_FIELD)
         if approved_at is _NO_APPROVAL_FIELD:
             raise AccountSuspendedError("Your account has been suspended")

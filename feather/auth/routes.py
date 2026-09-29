@@ -52,8 +52,6 @@ Create your own login route in routes/pages/::
         return render_template('pages/login.html', error='Invalid credentials')
 """
 
-import warnings
-
 from flask import Blueprint, current_app, redirect, request, session, url_for
 from flask_login import logout_user, login_required
 
@@ -61,18 +59,15 @@ from flask_login import logout_user, login_required
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
-@auth_bp.route("/logout", methods=["GET", "POST"])
+@auth_bp.post("/logout")
 @login_required
 def logout():
     """Log out the current user.
 
-    Clears the session and redirects to the home page.
-
-    POST is the supported method. GET still works but is deprecated and
-    will be removed: a GET logout is logout CSRF - any page on the internet
-    can sign a user out with ``<img src="https://yourapp/auth/logout">``,
-    and a link prefetcher can do it by accident. The scaffold has POSTed
-    since 0.9.6; an app with ``<a href="/auth/logout">`` should become::
+    Clears the session and redirects to the home page. POST only, with a CSRF
+    token: a GET logout would let any page sign a user out with
+    ``<img src="https://yourapp/auth/logout">``, and a link prefetcher could
+    do it by accident::
 
         <form method="post" action="/auth/logout">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -82,14 +77,6 @@ def logout():
     Returns:
         Redirect to home page.
     """
-    if request.method == "GET":
-        message = (
-            "GET /auth/logout is deprecated and will be removed in a future "
-            "release: logging out over GET is logout CSRF. Submit a POST form "
-            "with a CSRF token instead."
-        )
-        warnings.warn(message, DeprecationWarning, stacklevel=2)
-        current_app.logger.warning(message)
 
     # Everything else in the session (Google access/refresh token, stored
     # next URL, account selection) must go with the login. Clear it BEFORE

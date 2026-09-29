@@ -263,8 +263,7 @@ class TestWorkerClassFlag:
         }
         assert "--simple" in opts
         assert "--fork" in secondary
-        # The old flag still parses so existing scripts keep working.
-        assert "--simple-worker" in opts
+        assert "--simple-worker" not in opts
 
     def test_flag_defaults_to_auto_detection(self):
         from feather.cli.worker import worker as worker_cmd
@@ -278,13 +277,12 @@ class TestJobSerializerResolution:
 
     def test_json_is_honoured_when_config_holds_none(self):
         # config.py commonly does JOB_SERIALIZER = os.environ.get("JOB_SERIALIZER"),
-        # which leaves the key present but None. dict.get's default would have
-        # silently produced pickle while the producer used json.
+        # which leaves the key present but None; the worker must still read json.
         from rq.serializers import JSONSerializer
 
         from feather.jobs.rq import resolve_serializer
 
         config = {"JOB_SERIALIZER": None}
         environ = {"JOB_SERIALIZER": "json"}
-        name = config.get("JOB_SERIALIZER") or environ.get("JOB_SERIALIZER") or "pickle"
+        name = config.get("JOB_SERIALIZER") or environ.get("JOB_SERIALIZER") or "json"
         assert resolve_serializer(name) is JSONSerializer

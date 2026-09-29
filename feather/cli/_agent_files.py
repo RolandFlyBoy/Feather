@@ -83,10 +83,10 @@ overrides.
 feather routes             # every registered route, its methods and endpoint
 ```
 
-When a route seems to be missing, that command is the fastest answer. Since
-0.9.6 an import error in a discovered module fails startup loudly instead of
-dropping the module silently, so a route that is absent from this list is
-usually a missing decorator rather than a typo.
+When a route seems to be missing, that command is the fastest answer. An
+import error in a discovered module fails startup loudly rather than dropping
+the module, so a route that is absent from this list is usually a missing
+decorator rather than a typo.
 """
 
 
