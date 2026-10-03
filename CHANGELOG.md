@@ -10,6 +10,14 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.34 (2026-10-03): each test starts with empty tables
+
+- **Each test starts with empty tables.** The scaffold's database
+  `tests/conftest.py` clears every table after each test, so fixtures that
+  create the same user (the admin tests' `admin@test.com` and your own) no
+  longer fail on a unique constraint the second time. Existing apps can copy
+  the `_empty_tables` fixture from a freshly scaffolded app.
+
 ## 0.9.33 (2026-09-29): no compatibility code
 
 Feather is pre-1.0 and every shim kept for an older release is gone. Each one

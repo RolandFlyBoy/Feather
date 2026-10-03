@@ -91,9 +91,8 @@ def app():
     # Register CSRF endpoint BEFORE any requests
     _register_csrf_endpoint(flask_app)
 
-    # The schema is created once for the run, so rows a test writes outlive
-    # it. Give each fixture data of its own rather than counting on an empty
-    # table.
+    # The schema is created once for the run; _empty_tables below clears
+    # the rows after each test.
     with flask_app.app_context():
         db.create_all()
 
@@ -104,6 +103,18 @@ def app():
         db.session.remove()
         db.drop_all()
         db.engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _empty_tables(app):
+    """Every test starts with empty tables, so two fixtures that make the same
+    user (admin@test.com, say) never meet a unique constraint."""
+    yield
+    with app.app_context():
+        db.session.remove()
+        for table in reversed(db.metadata.sorted_tables):
+            db.session.execute(table.delete())
+        db.session.commit()
 
 
 @pytest.fixture
