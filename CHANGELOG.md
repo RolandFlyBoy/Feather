@@ -10,6 +10,14 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.35 (2026-10-17): the worker's banner hides the Redis password
+
+- **`feather worker` no longer prints the Redis password.** Its start-up
+  banner showed `REDIS_URL` in full, so on a host that collects the worker's
+  output (Appentic, any container platform) the password sat in the log. It
+  now reads `redis://:***@host:6379/0`. Anyone who could read those logs may
+  have seen it: rotate the password if that matters to you.
+
 ## 0.9.34 (2026-10-03): each test starts with empty tables
 
 - **Each test starts with empty tables.** The scaffold's database

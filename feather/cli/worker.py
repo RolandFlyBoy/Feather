@@ -22,6 +22,22 @@ def _get_app():
         )
 
 
+def _without_password(url: str) -> str:
+    """The URL with its password replaced by ***: the banner lands in the
+    platform's log, where anyone who can read it would otherwise have it."""
+    from urllib.parse import urlsplit, urlunsplit
+
+    parts = urlsplit(url)
+    if parts.password is None:
+        return url
+    user = parts.username or ""
+    host = parts.hostname or ""
+    if ":" in host:
+        host = f"[{host}]"
+    port = f":{parts.port}" if parts.port else ""
+    return urlunsplit(parts._replace(netloc=f"{user}:***@{host}{port}"))
+
+
 @click.command()
 @click.argument("queues", nargs=-1)
 @click.option("--burst", is_flag=True, help="Run in burst mode (exit when queue is empty)")
@@ -133,7 +149,7 @@ def worker(queues, burst, simple, no_scheduler, name, log_level):
     click.echo(click.style("Starting Feather worker...", fg="cyan", bold=True))
     click.echo(f"  Worker type: {worker_type}")
     click.echo(f"  Queues:      {', '.join(queue_names)}")
-    click.echo(f"  Redis:       {redis_url}")
+    click.echo(f"  Redis:       {_without_password(redis_url)}")
     click.echo(f"  Scheduler:   {'enabled' if enable_scheduler else 'disabled'}")
     click.echo(f"  Serializer:  {serializer.__name__}")
     if name:
