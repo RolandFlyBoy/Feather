@@ -10,6 +10,17 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.36 (2026-10-21): certifi without the compromised eMudhra roots
+
+- **Feather now requires `certifi>=2026.10.19`.** Eight eMudhra intermediate
+  CA keys were compromised, so anyone could forge a certificate chaining to
+  emSign ECC Root CA - G3 or AAA Certificate Services. certifi 2026.10.19
+  drops them, and `requests`, `urllib3` and Authlib's HTTP calls all trust
+  certifi's bundle. Upgrading Feather now upgrades certifi with it.
+  https://blog.cloudflare.com/emudhra-certificate-compromise/
+- **`feather security-check` fails an older certifi.** It joins the other
+  dependency floors, and the fix is `pip install --upgrade 'certifi>=2026.10.19'`.
+
 ## 0.9.35 (2026-10-17): the worker's banner hides the Redis password
 
 - **`feather worker` no longer prints the Redis password.** Its start-up

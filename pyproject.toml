@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feather-framework"
-version = "0.9.35"
+version = "0.9.36"
 description = "An opinionated, batteries-included web framework for building production applications with AI."
 readme = "README.md"
 license = "MIT"
@@ -51,6 +51,9 @@ dependencies = [
     # Authentication
     "authlib>=1.6.5",
     "requests>=2.32.4",
+    # TLS trust: 2026.10.19 drops the roots behind the compromised eMudhra
+    # intermediates, which requests otherwise trusts through an older bundle.
+    "certifi>=2026.10.19",
 ]
 
 [project.optional-dependencies]

@@ -57,6 +57,7 @@ MIN_DEPENDENCY_VERSIONS = {
     "weasyprint": "70",
     "jinja2": "3.1.6",
     "urllib3": "2.5.0",
+    "certifi": "2026.10.19",
 }
 
 TRUE_VALUES = {"1", "true", "yes", "on", "t", "y"}
