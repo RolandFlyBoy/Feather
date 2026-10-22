@@ -104,11 +104,15 @@ ENV PYTHONUNBUFFERED=1 \\
     PIP_NO_CACHE_DIR=1 \\
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+# ca-certificates: named so the install upgrades it. The OS trust store
+# (Python's ssl module, curl, libpq) is otherwise only as fresh as the cached
+# base image, which kept the compromised eMudhra roots after Debian dropped them.
 # curl: the HEALTHCHECK below. The pango/gdk-pixbuf set: WeasyPrint, which
 # Feather imports wherever an app renders PDFs. Drop them if yours never will.
 # The fonts: the slim image ships none, so a rendered PDF had no typeface to
 # draw its text with.
 RUN apt-get update && apt-get install -y --no-install-recommends \\
+    ca-certificates \\
     curl \\
     libpango-1.0-0 \\
     libpangocairo-1.0-0 \\

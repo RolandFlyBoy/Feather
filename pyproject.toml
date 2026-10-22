@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feather-framework"
-version = "0.9.36"
+version = "0.9.37"
 description = "An opinionated, batteries-included web framework for building production applications with AI."
 readme = "README.md"
 license = "MIT"
@@ -59,7 +59,9 @@ dependencies = [
 [project.optional-dependencies]
 # Everything below used to be a hard dependency. Install only what the app
 # actually uses: pip install 'feather-framework[redis,postgres]'
-pdf = ["weasyprint>=70"]                     # feather PDF rendering
+# Pillow is WeasyPrint's image decoder; 13.0 fixes the TIFF, JPEG and EPS
+# decoder overflows that a user-supplied image in a rendered PDF reaches.
+pdf = ["weasyprint>=70", "pillow>=13.0.0"]   # feather PDF rendering
 gcs = ["google-cloud-storage>=3.0.0"]        # STORAGE_BACKEND=gcs
 # 1.36 added the checksum settings the S3 backend turns down for
 # S3-compatible endpoints.

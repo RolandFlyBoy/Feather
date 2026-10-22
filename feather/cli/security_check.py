@@ -58,6 +58,7 @@ MIN_DEPENDENCY_VERSIONS = {
     "jinja2": "3.1.6",
     "urllib3": "2.5.0",
     "certifi": "2026.10.19",
+    "pillow": "13.0.0",
 }
 
 TRUE_VALUES = {"1", "true", "yes", "on", "t", "y"}

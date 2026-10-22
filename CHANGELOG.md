@@ -10,6 +10,22 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.37 (2026-10-22): Pillow 13, a fresh OS trust store, Vite 7.3.7
+
+- **The `pdf` extra requires `pillow>=13.0.0`.** Pillow is WeasyPrint's image
+  decoder, and 13.0 fixes some thirty advisories, among them heap overflows in
+  the TIFF and JPEG decoders and argument injection into Ghostscript for EPS
+  files. Any image a user can put into a rendered PDF reaches them.
+  `feather security-check` fails an older Pillow.
+- **The generated Dockerfile installs `ca-certificates`,** which upgrades the
+  OS trust store past the compromised eMudhra roots even when the cached
+  `python:3.11-slim` base predates Debian's fix. Python's `ssl` module, `curl`
+  and libpq read that store rather than certifi's.
+- **The scaffold asks for `vite@^7.3.7`.** 7.3.7 fixes two dev-server
+  advisories (CVE-2026-112945, CVE-2026-112946) and the launch-editor command
+  injections on Windows (CVE-2026-112942 to 112944). An existing app updates
+  its lockfile with `npm install vite@^7.3.7`.
+
 ## 0.9.36 (2026-10-21): certifi without the compromised eMudhra roots
 
 - **Feather now requires `certifi>=2026.10.19`.** Eight eMudhra intermediate
