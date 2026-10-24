@@ -10,6 +10,16 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.38 (2026-10-24): secrets from the hosting platform's key service
+
+- **Secrets a platform hands the app as files are environment variables.**
+  When `APPENTIC_SECRETS_DIR` names a folder, each file in it whose name is a
+  variable's (`ANTHROPIC_API_KEY`) is loaded into the environment before
+  config is read, and wins over a variable of the same name. Appentic's Key
+  service fetches a service's secrets into a memory-backed folder before the
+  app starts, so an API key kept there reads like any other setting, with no
+  code change. Links out of the folder are never followed.
+
 ## 0.9.37 (2026-10-22): Pillow 13, a fresh OS trust store, Vite 7.3.7
 
 - **The `pdf` extra requires `pillow>=13.0.0`.** Pillow is WeasyPrint's image
