@@ -27,7 +27,36 @@ def _ensure_dotenv_loaded() -> None:
         pass
 
 
+def _load_platform_secrets() -> None:
+    """Put the secrets a hosting platform hands the app as files into the
+    environment, before anything reads it.
+
+    Appentic's Key service fetches a service's secrets into a memory-backed
+    folder before the app starts and names it in APPENTIC_SECRETS_DIR: one
+    file per secret, named as the variable. A secret wins over a variable of
+    the same name, so moving a secret out of the environment is safe. Only
+    names a variable may have are read, and nothing outside the folder.
+    Idempotent; never stops the app from starting.
+    """
+    import re
+
+    folder = os.environ.get("APPENTIC_SECRETS_DIR")
+    if not folder or not os.path.isdir(folder):
+        return
+    try:
+        for name in os.listdir(folder):
+            if not re.fullmatch(r"[A-Z_][A-Z0-9_]{0,63}", name):
+                continue
+            path = os.path.join(folder, name)
+            if os.path.isfile(path) and not os.path.islink(path):
+                with open(path, encoding="utf-8") as handle:
+                    os.environ[name] = handle.read()
+    except OSError:  # pragma: no cover - a secret that can't be read is the platform's to report
+        pass
+
+
 _ensure_dotenv_loaded()
+_load_platform_secrets()
 
 # Shorthand names for config classes
 # Allows FLASK_CONFIG=production instead of FLASK_CONFIG=ProductionConfig
@@ -343,6 +372,7 @@ def load_config(config_class: Optional[str] = None) -> Type[Config]:
     # Make sure a project .env has been applied, then refresh the built-in
     # config values so they reflect it (they were read at import time).
     _ensure_dotenv_loaded()
+    _load_platform_secrets()
     Config.reload_from_env()
 
     # If explicit config class provided
