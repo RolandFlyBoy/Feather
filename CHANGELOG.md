@@ -10,6 +10,14 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+- **An island mounts once.** `island()` mounts matching elements as soon as
+  an island is registered, and `Feather.init()` mounted every
+  `[data-island]` again on `DOMContentLoaded` without checking. Island
+  scripts are ES modules, which run before `DOMContentLoaded`, so in the
+  usual order every island was mounted twice: `init()` ran twice (doubling
+  listeners, timers and requests) and each `data-action` fired twice per
+  click. `init()` now skips elements already mounted.
+
 - **Dialogs and the lightbox stay open at the end of a drag.** They closed
   on any click whose target was the overlay itself, which is how a backdrop
   click is reported, but a click whose press and release land on different

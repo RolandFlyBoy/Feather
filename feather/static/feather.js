@@ -44,6 +44,11 @@ const Feather = {
    */
   init() {
     document.querySelectorAll("[data-island]").forEach((el) => {
+      // island() may have mounted it already: island scripts are modules,
+      // which run before DOMContentLoaded. A second mount would run init()
+      // twice and fire every data-action twice per click.
+      if (this.instances.has(el)) return;
+
       const name = el.dataset.island;
       const definition = this.islands.get(name);
 
