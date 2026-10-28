@@ -10,6 +10,8 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.39 (2026-10-28): islands mount once, dialogs survive a drag
+
 - **An island mounts once.** `island()` mounts matching elements as soon as
   an island is registered, and `Feather.init()` mounted every
   `[data-island]` again on `DOMContentLoaded` without checking. Island
