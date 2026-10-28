@@ -8,6 +8,24 @@
 (function () {
   "use strict";
 
+  // ── Backdrop clicks ────────────────────────────────────────
+  // Close an overlay when the backdrop is clicked: the press and the release
+  // both on it. A click whose press and release land on different elements is
+  // dispatched to their nearest common ancestor, so pressing inside the
+  // content and releasing over the backdrop (dragging a slider, selecting
+  // text, panning a map) reports a click on the overlay itself. Checking only
+  // the click's target closed the overlay mid-drag.
+  function closeOnBackdropClick(overlay, isBackdrop, close) {
+    let pressed = false;
+    let released = false;
+    overlay.addEventListener("pointerdown", (event) => { pressed = isBackdrop(event.target); });
+    overlay.addEventListener("pointerup", (event) => { released = isBackdrop(event.target); });
+    overlay.addEventListener("click", (event) => {
+      if (pressed && released && isBackdrop(event.target)) close();
+      pressed = released = false;
+    });
+  }
+
   // ── Lightbox ───────────────────────────────────────────────
   // <a href="full.jpg" data-lightbox="album" data-caption="..."><img ...></a>
   // Links sharing a data-lightbox value become one set with prev and next.
@@ -52,7 +70,7 @@
     dialog.querySelector(".ui-lightbox-close").addEventListener("click", close);
     dialog.querySelector(".ui-lightbox-prev").addEventListener("click", () => show(state.index - 1));
     dialog.querySelector(".ui-lightbox-next").addEventListener("click", () => show(state.index + 1));
-    dialog.addEventListener("click", (event) => { if (event.target === dialog || event.target.classList.contains("ui-lightbox-frame")) close(); });
+    closeOnBackdropClick(dialog, (target) => target === dialog || target.classList.contains("ui-lightbox-frame"), close);
     dialog.addEventListener("keydown", (event) => {
       if (event.key === "ArrowLeft") show(state.index - 1);
       if (event.key === "ArrowRight") show(state.index + 1);
@@ -174,7 +192,7 @@
     root.querySelectorAll("dialog.ui-dialog:not([data-ui-wired])").forEach((dialog) => {
       dialog.setAttribute("data-ui-wired", "1");
       dialog.addEventListener("close", () => { document.body.style.overflow = ""; });
-      dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+      closeOnBackdropClick(dialog, (target) => target === dialog, () => dialog.close());
       dialog.querySelectorAll("[data-dialog-close]").forEach((b) => b.addEventListener("click", () => dialog.close()));
     });
   }

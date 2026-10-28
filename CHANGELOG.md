@@ -10,6 +10,16 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+- **Dialogs and the lightbox stay open at the end of a drag.** They closed
+  on any click whose target was the overlay itself, which is how a backdrop
+  click is reported, but a click whose press and release land on different
+  elements is reported on their nearest common ancestor. Pressing inside the
+  content and releasing over the backdrop (dragging a slider, selecting
+  text, panning a map or panorama) therefore closed the dialog. An overlay
+  now closes only when the press and the release are both on the backdrop
+  (for the lightbox, its frame counts as backdrop). Escape and the close
+  buttons are unchanged.
+
 ## 0.9.38 (2026-10-24): secrets from the hosting platform's key service
 
 - **Secrets a platform hands the app as files are environment variables.**
