@@ -95,6 +95,24 @@ of them.
 To change how the pages look, copy `feather/templates/auth/email_sign_in.html` to
 `templates/auth/email_sign_in.html` in your app.
 
+To change the email sent through Resend, replace either part of it from your app, for
+example in `app.py`. Both take the code, the app's name and the minutes it lasts, and
+are looked up each time an email is sent:
+
+```python app.py
+from feather.auth import email_link
+
+def code_email_text(code, name, minutes):
+    return f"{code} signs you in to {name}. It lasts {minutes} minutes."
+
+email_link.code_email_text = code_email_text  # the plain-text part
+email_link.code_email_html = ...              # the HTML part, same arguments
+```
+
+Escape the name and code in your own HTML (`html.escape`), as the default does. The
+subject stays `<code> is your code for <name>`. A relay (`SIGN_IN_RELAY_URL`) writes its
+own email, so these don't apply there.
+
 ## Routes
 
 | Route | Description |

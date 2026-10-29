@@ -146,6 +146,38 @@ def test_the_email_shows_the_code_centred_and_links_nowhere():
     assert "<a " not in body and "href" not in body
 
 
+def test_both_parts_of_the_email_give_the_code_and_when_it_expires():
+    for body in (email_link.code_email_text("042917", "Petal & Stem", 15),
+                 email_link.code_email_html("042917", "Petal & Stem", 15)):
+        assert "042917" in body and "It works once and expires in 15 minutes." in body
+
+
+@pytest.fixture
+def resend(app):
+    """Resend, configured and mocked: nothing leaves the test."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    app.config.update(RESEND_API_KEY="re_test", RESEND_FROM_EMAIL="hi@shop.example.com")
+    fake = SimpleNamespace(api_key=None, Emails=SimpleNamespace(send=MagicMock()))
+    with patch.dict("sys.modules", {"resend": fake}):
+        yield fake
+
+
+def test_resend_is_sent_both_parts_of_the_email(resend):
+    assert email_link.send_code("a@b.co", "042917") is True
+    sent = resend.Emails.send.call_args.args[0]
+    assert sent["to"] == ["a@b.co"] and sent["subject"] == "042917 is your code for Petal & Stem"
+    assert sent["text"] == email_link.code_email_text("042917", "Petal & Stem", 15)
+    assert sent["html"] == email_link.code_email_html("042917", "Petal & Stem", 15)
+
+
+def test_an_app_can_replace_the_plain_text_email(resend, monkeypatch):
+    monkeypatch.setattr(email_link, "code_email_text", lambda code, name, minutes: f"{code} for {name}, {minutes}m")
+    assert email_link.send_code("a@b.co", "042917") is True
+    assert resend.Emails.send.call_args.args[0]["text"] == "042917 for Petal & Stem, 15m"
+
+
 def test_the_code_step_names_the_address_and_when_the_code_expires(app):
     from jinja2 import ChoiceLoader, DictLoader, PackageLoader
 

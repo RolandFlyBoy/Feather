@@ -231,9 +231,18 @@ def code_email_html(code: str, name: str, minutes: int) -> str:
         '<p style="font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,\'Liberation Mono\',monospace;'
         'font-size:36px;font-weight:700;letter-spacing:10px;margin:0 0 24px;padding:16px 8px;'
         f'background:#F3F4F6;border-radius:8px;">{html.escape(code)}</p>'
-        f'<p style="font-size:14px;color:#6B7280;margin:0;">It works once, in the browser where you asked for it, '
-        f'and expires in {minutes} minutes. If you didn\'t ask to sign in, ignore this email.</p>'
+        f'<p style="font-size:14px;color:#6B7280;margin:0;">It works once and expires in {minutes} minutes. '
+        "If you didn't ask to sign in, ignore this email.</p>"
         "</div>"
+    )
+
+
+def code_email_text(code: str, name: str, minutes: int) -> str:
+    """The plain-text part of the email for Resend."""
+    return (
+        f"Your code to sign in to {name}: {code}\n\n"
+        f"It works once and expires in {minutes} minutes. "
+        "If you didn't ask to sign in, ignore this email."
     )
 
 
@@ -272,11 +281,7 @@ def send_code(email: str, code: str) -> bool:
                 "from": _setting("RESEND_FROM_EMAIL", "noreply@example.com"),
                 "to": [email],
                 "subject": f"{code} is your code for {name}",
-                "text": (
-                    f"Your code to sign in to {name}: {code}\n\n"
-                    f"It works once, in the browser where you asked for it, and expires in {minutes} "
-                    "minutes. If you didn't ask to sign in, ignore this email."
-                ),
+                "text": code_email_text(code, name, minutes),
                 "html": code_email_html(code, name, minutes),
             })
         except Exception as exc:

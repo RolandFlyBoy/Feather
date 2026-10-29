@@ -10,6 +10,19 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.41 (2026-10-29): the sign-in email's text is replaceable
+
+- **`email_link.code_email_text(code, name, minutes)`** returns the
+  plain-text part of the sign-in email sent through Resend, as
+  `code_email_html` already did for the HTML part. `send_code` looks both
+  up at call time, so an app replaces either by assigning
+  `email_link.code_email_text = ...` (documented under "Setup: email" in
+  Authentication). Before this the text was built inside `send_code` and
+  could only be changed by forking it.
+- **Shorter wording in both parts:** "It works once and expires in N
+  minutes. If you didn't ask to sign in, ignore this email." The subject,
+  the relay payload and the behaviour are unchanged.
+
 ## 0.9.40 (2026-10-29): a centred sign-in card
 
 - **The email sign-in card centres its heading and intro.** `.fsi-title`
