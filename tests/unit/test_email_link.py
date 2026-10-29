@@ -144,3 +144,21 @@ def test_the_email_shows_the_code_centred_and_links_nowhere():
     body = email_link.code_email_html("042917", "Petal & Stem", 15)
     assert "042917" in body and "text-align:center" in body and "monospace" in body
     assert "<a " not in body and "href" not in body
+
+
+def test_the_code_step_names_the_address_and_when_the_code_expires(app):
+    from jinja2 import ChoiceLoader, DictLoader, PackageLoader
+
+    app.jinja_loader = ChoiceLoader([
+        DictLoader({"base.html": "{% block extra_head %}{% endblock %}{% block content %}{% endblock %}"}),
+        PackageLoader("feather", "templates"),
+    ])
+    app.jinja_env.globals["csrf_token"] = lambda: "t"
+    with app.test_request_context("/"):
+        page = email_link._render("code", email="a.very.long.address@example.com")
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", page))
+    assert "Enter the 6-digit code we sent to a.very.long.address@example.com." in text
+    assert f"It expires in {email_link._minutes()} minutes." in text
+    # The heading and intro are centred, and a long address wraps inside the card.
+    assert re.search(r"\.fsi-title \{[^}]*text-align: center", page)
+    assert re.search(r"\.fsi-text \{[^}]*text-align: center[^}]*overflow-wrap: anywhere", page)

@@ -10,6 +10,17 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.40 (2026-10-29): a centred sign-in card
+
+- **The email sign-in card centres its heading and intro.** `.fsi-title`
+  and `.fsi-text` in `auth/email_sign_in.html` are `text-align: center`,
+  so the email form, the code step and the expired or too-many-tries step
+  all match the centred code boxes. Labels, inputs, the button and the
+  "Send a new code" / "Use a different email" row are unchanged, as are
+  the markup and class names `sign-in-code.js` relies on. The intro also
+  takes `overflow-wrap: anywhere`: a long email address in the code step
+  wrapped nowhere and pushed past the card on a phone.
+
 ## 0.9.39 (2026-10-28): islands mount once, dialogs survive a drag
 
 - **An island mounts once.** `island()` mounts matching elements as soon as
