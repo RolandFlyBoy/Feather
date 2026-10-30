@@ -10,18 +10,28 @@
   var container = document.getElementById("chart-container");
   var chartEl = document.getElementById("user-growth-chart");
   var chart = null;
+  var lastData = null;
 
-  function isDark() {
-    return document.documentElement.classList.contains("dark");
+  // The design tokens (ui.css), so the chart matches the app in either theme.
+  function token(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  // A #rrggbb token as rgba, for the area under the line.
+  function translucent(hex, alpha) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+    if (!m) return hex;
+    return "rgba(" + parseInt(m[1], 16) + ", " + parseInt(m[2], 16) + ", " + parseInt(m[3], 16) + ", " + alpha + ")";
   }
 
   function themeColors() {
-    var dark = isDark();
+    var accent = token("--color-accent");
     return {
-      text: dark ? "#94a3b8" : "#6b7280",
-      line: dark ? "#818cf8" : "#000",
-      area: dark ? "rgba(129, 140, 248, 0.1)" : "rgba(0, 0, 0, 0.1)",
-      splitLine: dark ? "#334155" : "#e5e7eb"
+      text: token("--color-ink-3"),
+      line: accent,
+      area: translucent(accent, 0.12),
+      splitLine: token("--color-line"),
+      font: getComputedStyle(document.body).fontFamily
     };
   }
 
@@ -52,6 +62,7 @@
 
   async function renderChart(data) {
     if (!chartEl) return;
+    lastData = data;
     var echarts = await echartsLoaded();
     if (!echarts) return;
     if (chart) chart.dispose();
@@ -60,6 +71,7 @@
     var colors = themeColors();
 
     chart.setOption({
+      textStyle: { fontFamily: colors.font },
       tooltip: { trigger: "axis" },
       grid: { left: 40, right: 20, top: 20, bottom: 30 },
       xAxis: {
@@ -90,6 +102,11 @@
   window.addEventListener("resize", function() {
     if (chart) chart.resize();
   });
+
+  // Redraw in the other theme's colours when light and dark are switched.
+  new MutationObserver(function() {
+    if (lastData) renderChart(lastData);
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
   document.addEventListener("DOMContentLoaded", function() {
     var selector = document.getElementById("time-range-select");

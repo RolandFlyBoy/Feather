@@ -6,53 +6,53 @@
     <!-- Back link and header -->
     <div>
         <a href="{{ url_for('admin.tenants_page') }}"
-           class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4">
+           class="inline-flex items-center text-sm text-ink-2 hover:text-ink mb-4">
             <span class="material-symbols-outlined text-sm mr-1">arrow_back</span>
             Back to Tenants
         </a>
-        <h2 class="text-2xl font-semibold text-gray-900">{{ tenant.name }}</h2>
+        <h2 class="text-2xl font-semibold text-ink">{{ tenant.name }}</h2>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Left Column: Tenant Info -->
         <div class="lg:col-span-2">
             <!-- Tenant Profile Card -->
-            <div class="bg-white rounded-lg shadow">
-                <div class="p-6 border-b border-gray-200">
+            <div class="admin-card">
+                <div class="p-6 border-b border-line">
                     <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-gray-600 text-3xl">business</span>
+                        <div class="w-16 h-16 rounded-xl bg-surface-2 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-ink-2 text-3xl">business</span>
                         </div>
                         <div>
-                            <h3 class="text-xl font-semibold text-gray-900">{{ tenant.name }}</h3>
-                            <p class="text-gray-600">{{ tenant.slug }}</p>
+                            <h3 class="text-xl font-semibold text-ink">{{ tenant.name }}</h3>
+                            <p class="text-ink-2">{{ tenant.slug }}</p>
                         </div>
                     </div>
                 </div>
                 <div class="p-6">
                     <dl class="grid grid-cols-2 gap-4">
                         <div>
-                            <dt class="text-sm text-gray-600">Domain</dt>
+                            <dt class="text-sm text-ink-2">Domain</dt>
                             <dd class="font-medium">{{ tenant.domain }}</dd>
                         </div>
                         <div>
-                            <dt class="text-sm text-gray-600">Status</dt>
+                            <dt class="text-sm text-ink-2">Status</dt>
                             <dd>
                                 {% if tenant.status == 'active' %}
-                                <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                                <span class="admin-badge admin-badge-active">Active</span>
                                 {% elif tenant.status == 'pending' %}
-                                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                                <span class="admin-badge admin-badge-warn">Pending</span>
                                 {% else %}
-                                <span class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">Suspended</span>
+                                <span class="admin-badge admin-badge-danger">Suspended</span>
                                 {% endif %}
                             </dd>
                         </div>
                         <div>
-                            <dt class="text-sm text-gray-600">Created</dt>
+                            <dt class="text-sm text-ink-2">Created</dt>
                             <dd class="font-medium">{{ tenant.created_at.strftime('%B %d, %Y') }}</dd>
                         </div>
                         <div>
-                            <dt class="text-sm text-gray-600">Users</dt>
+                            <dt class="text-sm text-ink-2">Users</dt>
                             <dd class="font-medium">{{ users|length }}</dd>
                         </div>
                     </dl>
@@ -67,34 +67,34 @@
     </div>
 
     <!-- Users in Tenant (Full Width) -->
-    <div class="bg-white rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200">
-            <h4 class="font-semibold text-gray-900">Users in {{ tenant.name }}</h4>
+    <div class="admin-card">
+        <div class="p-6 border-b border-line">
+            <h4 class="font-semibold text-ink">Users in {{ tenant.name }}</h4>
         </div>
-        <div class="divide-y divide-gray-200">
+        <div class="divide-y divide-line">
             {% for user in users %}
             <a href="{{ url_for('admin.user_detail_page', user_id=user.id) }}"
-               class="flex items-center gap-3 p-4 hover:bg-gray-50">
+               class="flex items-center gap-3 p-4 hover:bg-surface-2">
                 {{ avatar(user) }}
                 <div class="flex-1">
                     <p class="font-medium">{{ user.display_name or user.email }}</p>
-                    <p class="text-sm text-gray-600">{{ user.email }}</p>
+                    <p class="text-sm text-ink-2">{{ user.email }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                     {% if user.role == 'admin' %}
-                    <span class="px-2 py-1 text-xs bg-black text-white rounded">Admin</span>
+                    <span class="admin-badge admin-badge-admin">Admin</span>
                     {% endif %}
                     {% if user.active %}
-                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Active</span>
+                    <span class="admin-badge admin-badge-active">Active</span>
                     {% else %}
-                    <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                    <span class="admin-badge admin-badge-warn">Pending</span>
                     {% endif %}
                 </div>
             </a>
             {% endfor %}
 
             {% if not users %}
-            <div class="p-8 text-center text-gray-500">
+            <div class="p-8 text-center text-ink-3">
                 <span class="material-symbols-outlined text-4xl mb-2">group</span>
                 <p class="text-sm">No users in this tenant</p>
             </div>

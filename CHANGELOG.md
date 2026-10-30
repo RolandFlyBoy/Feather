@@ -10,6 +10,34 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+- **The scaffolded admin takes the app's own look.** Its styles in
+  `static/css/app.css` are built on the design tokens in `ui.css` (bg,
+  surface, ink, line, accent and the status colours) instead of fixed greys,
+  black and navy, so the admin matches the rest of the app and its dark mode
+  follows the tokens' dark values. The sidebar icons are in the ink, not a
+  pale grey, and the current page's icon in the accent; the current page has
+  the accent's soft tint behind it; cards have a hairline border on the
+  app's background; the stat and card icons sit on a soft tint of the accent
+  or of their status colour; badges, buttons, inputs, dropdowns, the confirm
+  dialog and the spinner use the tokens too.
+- **Dark mode without the override list.** About 120 `.dark` rules with
+  fixed slate colours are gone. Status text (warnings, errors, Active) is
+  lightened in dark mode, where `success`, `warn` and `danger` are too dim to
+  read on a dark tint; an app that defines `--color-good`, `--color-caution`
+  and `--color-bad` gets those instead.
+- **The admin templates use token utilities** (`text-ink-2`, `bg-surface`,
+  `border-line`, `admin-card`, `admin-badge-*`, `admin-card-icon-*`) in place
+  of `text-gray-*`, `bg-white` and `bg-black`. Admin pages an app writes
+  itself with Tailwind's greys are mapped to the tokens inside
+  `.admin-content`, in both themes.
+- **The user growth chart** draws in the accent and the page's font (it fell
+  back to a serif), and redraws when the theme is switched.
+- `--color-navy` is no longer defined; nothing in the scaffold uses it.
+
+These are scaffold files: new projects get them, and an existing project
+can copy `app.css`'s admin section, the admin templates and
+`static/js/admin-chart.js` from a new scaffold.
+
 ## 0.9.41 (2026-10-29): the sign-in email's text is replaceable
 
 - **`email_link.code_email_text(code, name, minutes)`** returns the

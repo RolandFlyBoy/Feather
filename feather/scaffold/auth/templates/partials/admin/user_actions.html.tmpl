@@ -1,13 +1,13 @@
 <!-- User Actions Card -->
-<div class="bg-white rounded-lg shadow">
-    <div class="p-6 border-b border-gray-200">
+<div class="admin-card">
+    <div class="p-6 border-b border-line">
         <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-lg bg-black flex items-center justify-center">
-                <span class="material-symbols-outlined text-white text-[28px]">badge</span>
+            <div class="admin-card-icon">
+                <span class="material-symbols-outlined">badge</span>
             </div>
             <div>
-                <h3 class="text-lg font-semibold text-gray-900">User Management</h3>
-                <p class="text-sm text-gray-600">Manage user status and role</p>
+                <h3 class="text-lg font-semibold text-ink">User Management</h3>
+                <p class="text-sm text-ink-2">Manage user status and role</p>
             </div>
         </div>
     </div>
@@ -16,8 +16,8 @@
         <!-- Account Status Toggle -->
         <label class="flex items-center justify-between cursor-pointer">
             <div>
-                <p class="font-medium text-gray-900">Account Status</p>
-                <p class="text-sm text-gray-600">
+                <p class="font-medium text-ink">Account Status</p>
+                <p class="text-sm text-ink-2">
                     __FEATHER_STATUS_DESCRIPTION__
                 </p>
             </div>
@@ -29,16 +29,16 @@
                        hx-target="#user-actions"
                        hx-swap="innerHTML"
                        hx-trigger="change">
-                <div class="w-11 h-6 bg-gray-300 rounded-full peer-checked:bg-black transition-colors"></div>
-                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
+                <div class="w-11 h-6 bg-line rounded-full peer-checked:bg-accent transition-colors"></div>
+                <div class="absolute left-1 top-1 w-4 h-4 admin-toggle-knob rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
             </div>
         </label>
 
         <!-- Role Dropdown -->
-        <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div class="flex items-center justify-between pt-4 border-t border-line">
             <div>
-                <p class="font-medium text-gray-900">Role</p>
-                <p class="text-sm text-gray-600">User's access level</p>
+                <p class="font-medium text-ink">Role</p>
+                <p class="text-sm text-ink-2">User's access level</p>
             </div>
             <div class="grid grid-cols-1">
                 <select name="role"
@@ -46,13 +46,13 @@
                         hx-target="#user-actions"
                         hx-swap="innerHTML"
                         hx-trigger="change"
-                        class="col-start-1 row-start-1 appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-black cursor-pointer">
+                        class="col-start-1 row-start-1 appearance-none rounded-md bg-surface py-1.5 pr-8 pl-3 text-sm text-ink outline-1 -outline-offset-1 outline-line focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent cursor-pointer">
                     <option value="user" {% if user.role == 'user' or not user.role %}selected{% endif %}>User</option>
                     <option value="editor" {% if user.role == 'editor' %}selected{% endif %}>Editor</option>
                     <option value="moderator" {% if user.role == 'moderator' %}selected{% endif %}>Moderator</option>
                     <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
                 </select>
-                <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-gray-500">
+                <svg viewBox="0 0 16 16" fill="currentColor" class="pointer-events-none col-start-1 row-start-1 mr-2 size-4 self-center justify-self-end text-ink-3">
                     <path d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" fill-rule="evenodd" clip-rule="evenodd" />
                 </svg>
             </div>
