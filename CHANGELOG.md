@@ -10,6 +10,8 @@ four sections, and `pip install feather-framework==0.9.7` will not resolve.
 
 ## Unreleased
 
+## 0.9.42 (2026-10-30): the admin takes the app's look
+
 - **The scaffolded admin takes the app's own look.** Its styles in
   `static/css/app.css` are built on the design tokens in `ui.css` (bg,
   surface, ink, line, accent and the status colours) instead of fixed greys,
